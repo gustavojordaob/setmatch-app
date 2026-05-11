@@ -7,6 +7,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import {
   GoogleAuthProvider,
   User,
@@ -18,9 +20,10 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { Alert, Platform } from 'react-native';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { auth, db } from '../utils/firebaseConfig';
 import type { EsporteId } from '../constants/esportes';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export interface UsuarioPerfil {
   nome: string;
@@ -44,22 +47,25 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+function hasGoogleClientIds() {
+  return !!(
+    process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB?.trim() ||
+    process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID?.trim() ||
+    process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS?.trim()
+  );
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [perfil, setPerfil] = useState<UsuarioPerfil | null>(null);
   const [perfilLoading, setPerfilLoading] = useState(false);
 
-  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
-
-  useEffect(() => {
-    if (webClientId && Platform.OS !== 'web') {
-      GoogleSignin.configure({
-        webClientId,
-        offlineAccess: true,
-      });
-    }
-  }, [webClientId]);
+  const [, , promptAsync] = Google.useIdTokenAuthRequest({
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB,
+  });
 
   const ensureUsuarioDoc = useCallback(async (u: User) => {
     const ref = doc(db, 'usuarios', u.uid);
@@ -131,10 +137,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    if (!webClientId) {
+    if (!hasGoogleClientIds()) {
       Alert.alert(
         'Google Sign-In',
-        'Defina EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID no .env (Web client ID em Firebase Console → Authentication → Google).'
+        'Defina EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB, EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID e EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS no .env (Console Google / Firebase).'
       );
       return;
     }
@@ -142,26 +148,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       Alert.alert('Google Sign-In', 'Use o app iOS/Android.');
       return;
     }
-    await GoogleSignin.hasPlayServices();
-    const response = await GoogleSignin.signIn();
-    const idToken =
-      (response as { data?: { idToken?: string | null } }).data?.idToken ??
-      (response as { idToken?: string | null }).idToken;
-    if (!idToken) {
-      throw new Error('Google Sign-In não retornou idToken.');
+    const result = await promptAsync();
+    if (result.type !== 'success') return;
+    const idToken = result.params.id_token;
+    if (!idToken || typeof idToken !== 'string') {
+      throw new Error('Google Sign-In não retornou id_token.');
     }
-    const credential = GoogleAuthProvider.credential(idToken);
-    await signInWithCredential(auth, credential);
-  }, [webClientId]);
+    await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
+  }, [promptAsync]);
 
   const signOut = useCallback(async () => {
-    if (Platform.OS !== 'web') {
-      try {
-        await GoogleSignin.signOut();
-      } catch {
-        /* ignore */
-      }
-    }
     await firebaseSignOut(auth);
     setPerfil(null);
   }, []);
