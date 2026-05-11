@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Setmatch",
+    "slug": "setmatch-app",
+    "version": "1.0.0",
+    "scheme": "setmatch",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "backgroundColor": "#0F2D1F",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F2D1F"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.fabricaapps.setmatch"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F2D1F"
+      },
+      "package": "com.fabricaapps.setmatch",
+      "edgeToEdgeEnabled": true,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [{ "scheme": "setmatch" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": ["expo-router", "@react-native-google-signin/google-signin"]
+  }
+}
