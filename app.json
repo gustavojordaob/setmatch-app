@@ -28,14 +28,21 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "data": [{ "scheme": "setmatch" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "setmatch"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-router", "@react-native-google-signin/google-signin"]
+    "plugins": ["expo-router", "expo-web-browser"]
   }
 }
