@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { getRedirectUrl, makeRedirectUri } from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import {
@@ -47,12 +48,21 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function hasGoogleClientIds() {
-  return !!(
-    process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB?.trim() ||
-    process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID?.trim() ||
-    process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS?.trim()
-  );
+function hasGoogleWebClientId() {
+  return !!process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB?.trim();
+}
+
+/**
+ * Redirect OAuth que o Google valida no cliente Web.
+ * No Expo Go, use o proxy `https://auth.expo.io/@owner/slug` (antes obtido com `makeRedirectUri({ useProxy: true })`;
+ * no SDK 54+ isso vem de `getRedirectUrl()` — `useProxy` foi removido de `makeRedirectUri`.
+ */
+function googleOAuthRedirectUri(): string {
+  try {
+    return getRedirectUrl();
+  } catch {
+    return makeRedirectUri({ scheme: 'setmatch' });
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -61,10 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [perfil, setPerfil] = useState<UsuarioPerfil | null>(null);
   const [perfilLoading, setPerfilLoading] = useState(false);
 
-  const [, , promptAsync] = Google.useIdTokenAuthRequest({
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB,
+  const redirectUri = googleOAuthRedirectUri();
+
+  const [_request, _response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB ?? '',
+    redirectUri,
   });
 
   const ensureUsuarioDoc = useCallback(async (u: User) => {
@@ -137,10 +148,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    if (!hasGoogleClientIds()) {
+    if (!hasGoogleWebClientId()) {
       Alert.alert(
         'Google Sign-In',
-        'Defina EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB, EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID e EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS no .env (Console Google / Firebase).'
+        'Defina EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB no .env (OAuth 2.0 Web client ID) e cadastre o redirect URI no Google Cloud Console.'
       );
       return;
     }
