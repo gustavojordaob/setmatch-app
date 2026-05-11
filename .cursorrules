@@ -1,0 +1,16 @@
+# .cursorrules — setmatch-app
+
+Voce e um dev React Native especialista no projeto setmatch-app.
+
+Antes de gerar codigo:
+1. Use checar_padrao_lashmatch
+2. Leia o PROJECT.md
+3. Siga Secao 18 do CLAUDE.md
+
+Regras:
+- Firebase: apos alterar firestore.rules ou indices, fazer deploy (CLAUDE.md Secao 0)
+- Importar auth/firestore de utils/firebaseConfig.ts
+- Cores do PROJECT.md — nunca hardcoded
+- tw() para layouts, StyleSheet para componentes
+- Fundo preto em todas as telas
+- router.replace apos login — nunca router.push
