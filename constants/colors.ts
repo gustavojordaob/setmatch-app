@@ -1,11 +1,15 @@
 export const Colors = {
-  primary: '#1B4332',
-  secondary: '#ADFF2F',
+  primary: '#255943',
+  accent: '#C7D941',
+  /** Alias do accent (legado nas telas atuais) */
+  secondary: '#C7D941',
   background: '#0F2D1F',
-  surface: '#1F3D2B',
+  surface: '#1E1E1E',
+  surfaceGreen: '#255943',
   textPrimary: '#FFFFFF',
+  textOnAccent: '#1E1E1E',
   textSecondary: '#A8B8A0',
-  success: '#4CAF50',
+  border: '#255943',
+  success: '#C7D941',
   danger: '#FF5252',
-  border: '#2D5A3D',
 };

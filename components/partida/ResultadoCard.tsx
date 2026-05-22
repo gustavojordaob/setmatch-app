@@ -12,15 +12,17 @@ export interface ResultadoCardProps {
 
 export function ResultadoCard({ partida, uid }: ResultadoCardProps) {
   const venceu = partida.vencedor === uid;
+  const viewerIsJ1 = partida.jogador1 === uid;
+
   return (
     <Card style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.esporte}>{partida.esporte}</Text>
-        <Badge label={venceu ? 'V' : 'D'} variant={venceu ? 'vitoria' : 'derrota'} />
+        <Badge label={venceu ? 'Vitória' : 'Derrota'} variant={venceu ? 'vitoria' : 'derrota'} />
       </View>
       <Text style={styles.quadra}>{partida.quadra}</Text>
       {partida.sets.map((s, i) => (
-        <SetPlacar key={i} index={i} placar={s} />
+        <SetPlacar key={i} index={i} placar={s} viewerIsJ1={viewerIsJ1} />
       ))}
     </Card>
   );

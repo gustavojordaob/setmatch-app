@@ -15,6 +15,7 @@ import {
   User,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithCredential,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -23,15 +24,24 @@ import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firest
 import { Alert, Platform } from 'react-native';
 import { auth, db } from '../utils/firebaseConfig';
 import type { EsporteId } from '../constants/esportes';
+import type { WizardDraft } from './WizardContext';
+import type { NivelAtividade } from '../types/usuario';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export interface UsuarioPerfil {
   nome: string;
   fotoUrl: string;
+  email: string;
   esportes: EsporteId[];
+  idade: number;
+  genero: string;
+  peso: number;
+  altura: number;
+  nivel: NivelAtividade | '';
   vitorias: number;
   derrotas: number;
+  onboardingOk: boolean;
 }
 
 interface AuthContextValue {
@@ -44,6 +54,8 @@ interface AuthContextValue {
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshPerfil: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  saveWizardProfile: (draft: WizardDraft) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -52,17 +64,29 @@ function hasGoogleWebClientId() {
   return !!process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB?.trim();
 }
 
-/**
- * Redirect OAuth que o Google valida no cliente Web.
- * No Expo Go, use o proxy `https://auth.expo.io/@owner/slug` (antes obtido com `makeRedirectUri({ useProxy: true })`;
- * no SDK 54+ isso vem de `getRedirectUrl()` — `useProxy` foi removido de `makeRedirectUri`.
- */
 function googleOAuthRedirectUri(): string {
   try {
     return getRedirectUrl();
   } catch {
     return makeRedirectUri({ scheme: 'setmatch' });
   }
+}
+
+function mapPerfil(uid: string, d: Record<string, unknown>, fallbackEmail?: string | null): UsuarioPerfil {
+  return {
+    nome: (d.nome as string) ?? 'Jogador',
+    fotoUrl: (d.fotoUrl as string) ?? '',
+    email: (d.email as string) ?? fallbackEmail ?? '',
+    esportes: (d.esportes as EsporteId[]) ?? [],
+    idade: (d.idade as number) ?? 0,
+    genero: (d.genero as string) ?? '',
+    peso: (d.peso as number) ?? 0,
+    altura: (d.altura as number) ?? 0,
+    nivel: (d.nivel as NivelAtividade) ?? '',
+    vitorias: (d.vitorias as number) ?? 0,
+    derrotas: (d.derrotas as number) ?? 0,
+    onboardingOk: (d.onboardingOk as boolean) ?? false,
+  };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -84,22 +108,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const base = {
       nome: u.displayName ?? 'Jogador',
       fotoUrl: u.photoURL ?? '',
+      email: u.email ?? '',
       esportes: [] as EsporteId[],
+      idade: 0,
+      genero: '',
+      peso: 0,
+      altura: 0,
+      nivel: '' as const,
       vitorias: 0,
       derrotas: 0,
+      onboardingOk: false,
       ultimoAcesso: serverTimestamp(),
     };
     if (!snap.exists()) {
-      await setDoc(ref, {
-        ...base,
-        criadoEm: serverTimestamp(),
-      });
+      await setDoc(ref, { ...base, criadoEm: serverTimestamp() });
     } else {
-      await updateDoc(ref, { ultimoAcesso: serverTimestamp() });
+      await updateDoc(ref, {
+        ultimoAcesso: serverTimestamp(),
+        email: u.email ?? snap.data().email ?? '',
+      });
     }
   }, []);
 
-  const loadPerfil = useCallback(async (uid: string) => {
+  const loadPerfil = useCallback(async (uid: string, fallbackEmail?: string | null) => {
     setPerfilLoading(true);
     try {
       const snap = await getDoc(doc(db, 'usuarios', uid));
@@ -107,14 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPerfil(null);
         return;
       }
-      const d = snap.data();
-      setPerfil({
-        nome: (d.nome as string) ?? '',
-        fotoUrl: (d.fotoUrl as string) ?? '',
-        esportes: (d.esportes as EsporteId[]) ?? [],
-        vitorias: (d.vitorias as number) ?? 0,
-        derrotas: (d.derrotas as number) ?? 0,
-      });
+      setPerfil(mapPerfil(uid, snap.data(), fallbackEmail));
     } finally {
       setPerfilLoading(false);
     }
@@ -125,7 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(u);
       if (u) {
         await ensureUsuarioDoc(u);
-        await loadPerfil(u.uid);
+        await loadPerfil(u.uid, u.email);
       } else {
         setPerfil(null);
       }
@@ -134,10 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsub;
   }, [ensureUsuarioDoc, loadPerfil]);
 
-  const onboardingComplete = useMemo(
-    () => !!perfil?.esportes?.length,
-    [perfil?.esportes?.length]
-  );
+  const onboardingComplete = useMemo(() => !!perfil?.onboardingOk, [perfil?.onboardingOk]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email.trim(), password);
@@ -151,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!hasGoogleWebClientId()) {
       Alert.alert(
         'Google Sign-In',
-        'Defina EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB no .env (OAuth 2.0 Web client ID) e cadastre o redirect URI no Google Cloud Console.'
+        'Defina EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB no .env e cadastre o redirect URI no Google Cloud Console.'
       );
       return;
     }
@@ -174,8 +195,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshPerfil = useCallback(async () => {
-    if (user) await loadPerfil(user.uid);
+    if (user) await loadPerfil(user.uid, user.email);
   }, [loadPerfil, user]);
+
+  const resetPassword = useCallback(async (email: string) => {
+    await sendPasswordResetEmail(auth, email.trim());
+  }, []);
+
+  const saveWizardProfile = useCallback(
+    async (draft: WizardDraft) => {
+      if (!user) throw new Error('Usuário não autenticado.');
+      const ref = doc(db, 'usuarios', user.uid);
+      await updateDoc(ref, {
+        idade: draft.idade ?? 0,
+        genero: draft.genero ?? '',
+        peso: draft.peso ?? 0,
+        altura: draft.altura ?? 0,
+        esportes: draft.esportes ?? [],
+        nivel: draft.nivel ?? 'iniciante',
+        fotoUrl: draft.fotoUrl ?? user.photoURL ?? '',
+        onboardingOk: true,
+        ultimoAcesso: serverTimestamp(),
+      });
+      await loadPerfil(user.uid, user.email);
+    },
+    [loadPerfil, user]
+  );
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -188,6 +233,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUpWithEmail,
       signOut,
       refreshPerfil,
+      resetPassword,
+      saveWizardProfile,
     }),
     [
       user,
@@ -200,6 +247,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUpWithEmail,
       signOut,
       refreshPerfil,
+      resetPassword,
+      saveWizardProfile,
     ]
   );
 

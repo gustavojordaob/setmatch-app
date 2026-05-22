@@ -1,6 +1,7 @@
 import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { Radius } from '../../constants/radius';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function TabsLayout() {
@@ -17,9 +18,14 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: Colors.surface,
           borderTopColor: Colors.border,
+          height: 64,
+          borderTopLeftRadius: Radius.nav,
+          borderTopRightRadius: Radius.nav,
+          paddingBottom: 8,
         },
-        tabBarActiveTintColor: Colors.secondary,
+        tabBarActiveTintColor: Colors.accent,
         tabBarInactiveTintColor: Colors.textSecondary,
+        tabBarLabelStyle: { fontWeight: '600', fontSize: 13 },
       }}
     >
       <Tabs.Screen
@@ -32,11 +38,11 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="desafios"
+        name="notificacoes"
         options={{
-          title: 'Desafios',
+          title: 'Notificações',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="flash-outline" size={size} color={color} />
+            <Ionicons name="notifications-outline" size={size} color={color} />
           ),
         }}
       />
@@ -47,6 +53,12 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="desafios"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

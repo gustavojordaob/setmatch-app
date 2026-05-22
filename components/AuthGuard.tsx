@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 
-const PUBLIC_ROOTS = new Set<string>(['index', '(auth)']);
+const PUBLIC_ROOTS = new Set(['index', '(auth)', 'onboarding']);
+const WIZARD_ROOTS = new Set(['primeiro-acesso', 'wizard']);
 
 export function AuthGuard() {
   const { user, loading, onboardingComplete } = useAuth();
@@ -15,25 +16,27 @@ export function AuthGuard() {
 
     const root = segments[0];
     const inAuth = root === '(auth)';
+    const inOnboardingIntro = root === 'onboarding';
+    const inWizard = WIZARD_ROOTS.has(root ?? '');
 
     if (!user) {
       if (root && !PUBLIC_ROOTS.has(root)) {
-        router.replace('/(auth)/login');
+        router.replace('/onboarding/1');
       }
       return;
     }
 
-    if (user && inAuth) {
-      router.replace(onboardingComplete ? '/(tabs)/home' : '/onboarding');
+    if (user && (inAuth || inOnboardingIntro)) {
+      router.replace(onboardingComplete ? '/(tabs)/home' : '/primeiro-acesso');
       return;
     }
 
-    if (user && !onboardingComplete && root !== 'onboarding' && root !== 'index') {
-      router.replace('/onboarding');
+    if (user && !onboardingComplete && !inWizard && root !== 'index') {
+      router.replace('/primeiro-acesso');
       return;
     }
 
-    if (user && onboardingComplete && root === 'onboarding') {
+    if (user && onboardingComplete && inWizard) {
       router.replace('/(tabs)/home');
       return;
     }

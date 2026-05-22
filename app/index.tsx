@@ -1,30 +1,50 @@
-import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '../constants/colors';
+import { Typography } from '../constants/typography';
 import { useAuth } from '../hooks/useAuth';
 
-export default function Index() {
+const SPLASH_MS = 1800;
+
+export default function LaunchScreen() {
   const router = useRouter();
   const { user, loading, onboardingComplete } = useAuth();
+  const opacity = useRef(new Animated.Value(0)).current;
+  const navigated = useRef(false);
 
   useEffect(() => {
-    if (loading) return;
-    if (!user) {
-      router.replace('/(auth)/login');
-      return;
-    }
-    if (!onboardingComplete) {
-      router.replace('/onboarding');
-      return;
-    }
-    router.replace('/(tabs)/home');
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 700,
+      useNativeDriver: true,
+    }).start();
+  }, [opacity]);
+
+  useEffect(() => {
+    if (loading || navigated.current) return;
+
+    const timer = setTimeout(() => {
+      navigated.current = true;
+      if (!user) {
+        router.replace('/onboarding/1');
+        return;
+      }
+      if (onboardingComplete) {
+        router.replace('/(tabs)/home');
+      } else {
+        router.replace('/primeiro-acesso');
+      }
+    }, SPLASH_MS);
+
+    return () => clearTimeout(timer);
   }, [user, loading, onboardingComplete, router]);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.logo}>Setmatch</Text>
-      <ActivityIndicator size="large" color={Colors.secondary} />
+      <Animated.View style={{ opacity }}>
+        <Text style={styles.logo}>SETMATCH</Text>
+      </Animated.View>
     </View>
   );
 }
@@ -32,15 +52,13 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F2D1F',
+    backgroundColor: Colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
   logo: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: Colors.secondary,
-    marginBottom: 20,
-    letterSpacing: 1,
+    ...Typography.userName,
+    color: Colors.accent,
+    letterSpacing: 4,
   },
 });

@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { WizardProvider } from '../contexts/WizardContext';
 import { AuthGuard } from '../components/AuthGuard';
 
 SplashScreen.preventAutoHideAsync();
@@ -27,7 +28,9 @@ function RootStack() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootStack />
+      <WizardProvider>
+        <RootStack />
+      </WizardProvider>
     </AuthProvider>
   );
 }

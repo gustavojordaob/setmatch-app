@@ -6,11 +6,15 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { Radius } from '../../constants/radius';
+import { Typography } from '../../constants/typography';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -56,17 +60,15 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.header}>
-          <Text style={styles.logo}>Setmatch</Text>
+          <Text style={styles.logo}>SETMATCH</Text>
           <Text style={styles.sub}>Entre para desafiar e registrar resultados.</Text>
         </View>
 
         <View style={styles.form}>
-          <Button
-            title="Continuar com Google"
-            variant="secondary"
-            onPress={onGoogle}
-            loading={loading}
-          />
+          <TouchableOpacity style={styles.googleBtn} onPress={onGoogle} disabled={loading}>
+            <Ionicons name="logo-google" size={20} color={Colors.textOnAccent} />
+            <Text style={styles.googleLabel}>Continuar com Google</Text>
+          </TouchableOpacity>
 
           <View style={styles.divider}>
             <View style={styles.line} />
@@ -92,8 +94,13 @@ export default function LoginScreen() {
             onChangeText={setSenha}
           />
 
+          <Text style={styles.forgot} onPress={() => router.push('/(auth)/esqueci-senha')}>
+            Esqueci minha senha
+          </Text>
+
           <Button
             title="Entrar"
+            variant="primary"
             onPress={onEmailLogin}
             loading={loading}
             disabled={!email || !senha}
@@ -109,22 +116,28 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0F2D1F' },
+  safe: { flex: 1, backgroundColor: Colors.background },
   flex: { flex: 1, paddingHorizontal: 20 },
   header: { marginTop: 24, marginBottom: 28 },
-  logo: {
-    color: Colors.secondary,
-    fontSize: 34,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
+  logo: { ...Typography.userName, color: Colors.accent, fontSize: 32, letterSpacing: 2 },
   sub: { color: Colors.textSecondary, marginTop: 10, lineHeight: 20 },
   form: { gap: 12 },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: Colors.accent,
+    borderRadius: Radius.pill,
+    minHeight: 52,
+    paddingHorizontal: 20,
+  },
+  googleLabel: { color: Colors.textOnAccent, fontWeight: '800', fontSize: 16 },
   input: {
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
-    borderRadius: 16,
+    borderRadius: Radius.chip,
     paddingHorizontal: 14,
     paddingVertical: 12,
     color: Colors.textPrimary,
@@ -133,8 +146,14 @@ const styles = StyleSheet.create({
   divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 4 },
   line: { flex: 1, height: 1, backgroundColor: Colors.border },
   dividerText: { color: Colors.textSecondary, fontWeight: '700', fontSize: 12 },
+  forgot: {
+    color: Colors.accent,
+    textAlign: 'right',
+    fontWeight: '700',
+    fontSize: 13,
+  },
   link: {
-    color: Colors.secondary,
+    color: Colors.accent,
     textAlign: 'center',
     marginTop: 8,
     fontWeight: '800',

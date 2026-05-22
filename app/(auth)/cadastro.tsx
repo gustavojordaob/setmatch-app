@@ -11,6 +11,8 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { Radius } from '../../constants/radius';
+import { Typography } from '../../constants/typography';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -29,7 +31,7 @@ export default function CadastroScreen() {
     setLoading(true);
     try {
       await signUpWithEmail(email, senha);
-      router.replace('/onboarding');
+      router.replace('/');
     } catch (e: unknown) {
       Alert.alert('Cadastro', e instanceof Error ? e.message : 'Não foi possível criar a conta.');
     } finally {
@@ -44,7 +46,7 @@ export default function CadastroScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <Text style={styles.title}>Criar conta</Text>
-        <Text style={styles.sub}>Depois você escolhe seus esportes favoritos.</Text>
+        <Text style={styles.sub}>Depois você completa seu perfil no app.</Text>
 
         <View style={styles.form}>
           <TextInput
@@ -64,7 +66,7 @@ export default function CadastroScreen() {
             value={senha}
             onChangeText={setSenha}
           />
-          <Button title="Cadastrar" onPress={onCadastrar} loading={loading} />
+          <Button title="Cadastrar" variant="primary" onPress={onCadastrar} loading={loading} />
           <Text style={styles.back} onPress={() => router.back()}>
             Voltar ao login
           </Text>
@@ -75,20 +77,20 @@ export default function CadastroScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0F2D1F' },
+  safe: { flex: 1, backgroundColor: Colors.background },
   flex: { flex: 1, paddingHorizontal: 20, paddingTop: 16 },
-  title: { color: Colors.textPrimary, fontSize: 26, fontWeight: '900' },
+  title: { ...Typography.sectionTitle, color: Colors.textPrimary },
   sub: { color: Colors.textSecondary, marginTop: 8, marginBottom: 20, lineHeight: 20 },
   form: { gap: 12 },
   input: {
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
-    borderRadius: 16,
+    borderRadius: Radius.chip,
     paddingHorizontal: 14,
     paddingVertical: 12,
     color: Colors.textPrimary,
     fontSize: 16,
   },
-  back: { color: Colors.secondary, textAlign: 'center', marginTop: 8, fontWeight: '700' },
+  back: { color: Colors.accent, textAlign: 'center', marginTop: 8, fontWeight: '700' },
 });

@@ -10,8 +10,8 @@ export interface Esporte {
 }
 
 export const ESPORTES: Esporte[] = [
-  { id: 'tenis', nome: 'Tênis', emoji: '🎾', cor: Colors.secondary },
-  { id: 'padel', nome: 'Padel', emoji: '🏸', cor: Colors.secondary },
-  { id: 'raquetinha', nome: 'Raquetinha', emoji: '🏓', cor: Colors.secondary },
-  { id: 'beachtennis', nome: 'Beachtênis', emoji: '🏖️', cor: Colors.secondary },
+  { id: 'tenis', nome: 'Tênis', emoji: '🎾', cor: Colors.accent },
+  { id: 'padel', nome: 'Padel', emoji: '🏸', cor: Colors.accent },
+  { id: 'raquetinha', nome: 'Raquetinha', emoji: '🏓', cor: Colors.accent },
+  { id: 'beachtennis', nome: 'Beachtênis', emoji: '🏖️', cor: Colors.accent },
 ];
