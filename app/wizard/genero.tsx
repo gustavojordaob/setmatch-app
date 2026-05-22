@@ -1,17 +1,9 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
-import { Radius } from '../../constants/radius';
 import { WizardLayout } from '../../components/wizard/WizardLayout';
 import { useWizard } from '../../contexts/WizardContext';
 import type { Genero } from '../../types/usuario';
-
-const OPCOES: { id: Genero; label: string }[] = [
-  { id: 'masculino', label: 'Masculino' },
-  { id: 'feminino', label: 'Feminino' },
-  { id: 'outro', label: 'Outro' },
-  { id: 'prefiro_nao_dizer', label: 'Prefiro não dizer' },
-];
 
 export default function WizardGeneroScreen() {
   const router = useRouter();
@@ -20,39 +12,68 @@ export default function WizardGeneroScreen() {
 
   return (
     <WizardLayout
-      step={2}
-      title="Como você se identifica?"
+      title="Qual o seu gênero?"
       onContinue={() => router.push('/wizard/peso')}
       continueDisabled={!selecionado}
     >
-      <View style={styles.list}>
-        {OPCOES.map((o) => {
-          const on = selecionado === o.id;
-          return (
-            <TouchableOpacity
-              key={o.id}
-              style={[styles.option, on && styles.optionOn]}
-              onPress={() => setDraft({ genero: o.id })}
-            >
-              <Text style={[styles.label, on && styles.labelOn]}>{o.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
+      <View style={styles.row}>
+        <GenderCircle
+          symbol="♂"
+          label="Male"
+          selected={selecionado === 'masculino'}
+          onPress={() => setDraft({ genero: 'masculino' as Genero })}
+        />
+        <GenderCircle
+          symbol="♀"
+          label="Female"
+          selected={selecionado === 'feminino'}
+          onPress={() => setDraft({ genero: 'feminino' as Genero })}
+        />
       </View>
     </WizardLayout>
   );
 }
 
+function GenderCircle({
+  symbol,
+  label,
+  selected,
+  onPress,
+}: {
+  symbol: string;
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.col}>
+      <View style={[styles.circle, selected && styles.circleOn]}>
+        <Text style={[styles.symbol, selected && styles.symbolOn]}>{symbol}</Text>
+      </View>
+      <Text style={styles.label}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
-  list: { gap: 10 },
-  option: {
-    padding: 16,
-    borderRadius: Radius.chip,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 40,
+    marginTop: 40,
   },
-  optionOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
-  label: { color: Colors.textPrimary, fontWeight: '700', textAlign: 'center' },
-  labelOn: { color: Colors.textOnAccent },
+  col: { alignItems: 'center', gap: 12 },
+  circle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  circleOn: { borderColor: Colors.accent },
+  symbol: { fontSize: 48, color: Colors.white },
+  symbolOn: { color: Colors.accent },
+  label: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 16 },
 });

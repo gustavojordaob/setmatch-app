@@ -3,17 +3,15 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import { Radius } from '../../constants/radius';
-import { Typography } from '../../constants/typography';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function EsqueciSenhaScreen() {
@@ -24,19 +22,16 @@ export default function EsqueciSenhaScreen() {
 
   async function enviar() {
     if (!email.trim()) {
-      Alert.alert('Recuperar senha', 'Informe seu e-mail.');
+      Alert.alert('E-mail', 'Informe seu e-mail.');
       return;
     }
     setLoading(true);
     try {
       await resetPassword(email);
-      Alert.alert(
-        'E-mail enviado',
-        'Verifique sua caixa de entrada para redefinir a senha.',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+      Alert.alert('Enviado', 'Verifique sua caixa de entrada para redefinir a senha.');
+      router.back();
     } catch (e: unknown) {
-      Alert.alert('Erro', e instanceof Error ? e.message : 'Não foi possível enviar o e-mail.');
+      Alert.alert('Erro', e instanceof Error ? e.message : 'Não foi possível enviar.');
     } finally {
       setLoading(false);
     }
@@ -48,23 +43,27 @@ export default function EsqueciSenhaScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Text style={styles.title}>Esqueci minha senha</Text>
-        <Text style={styles.sub}>
-          Enviaremos um link para redefinir sua senha no e-mail cadastrado.
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="E-mail"
-          placeholderTextColor={Colors.textSecondary}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <Button title="Enviar link" variant="primary" onPress={enviar} loading={loading} />
-        <Text style={styles.back} onPress={() => router.back()}>
-          Voltar ao login
-        </Text>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Text style={styles.title}>Esqueceu a sua senha?</Text>
+          <Text style={styles.sub}>
+            Digite o seu endereço de email e enviaremos um link para resetar a sua senha
+          </Text>
+
+          <Input
+            label="Endereço de Email"
+            placeholder="Digite o seu email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+
+          <Button label="Enviar link" onPress={enviar} loading={loading} />
+
+          <Text style={styles.back} onPress={() => router.back()}>
+            Voltar para Login
+          </Text>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -72,18 +71,26 @@ export default function EsqueciSenhaScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  flex: { flex: 1, paddingHorizontal: 20, paddingTop: 16, gap: 12 },
-  title: { ...Typography.sectionTitle, color: Colors.textPrimary },
-  sub: { color: Colors.textSecondary, lineHeight: 20 },
-  input: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.chip,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  flex: { flex: 1 },
+  scroll: { paddingHorizontal: 24, paddingTop: 32, gap: 20 },
+  title: {
     color: Colors.textPrimary,
-    fontSize: 16,
+    fontSize: 32,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
-  back: { color: Colors.accent, textAlign: 'center', marginTop: 8, fontWeight: '700' },
+  sub: {
+    color: Colors.textPrimary,
+    textAlign: 'center',
+    lineHeight: 22,
+    fontSize: 15,
+    opacity: 0.95,
+  },
+  back: {
+    color: Colors.accent,
+    textAlign: 'center',
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+    marginTop: 8,
+  },
 });

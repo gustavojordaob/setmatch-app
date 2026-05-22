@@ -3,51 +3,37 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { Radius } from '../../constants/radius';
-import { Typography } from '../../constants/typography';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { AuthSocialRow } from '../../components/auth/AuthSocialRow';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signInWithEmail, signInWithGoogle } = useAuth();
-  const [email, setEmail] = useState('');
+  const { signInWithEmail } = useAuth();
+  const [login, setLogin] = useState('');
   const [senha, setSenha] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function onEmailLogin() {
-    if (!email.trim() || !senha) {
-      Alert.alert('Login', 'Preencha e-mail e senha.');
+    if (!login.trim() || !senha) {
+      Alert.alert('Login', 'Preencha login e senha.');
       return;
     }
     setLoading(true);
     try {
-      await signInWithEmail(email, senha);
+      await signInWithEmail(login, senha);
       router.replace('/');
     } catch (e: unknown) {
       Alert.alert('Login', e instanceof Error ? e.message : 'Falha ao entrar.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function onGoogle() {
-    setLoading(true);
-    try {
-      await signInWithGoogle();
-      router.replace('/');
-    } catch (e: unknown) {
-      Alert.alert('Google', e instanceof Error ? e.message : 'Falha no Google.');
     } finally {
       setLoading(false);
     }
@@ -59,57 +45,49 @@ export default function LoginScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.header}>
-          <Text style={styles.logo}>SETMATCH</Text>
-          <Text style={styles.sub}>Entre para desafiar e registrar resultados.</Text>
-        </View>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <Text style={styles.title}>Bem Vindo!</Text>
 
-        <View style={styles.form}>
-          <TouchableOpacity style={styles.googleBtn} onPress={onGoogle} disabled={loading}>
-            <Ionicons name="logo-google" size={20} color={Colors.textOnAccent} />
-            <Text style={styles.googleLabel}>Continuar com Google</Text>
-          </TouchableOpacity>
+          <Input
+            label="Login"
+            placeholder="Digite seu email our nome de usuário"
+            value={login}
+            onChangeText={setLogin}
+            autoCapitalize="none"
+          />
+
+          <Input
+            label="Senha"
+            placeholder="Digite A sua senha"
+            value={senha}
+            onChangeText={setSenha}
+            showPasswordToggle
+          />
+
+          <Text
+            style={styles.forgot}
+            onPress={() => router.push('/(auth)/esqueci-senha')}
+          >
+            Esqueceu sua senha?
+          </Text>
+
+          <Button label="Log In" onPress={onEmailLogin} loading={loading} />
 
           <View style={styles.divider}>
             <View style={styles.line} />
-            <Text style={styles.dividerText}>ou e-mail</Text>
+            <Text style={styles.dividerText}>ou</Text>
             <View style={styles.line} />
           </View>
 
-          <TextInput
-            style={styles.input}
-            placeholder="E-mail"
-            placeholderTextColor={Colors.textSecondary}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={email}
-            onChangeText={setEmail}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Senha"
-            placeholderTextColor={Colors.textSecondary}
-            secureTextEntry
-            value={senha}
-            onChangeText={setSenha}
-          />
+          <AuthSocialRow loading={loading} />
 
-          <Text style={styles.forgot} onPress={() => router.push('/(auth)/esqueci-senha')}>
-            Esqueci minha senha
-          </Text>
-
-          <Button
-            title="Entrar"
-            variant="primary"
-            onPress={onEmailLogin}
-            loading={loading}
-            disabled={!email || !senha}
-          />
-
-          <Text style={styles.link} onPress={() => router.push('/(auth)/cadastro')}>
-            Criar conta
-          </Text>
-        </View>
+          <View style={styles.footer}>
+            <Text style={styles.footerMuted}>Não tem uma conta? </Text>
+            <Text style={styles.footerLink} onPress={() => router.push('/(auth)/cadastro')}>
+              Registre-se
+            </Text>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -117,45 +95,26 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  flex: { flex: 1, paddingHorizontal: 20 },
-  header: { marginTop: 24, marginBottom: 28 },
-  logo: { ...Typography.userName, color: Colors.accent, fontSize: 32, letterSpacing: 2 },
-  sub: { color: Colors.textSecondary, marginTop: 10, lineHeight: 20 },
-  form: { gap: 12 },
-  googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: Colors.accent,
-    borderRadius: Radius.pill,
-    minHeight: 52,
-    paddingHorizontal: 20,
-  },
-  googleLabel: { color: Colors.textOnAccent, fontWeight: '800', fontSize: 16 },
-  input: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.chip,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  flex: { flex: 1 },
+  scroll: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 32, gap: 16 },
+  title: {
     color: Colors.textPrimary,
-    fontSize: 16,
+    fontSize: 36,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
   },
-  divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 4 },
-  line: { flex: 1, height: 1, backgroundColor: Colors.border },
-  dividerText: { color: Colors.textSecondary, fontWeight: '700', fontSize: 12 },
   forgot: {
     color: Colors.accent,
     textAlign: 'right',
-    fontWeight: '700',
-    fontSize: 13,
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+    fontSize: 14,
   },
-  link: {
-    color: Colors.accent,
-    textAlign: 'center',
-    marginTop: 8,
-    fontWeight: '800',
-  },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 },
+  line: { flex: 1, height: 1, backgroundColor: Colors.white },
+  dividerText: { color: Colors.white, fontWeight: '600' },
+  footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' },
+  footerMuted: { color: Colors.textPrimary },
+  footerLink: { color: Colors.accent, fontWeight: 'bold' },
 });

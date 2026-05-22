@@ -8,11 +8,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
-    "backgroundColor": "#0F2D1F",
+    "backgroundColor": "#255943",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F2D1F"
+      "backgroundColor": "#255943"
     },
     "ios": {
       "supportsTablet": false,
@@ -21,7 +21,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0F2D1F"
+        "backgroundColor": "#255943"
       },
       "package": "com.fabricaapps.setmatch",
       "edgeToEdgeEnabled": true,

@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { Radius } from '../../constants/radius';
+import { Button } from '../../components/ui/Button';
 import { WizardLayout } from '../../components/wizard/WizardLayout';
 import { useAuth } from '../../hooks/useAuth';
 import { useWizard } from '../../contexts/WizardContext';
@@ -13,13 +14,13 @@ export default function WizardFotoScreen() {
   const router = useRouter();
   const { user, saveWizardProfile } = useAuth();
   const { draft, setDraft, resetDraft } = useWizard();
-  const [uri, setUri] = useState<string | null>(draft.fotoUrl ?? null);
+  const [uri, setUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function escolherFoto() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Foto', 'Permita acesso à galeria para escolher uma foto.');
+      Alert.alert('Foto', 'Permita acesso à galeria.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -39,13 +40,19 @@ export default function WizardFotoScreen() {
     try {
       let fotoUrl = uri ?? user.photoURL ?? '';
       if (uri && !uri.startsWith('http')) {
-        fotoUrl = await uploadFotoPerfil(user.uid, uri);
+        fotoUrl = await uploadFotoPerfil(uri);
       }
       await saveWizardProfile({ ...draft, fotoUrl });
       resetDraft();
       router.replace('/(tabs)/home');
     } catch (e: unknown) {
-      Alert.alert('Perfil', e instanceof Error ? e.message : 'Não foi possível salvar.');
+      const msg =
+        e instanceof Error
+          ? e.message
+          : typeof e === 'object' && e && 'message' in e
+            ? String((e as { message: unknown }).message)
+            : 'Não foi possível concluir.';
+      Alert.alert('Upload', msg);
     } finally {
       setLoading(false);
     }
@@ -53,49 +60,39 @@ export default function WizardFotoScreen() {
 
   return (
     <WizardLayout
-      step={7}
-      title="Adicione uma foto de perfil"
+      title="Faça o upload da sua foto"
+      continueLabel="Fazer Upload"
       onContinue={finalizar}
-      continueLabel="Concluir"
       loading={loading}
     >
-      <TouchableOpacity style={styles.avatarWrap} onPress={escolherFoto}>
-        {uri ? (
-          <Image source={{ uri }} style={styles.avatar} />
-        ) : (
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderIcon}>📷</Text>
-            <Text style={styles.placeholderText}>Toque para escolher</Text>
-          </View>
-        )}
+      <TouchableOpacity style={styles.cameraWrap} onPress={escolherFoto}>
+        <View style={styles.cameraCircle}>
+          <Ionicons name="camera" size={48} color={Colors.accent} />
+        </View>
       </TouchableOpacity>
-      <Text style={styles.skip} onPress={finalizar}>
-        Pular por agora
+      <Text style={styles.link} onPress={escolherFoto}>
+        Selecionar imagem no dispositivo
       </Text>
     </WizardLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  avatarWrap: { alignSelf: 'center', marginTop: 24 },
-  avatar: { width: 160, height: 160, borderRadius: 80 },
-  placeholder: {
+  cameraWrap: { alignItems: 'center', marginTop: 48 },
+  cameraCircle: {
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: Colors.surface,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    borderStyle: 'dashed',
+    borderWidth: 3,
+    borderColor: Colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  placeholderIcon: { fontSize: 40 },
-  placeholderText: { color: Colors.textSecondary, marginTop: 8 },
-  skip: {
-    color: Colors.textSecondary,
+  link: {
+    color: Colors.textPrimary,
     textAlign: 'center',
-    marginTop: 20,
+    marginTop: 24,
     textDecorationLine: 'underline',
+    fontSize: 15,
   },
 });

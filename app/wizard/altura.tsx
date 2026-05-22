@@ -1,55 +1,34 @@
-import { useState } from 'react';
-import { StyleSheet, Text, TextInput } from 'react-native';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Colors } from '../../constants/colors';
-import { Radius } from '../../constants/radius';
 import { WizardLayout } from '../../components/wizard/WizardLayout';
+import { RulerPicker, UnitToggle } from '../../components/wizard/RulerPicker';
 import { useWizard } from '../../contexts/WizardContext';
 
 export default function WizardAlturaScreen() {
   const router = useRouter();
   const { draft, setDraft } = useWizard();
-  const [altura, setAltura] = useState(draft.altura ? String(draft.altura) : '');
+  const [unit, setUnit] = useState<'left' | 'right'>('left');
+  const values = useMemo(
+    () => Array.from({ length: 71 }, (_, i) => (150 + i) / 100),
+    []
+  );
+  const defaultAlt = draft.altura && draft.altura > 0 ? draft.altura / 100 : 1.85;
+  const [altura, setAltura] = useState(defaultAlt);
 
   function continuar() {
-    const n = parseInt(altura, 10);
-    if (!n || n < 100 || n > 230) return;
-    setDraft({ altura: n });
+    setDraft({ altura: Math.round(altura * 100) });
     router.push('/wizard/esportes');
   }
 
   return (
-    <WizardLayout
-      step={4}
-      title="Qual sua altura (cm)?"
-      onContinue={continuar}
-      continueDisabled={!altura}
-    >
-      <TextInput
-        style={styles.input}
-        placeholder="Ex: 175"
-        placeholderTextColor={Colors.textSecondary}
-        keyboardType="number-pad"
-        maxLength={3}
+    <WizardLayout title="Qual a sua altura?" onContinue={continuar}>
+      <UnitToggle left="CM" right="INCH" active={unit} onChange={setUnit} />
+      <RulerPicker
+        values={values}
         value={altura}
-        onChangeText={setAltura}
+        onChange={setAltura}
+        format={(v) => v.toFixed(2)}
       />
-      <Text style={styles.hint}>cm</Text>
     </WizardLayout>
   );
 }
-
-const styles = StyleSheet.create({
-  input: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.chip,
-    padding: 16,
-    color: Colors.textPrimary,
-    fontSize: 24,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  hint: { color: Colors.textSecondary, textAlign: 'center', marginTop: 8 },
-});

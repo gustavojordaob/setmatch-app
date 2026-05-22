@@ -21,7 +21,7 @@ export function AuthGuard() {
 
     if (!user) {
       if (root && !PUBLIC_ROOTS.has(root)) {
-        router.replace('/onboarding/1');
+        router.replace('/onboarding');
       }
       return;
     }

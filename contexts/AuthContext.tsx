@@ -14,6 +14,7 @@ import {
   GoogleAuthProvider,
   User,
   createUserWithEmailAndPassword,
+  updateProfile,
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithCredential,
@@ -51,7 +52,7 @@ interface AuthContextValue {
   onboardingComplete: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string, nome?: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshPerfil: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -164,8 +165,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signInWithEmailAndPassword(auth, email.trim(), password);
   }, []);
 
-  const signUpWithEmail = useCallback(async (email: string, password: string) => {
-    await createUserWithEmailAndPassword(auth, email.trim(), password);
+  const signUpWithEmail = useCallback(async (email: string, password: string, nome?: string) => {
+    const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    if (nome?.trim()) {
+      await updateProfile(cred.user, { displayName: nome.trim() });
+      await setDoc(
+        doc(db, 'usuarios', cred.user.uid),
+        { nome: nome.trim(), ultimoAcesso: serverTimestamp() },
+        { merge: true }
+      );
+    }
   }, []);
 
   const signInWithGoogle = useCallback(async () => {

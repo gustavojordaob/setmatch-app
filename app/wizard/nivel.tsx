@@ -5,18 +5,18 @@ import { Radius } from '../../constants/radius';
 import { NIVEIS } from '../../constants/niveis';
 import { WizardLayout } from '../../components/wizard/WizardLayout';
 import { useWizard } from '../../contexts/WizardContext';
+import type { NivelAtividade } from '../../types/usuario';
 
 export default function WizardNivelScreen() {
   const router = useRouter();
   const { draft, setDraft } = useWizard();
-  const selecionado = draft.nivel;
+  const selecionado = draft.nivel ?? 'intermediario';
 
   return (
     <WizardLayout
-      step={6}
-      title="Qual seu nível de jogo?"
+      title="Qual o seu nível?"
+      continueLabel="Finalizar"
       onContinue={() => router.push('/wizard/foto')}
-      continueDisabled={!selecionado}
     >
       <View style={styles.list}>
         {NIVEIS.map((n) => {
@@ -25,10 +25,13 @@ export default function WizardNivelScreen() {
             <TouchableOpacity
               key={n.id}
               style={[styles.card, on && styles.cardOn]}
-              onPress={() => setDraft({ nivel: n.id })}
+              onPress={() => setDraft({ nivel: n.id as NivelAtividade })}
             >
-              <Text style={[styles.label, on && styles.labelOn]}>{n.label}</Text>
-              <Text style={[styles.desc, on && styles.descOn]}>{n.desc}</Text>
+              <View style={[styles.radio, on && styles.radioOn]} />
+              <View style={styles.texts}>
+                <Text style={styles.label}>{n.label}</Text>
+                <Text style={styles.desc}>{n.desc}</Text>
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -38,17 +41,30 @@ export default function WizardNivelScreen() {
 }
 
 const styles = StyleSheet.create({
-  list: { gap: 10 },
+  list: { gap: 12, marginTop: 8 },
   card: {
-    padding: 16,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
     backgroundColor: Colors.surface,
+    borderRadius: Radius.card,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  cardOn: { backgroundColor: Colors.surfaceGreen, borderColor: Colors.accent },
-  label: { color: Colors.textPrimary, fontWeight: '800', fontSize: 17 },
-  labelOn: { color: Colors.accent },
-  desc: { color: Colors.textSecondary, marginTop: 4, fontSize: 13 },
-  descOn: { color: Colors.textSecondary },
+  cardOn: { borderColor: Colors.accent },
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: Colors.white,
+  },
+  radioOn: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  texts: { flex: 1 },
+  label: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 17 },
+  desc: { color: Colors.textSecondary, fontSize: 13, marginTop: 4 },
 });

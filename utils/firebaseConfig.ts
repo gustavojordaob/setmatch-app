@@ -34,4 +34,8 @@ function getFirebaseAuth() {
 
 export const auth = getFirebaseAuth();
 export const db = getFirestore(app);
-export const storage = getStorage(app);
+
+const storageBucket = process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET;
+export const storage = storageBucket
+  ? getStorage(app, `gs://${storageBucket}`)
+  : getStorage(app);

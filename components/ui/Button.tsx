@@ -8,31 +8,31 @@ import {
 import { Colors } from '../../constants/colors';
 import { Radius } from '../../constants/radius';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'outline';
-
-/** @deprecated use `primary` */
-export type LegacyButtonVariant = ButtonVariant | 'accent' | 'ghost';
+export type ButtonVariant = 'primary' | 'outline' | 'ghost';
 
 export interface ButtonProps extends TouchableOpacityProps {
-  title: string;
+  /** Alias Figma: `label` */
+  title?: string;
+  label?: string;
   loading?: boolean;
-  variant?: LegacyButtonVariant;
+  variant?: ButtonVariant | 'secondary' | 'accent';
 }
 
-function normalizeVariant(variant: LegacyButtonVariant): ButtonVariant {
-  if (variant === 'accent') return 'primary';
-  if (variant === 'ghost') return 'outline';
-  return variant;
+function normalizeVariant(v: ButtonProps['variant']): ButtonVariant {
+  if (v === 'secondary' || v === 'accent') return 'primary';
+  return v ?? 'primary';
 }
 
 export function Button({
   title,
+  label,
   loading,
   variant = 'primary',
   disabled,
   style,
   ...rest
 }: ButtonProps) {
+  const text = label ?? title ?? '';
   const v = stylesForVariant(normalizeVariant(variant));
   return (
     <TouchableOpacity
@@ -44,7 +44,7 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={v.spinnerColor} />
       ) : (
-        <Text style={[styles.label, v.label]}>{title}</Text>
+        <Text style={[styles.label, v.label]}>{text}</Text>
       )}
     </TouchableOpacity>
   );
@@ -52,19 +52,19 @@ export function Button({
 
 function stylesForVariant(variant: ButtonVariant) {
   switch (variant) {
-    case 'secondary':
-      return {
-        container: { backgroundColor: Colors.primary },
-        label: { color: Colors.textPrimary },
-        spinnerColor: Colors.textPrimary,
-      };
     case 'outline':
       return {
         container: {
           backgroundColor: 'transparent',
-          borderWidth: 1,
-          borderColor: Colors.border,
+          borderWidth: 2,
+          borderColor: Colors.white,
         },
+        label: { color: Colors.textPrimary },
+        spinnerColor: Colors.textPrimary,
+      };
+    case 'ghost':
+      return {
+        container: { backgroundColor: 'transparent' },
         label: { color: Colors.textPrimary },
         spinnerColor: Colors.textPrimary,
       };
@@ -79,7 +79,10 @@ function stylesForVariant(variant: ButtonVariant) {
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 52,
+    height: 56,
+    width: '100%',
+    maxWidth: '100%',
+    alignSelf: 'stretch',
     borderRadius: Radius.pill,
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -87,9 +90,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: 'bold',
   },
-  disabled: {
-    opacity: 0.45,
-  },
+  disabled: { opacity: 0.45 },
 });

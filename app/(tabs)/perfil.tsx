@@ -1,90 +1,183 @@
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { Radius } from '../../constants/radius';
 import { Typography } from '../../constants/typography';
-import { ESPORTES } from '../../constants/esportes';
-import { NIVEIS } from '../../constants/niveis';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
-import { StatsCard } from '../../components/jogador/StatsCard';
-import { ResultadoCard } from '../../components/partida/ResultadoCard';
 import { useAuth } from '../../hooks/useAuth';
-import { usePartidas } from '../../hooks/usePartidas';
+
+const TAB_PAD_BOTTOM = 88;
 
 export default function PerfilScreen() {
+  const router = useRouter();
   const { user, perfil, signOut } = useAuth();
-  const { partidas, loading } = usePartidas();
 
-  const nome = perfil?.nome ?? user?.displayName ?? 'Jogador';
-  const nivelLabel =
-    NIVEIS.find((n) => n.id === perfil?.nivel)?.label ?? '—';
-  const esportesLabel =
-    perfil?.esportes
-      ?.map((id) => ESPORTES.find((e) => e.id === id)?.nome)
-      .filter(Boolean)
-      .join(', ') || '—';
+  const nome = perfil?.nome ?? user?.displayName ?? 'Gustavo';
+  const email = perfil?.email ?? user?.email ?? 'gustavo@setmatch.com';
+  const v = perfil?.vitorias ?? 30;
+  const d = perfil?.derrotas ?? 7;
+  const torneios = 5;
 
-  async function sair() {
-    try {
-      await signOut();
-    } catch (e: unknown) {
-      Alert.alert('Sair', e instanceof Error ? e.message : 'Erro ao sair.');
-    }
-  }
-
-  function editarPerfil() {
-    Alert.alert('Editar perfil', 'Em breve: alterar foto e dados do wizard.');
+  function confirmarLogout() {
+    Alert.alert('Sair da conta', 'Deseja encerrar sua sessão?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Sair',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            try {
+              await signOut();
+              router.replace('/onboarding');
+            } catch (e: unknown) {
+              Alert.alert(
+                'Sair',
+                e instanceof Error ? e.message : 'Não foi possível sair.'
+              );
+            }
+          })();
+        },
+      },
+    ]);
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Avatar uri={perfil?.fotoUrl ?? user?.photoURL} nome={nome} size="lg" />
-          <Text style={styles.nome}>{nome}</Text>
-          <Text style={styles.esportes}>{esportesLabel}</Text>
-          <View style={styles.nivelBadge}>
-            <Text style={styles.nivelTxt}>{nivelLabel}</Text>
+    <View style={styles.root}>
+      <SafeAreaView edges={['top']} style={styles.safe}>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Perfil</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={() => router.push('/(tabs)/notificacoes')}
+              accessibilityLabel="Notificações"
+            >
+              <Ionicons name="notifications-outline" size={22} color={Colors.white} />
+              <View style={styles.bellDot} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={confirmarLogout}
+              accessibilityLabel="Sair da conta"
+            >
+              <Ionicons name="log-out-outline" size={22} color={Colors.white} />
+            </TouchableOpacity>
           </View>
         </View>
 
-        <StatsCard vitorias={perfil?.vitorias ?? 0} derrotas={perfil?.derrotas ?? 0} />
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: TAB_PAD_BOTTOM }]}>
+          <View style={styles.profileHeader}>
+            <Avatar
+              uri={perfil?.fotoUrl ?? user?.photoURL}
+              nome={nome}
+              size="xl"
+              verified
+            />
+            <Text style={styles.nome}>{nome}</Text>
+            <Text style={styles.email}>{email}</Text>
+          </View>
 
-        <Button title="Editar perfil" variant="primary" onPress={editarPerfil} />
+          <View style={styles.statsRow}>
+            <StatCircle value={String(v)} label="Vitórias" />
+            <StatCircle value={String(d)} label="Derrotas" />
+            <StatCircle value={String(torneios)} label="Torneios" />
+          </View>
 
-        <Text style={styles.section}>Histórico de partidas</Text>
-        {loading ? (
-          <Text style={styles.empty}>Carregando…</Text>
-        ) : partidas.length === 0 ? (
-          <Text style={styles.empty}>Nenhuma partida ainda.</Text>
-        ) : (
-          partidas.slice(0, 8).map((p) =>
-            user ? <ResultadoCard key={p.id} partida={p} uid={user.uid} /> : null
-          )
-        )}
+          <Button label="Meus Badges" variant="outline" onPress={() => {}} />
 
-        <View style={{ height: 12 }} />
-        <Button title="Sair da conta" variant="outline" onPress={sair} />
-      </ScrollView>
-    </SafeAreaView>
+          <View style={styles.badgeGrid}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <View key={i} style={styles.badgeCell}>
+                {i === 0 ? (
+                  <Ionicons name="trophy" size={32} color={Colors.accent} />
+                ) : null}
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+function StatCircle({ value, label }: { value: string; label: string }) {
+  return (
+    <View style={styles.statCircle}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  content: { padding: 16, gap: 14, paddingBottom: 40 },
-  header: { alignItems: 'center', gap: 8, marginBottom: 4 },
-  nome: { ...Typography.userName, color: Colors.textPrimary, fontSize: 24 },
-  esportes: { color: Colors.accent, fontWeight: '700' },
-  nivelBadge: {
-    backgroundColor: Colors.surfaceGreen,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: Radius.pill,
-    marginTop: 4,
+  root: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
-  nivelTxt: { color: Colors.accent, fontWeight: '800' },
-  section: { ...Typography.sectionTitle, color: Colors.textPrimary, marginTop: 8 },
-  empty: { color: Colors.textSecondary, textAlign: 'center' },
+  headerTitle: {
+    ...Typography.sectionTitle,
+    color: Colors.textPrimary,
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerIconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellDot: {
+    position: 'absolute',
+    top: 8,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.accent,
+  },
+  scroll: { paddingHorizontal: 20, alignItems: 'center', gap: 20 },
+  profileHeader: { alignItems: 'center', gap: 8, marginTop: 8 },
+  nome: { ...Typography.userName, color: Colors.textPrimary, fontSize: 30 },
+  email: { color: Colors.textPrimary, opacity: 0.85, fontSize: 14 },
+  statsRow: { flexDirection: 'row', gap: 16, marginVertical: 8 },
+  statCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 2,
+    borderColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+  },
+  statValue: { color: Colors.accent, fontSize: 22, fontWeight: 'bold' },
+  statLabel: { color: Colors.textPrimary, fontSize: 11, textAlign: 'center', marginTop: 4 },
+  badgeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  badgeCell: {
+    width: '22%',
+    aspectRatio: 1,
+    backgroundColor: Colors.surfaceDark,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 72,
+  },
 });

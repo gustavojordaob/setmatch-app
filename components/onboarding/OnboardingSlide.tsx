@@ -4,6 +4,7 @@ import { Colors } from '../../constants/colors';
 import { Radius } from '../../constants/radius';
 import { Typography } from '../../constants/typography';
 import { Button } from '../ui/Button';
+import { ButtonFooter } from '../ui/ButtonFooter';
 import type { OnboardingSlideData } from '../../constants/onboardingSlides';
 
 export interface OnboardingSlideProps extends OnboardingSlideData {
@@ -23,7 +24,7 @@ export function OnboardingSlide({
   isLast,
 }: OnboardingSlideProps) {
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.content}>
         <Text style={styles.emoji}>{emoji}</Text>
         <Text style={styles.title}>{title}</Text>
@@ -34,18 +35,19 @@ export function OnboardingSlide({
           ))}
         </View>
       </View>
-      <Button
-        title={isLast ? 'VAMOS COMEÇAR' : 'Próximo'}
-        variant="primary"
-        onPress={onNext}
-        style={styles.cta}
-      />
+      <ButtonFooter style={styles.ctaFooter}>
+        <Button
+          title={isLast ? 'VAMOS COMEÇAR' : 'Próximo'}
+          variant="primary"
+          onPress={onNext}
+        />
+      </ButtonFooter>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1, backgroundColor: Colors.background, alignItems: 'stretch' },
   content: { flex: 1, paddingHorizontal: 28, justifyContent: 'center', alignItems: 'center' },
   emoji: { fontSize: 72, marginBottom: 24 },
   title: { ...Typography.sectionTitle, color: Colors.textPrimary, textAlign: 'center', fontSize: 26 },
@@ -64,5 +66,5 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
   },
   dotActive: { backgroundColor: Colors.accent, width: 24 },
-  cta: { marginHorizontal: 24, marginBottom: 24 },
+  ctaFooter: { paddingHorizontal: 24 },
 });

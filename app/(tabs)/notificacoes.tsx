@@ -1,124 +1,143 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Radius } from '../../constants/radius';
-import { Typography } from '../../constants/typography';
-import { Card } from '../../components/ui/Card';
-import { useAuth } from '../../hooks/useAuth';
-import { useDesafios, type Desafio } from '../../hooks/useDesafios';
-import { db } from '../../utils/firebaseConfig';
+
+type TabNotif = 'lembretes' | 'sistema';
+
+const TAB_PAD_BOTTOM = 88;
+
+const MOCK_HOJE = [
+  { hora: '10:30 AM', id: '1' },
+  { hora: '9:00 AM', id: '2' },
+];
+
+const MOCK_ONTEM = [{ hora: '6:15 PM', id: '3' }];
 
 export default function NotificacoesScreen() {
-  const { user } = useAuth();
-  const { desafios, loading } = useDesafios();
-  const [nomes, setNomes] = useState<Record<string, string>>({});
-
-  const recebidos = useMemo(
-    () =>
-      desafios.filter(
-        (d) => d.desafiado === user?.uid && d.status === 'pendente'
-      ),
-    [desafios, user?.uid]
-  );
-
-  const carregarNomes = useCallback(async (lista: Desafio[]) => {
-    const uids = [...new Set(lista.map((d) => d.desafiante))];
-    const entries = await Promise.all(
-      uids.map(async (uid) => {
-        const snap = await getDoc(doc(db, 'usuarios', uid));
-        const nome = snap.exists() ? (snap.data().nome as string) : 'Jogador';
-        return [uid, nome] as const;
-      })
-    );
-    setNomes((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
-  }, []);
-
-  useEffect(() => {
-    if (recebidos.length) void carregarNomes(recebidos);
-  }, [recebidos, carregarNomes]);
-
-  async function responder(desafioId: string, status: 'aceito' | 'recusado') {
-    try {
-      await updateDoc(doc(db, 'desafios', desafioId), { status });
-    } catch (e: unknown) {
-      Alert.alert('Desafio', e instanceof Error ? e.message : 'Erro ao responder.');
-    }
-  }
+  const router = useRouter();
+  const [aba, setAba] = useState<TabNotif>('lembretes');
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <Text style={styles.title}>Notificações</Text>
-      <FlatList
-        data={recebidos}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <Text style={styles.empty}>
-            {loading ? 'Carregando…' : 'Nenhum desafio pendente.'}
-          </Text>
-        }
-        renderItem={({ item }) => (
-          <Card style={styles.card}>
-            <Text style={styles.nome}>{nomes[item.desafiante] ?? 'Jogador'}</Text>
-            <Text style={styles.meta}>
-              {item.esporte} · {item.quadra}
+    <View style={styles.root}>
+      <SafeAreaView edges={['top']} style={styles.safe}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={styles.back}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>Notificações</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        <View style={styles.toggleRow}>
+          <TouchableOpacity
+            style={[styles.toggleBtn, aba === 'lembretes' && styles.toggleOn]}
+            onPress={() => setAba('lembretes')}
+          >
+            <Text style={[styles.toggleTxt, aba === 'lembretes' && styles.toggleTxtOn]}>
+              LEMBRETES
             </Text>
-            <Text style={styles.msg}>Quer te desafiar!</Text>
-            <View style={styles.actions}>
-              <TouchableOpacity
-                style={styles.recusar}
-                onPress={() => responder(item.id, 'recusado')}
-              >
-                <Text style={styles.recusarTxt}>Recusar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.aceitar}
-                onPress={() => responder(item.id, 'aceito')}
-              >
-                <Text style={styles.aceitarTxt}>Aceitar</Text>
-              </TouchableOpacity>
-            </View>
-          </Card>
-        )}
-      />
-    </SafeAreaView>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleBtn, aba === 'sistema' && styles.toggleOn]}
+            onPress={() => setAba('sistema')}
+          >
+            <Text style={[styles.toggleTxt, aba === 'sistema' && styles.toggleTxtOn]}>
+              SISTEMA
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView contentContainerStyle={{ paddingBottom: TAB_PAD_BOTTOM, paddingHorizontal: 20 }}>
+          <Text style={styles.section}>Hoje</Text>
+          {MOCK_HOJE.map((n) => (
+            <NotifCard key={n.id} hora={n.hora} />
+          ))}
+
+          <Text style={[styles.section, { marginTop: 20 }]}>Ontem</Text>
+          {MOCK_ONTEM.map((n) => (
+            <NotifCard key={n.id} hora={n.hora} />
+          ))}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+function NotifCard({ hora }: { hora: string }) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.iconBox}>
+        <Ionicons name="trophy" size={22} color={Colors.accent} />
+      </View>
+      <View style={styles.cardBody}>
+        <Text style={styles.cardTitle}>Notificação</Text>
+        <Text style={styles.cardSub}>Texto Placeholder para as notificações.</Text>
+      </View>
+      <Text style={styles.hora}>{hora}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background, paddingHorizontal: 16 },
-  title: { ...Typography.sectionTitle, color: Colors.textPrimary, marginBottom: 14 },
-  list: { paddingBottom: 24, gap: 10 },
-  card: { marginBottom: 4 },
-  nome: { color: Colors.textPrimary, fontWeight: '900', fontSize: 17 },
-  meta: { color: Colors.accent, marginTop: 4, textTransform: 'capitalize', fontWeight: '700' },
-  msg: { color: Colors.textSecondary, marginTop: 6 },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  recusar: {
+  root: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    marginBottom: 16,
+  },
+  back: { color: Colors.accent, fontSize: 28, fontWeight: 'bold', width: 40 },
+  title: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  headerSpacer: { width: 40 },
+  toggleRow: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    backgroundColor: Colors.surfaceDark,
+    borderRadius: Radius.pill,
+    padding: 4,
+    marginBottom: 20,
+  },
+  toggleBtn: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: Radius.pill,
-    borderWidth: 1,
-    borderColor: Colors.border,
     alignItems: 'center',
   },
-  recusarTxt: { color: Colors.textPrimary, fontWeight: '700' },
-  aceitar: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: Radius.pill,
-    backgroundColor: Colors.accent,
+  toggleOn: { backgroundColor: Colors.accent },
+  toggleTxt: { color: Colors.white, fontWeight: 'bold', fontSize: 13 },
+  toggleTxtOn: { color: Colors.textOnAccent },
+  section: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 16, marginBottom: 10 },
+  card: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: Colors.surfaceDark,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    gap: 12,
   },
-  aceitarTxt: { color: Colors.textOnAccent, fontWeight: '800' },
-  empty: { color: Colors.textSecondary, textAlign: 'center', marginTop: 32 },
+  iconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardBody: { flex: 1 },
+  cardTitle: { color: Colors.textPrimary, fontWeight: 'bold' },
+  cardSub: { color: Colors.textSecondary, fontSize: 12, marginTop: 4 },
+  hora: { color: Colors.textSecondary, fontSize: 11 },
 });
