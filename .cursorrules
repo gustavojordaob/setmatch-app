@@ -1,16 +1,141 @@
-# .cursorrules — setmatch-app
+# .cursorrules — Setmatch App
 
-Voce e um dev React Native especialista no projeto setmatch-app.
+Você é um dev React Native especialista no projeto Setmatch.
 
-Antes de gerar codigo:
-1. Use checar_padrao_lashmatch
-2. Leia o PROJECT.md
-3. Siga Secao 18 do CLAUDE.md
+---
 
-Regras:
-- Firebase: apos alterar firestore.rules ou indices, fazer deploy (CLAUDE.md Secao 0)
-- Importar auth/firestore de utils/firebaseConfig.ts
-- Cores do PROJECT.md — nunca hardcoded
-- tw() para layouts, StyleSheet para componentes
-- Fundo preto em todas as telas
-- router.replace apos login — nunca router.push
+## MEMÓRIA — Sempre fazer antes de qualquer código
+
+1. Use `buscar_historico` com query relevante ao que foi pedido
+2. Use `rag_buscar` com query técnica relevante
+3. Consulte C:/Users/gusta/obsidian/projetos/setmatch-prd.md
+4. Só então implemente — seguindo o histórico encontrado
+
+## MEMÓRIA — Sempre fazer após implementar
+
+1. Use `salvar_decisao` para registrar decisões importantes
+2. Se implementou feature completa, use `salvar_contexto_conversa`
+3. Re-indexe o RAG se atualizou o Obsidian:
+   python C:/Users/gusta/obsidian/indexar_obsidian_chroma.py --force
+
+---
+
+## Identidade visual — NUNCA inventar cores
+
+Usar SEMPRE de constants/colors.ts:
+- primary/background: #255943
+- accent/CTA: #C7D941
+- surfaceDark: #1A1A1A
+- textPrimary: #FFFFFF
+- textOnAccent: #1A1A1A
+- borderRadius botão: 60 (pill)
+- borderRadius card: 16-30
+
+---
+
+## Stack obrigatória
+
+- Expo SDK: 54
+- expo-router: ~4.0.0
+- react-native: 0.76.5
+- Firebase JS SDK v11
+- expo-auth-session (NUNCA @react-native-google-signin)
+- initializeAuth + AsyncStorage (NUNCA getAuth simples)
+
+---
+
+## Regras de código
+
+- Importar auth/firestore SOMENTE de utils/firebaseConfig.ts
+- Cores sempre de constants/colors.ts — nunca hardcoded
+- router.replace após login — nunca router.push
+- serverTimestamp() para campos de data no Firestore
+- NUNCA instalar pacote nativo sem verificar Expo Go
+
+---
+
+## Firebase
+
+- Projeto: setmatch-app-fabrica
+- Auth: Google (expo-auth-session) + Email/senha
+- Storage: usuarios/{uid}/perfil_*.jpg
+- Bucket: setmatch-app-fabrica.firebasestorage.app
+- Após alterar firestore.rules → sempre fazer deploy
+
+---
+
+## Estrutura de pastas (Expo Router)
+
+app/
+  index.tsx (splash)
+  onboarding/ (4 slides com imagens reais)
+  (auth)/ login, cadastro, esqueci-senha
+  primeiro-acesso.tsx
+  wizard/ (idade, genero, peso, altura, esportes, nivel, foto)
+  (tabs)/ home, perfil, notificacoes
+  jogador/[uid].tsx
+  desafio/ novo, [id]
+  partida/registrar/[desafioId].tsx
+
+assets/
+  Vector.png (logo bolinha)
+  onboarding/ (Onboarding_1-4.png)
+
+---
+
+## Schema Firestore
+
+usuarios/{uid}:
+  nome, email, fotoUrl, esportes[],
+  idade, genero, peso, altura, nivel,
+  vitorias, derrotas, torneios,
+  onboardingOk: boolean,
+  criadoEm, ultimoAcesso
+
+desafios/{id}:
+  desafiante, desafiado, esporte,
+  quadra, status, criadoEm
+
+partidas/{id}:
+  jogador1, jogador2, sets[],
+  vencedor, esporte, quadra, dataPartida
+
+---
+
+## Fluxo de navegação obrigatório
+
+Launch → onboarding (4 slides) → Login/Cadastro
+→ primeiro-acesso → wizard (7 passos) → Home
+
+onboardingOk: false → wizard
+onboardingOk: true → Home direto
+
+---
+
+## Erros conhecidos e soluções
+
+- RNGoogleSignin not found → usar expo-auth-session
+- storage/unknown → fetch→blob→uploadBytes, bucket .firebasestorage.app
+- Auth não persiste → initializeAuth + AsyncStorage
+- Expo SDK incompatível → npx expo install --fix
+
+---
+
+## Obsidian — onde estão os docs
+
+- PRD: C:/Users/gusta/obsidian/projetos/setmatch-prd.md
+- Padrões: C:/Users/gusta/obsidian/fabrica/
+- Decisões: C:/Users/gusta/obsidian/fabrica/decisoes.md
+
+## ERROS — Fluxo obrigatório
+
+Quando encontrar qualquer erro:
+1. Use `buscar_solucao` com o erro
+2. Use `analisar_e_aprender` para investigar
+3. Resolva o erro
+4. Use `registrar_erro_solucao` para documentar
+5. Use `atualizar_padrao` no arquivo relevante
+6. Re-indexe: python C:/Users/gusta/obsidian/indexar_obsidian_chroma.py --force
+
+Arquivo de referência do template:
+C:/Users/gusta/obsidian/fabrica/template-erro-aprendizado.md
