@@ -43,6 +43,21 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-router", "expo-web-browser"]
+    "plugins": [
+      "expo-router",
+      "expo-web-browser"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "43b2727b-ab89-41a3-ad66-1973318dc57b"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/43b2727b-ab89-41a3-ad66-1973318dc57b"
+    }
   }
 }

@@ -131,7 +131,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F5F5F5' },
+  root: { flex: 1, backgroundColor: Colors.bodyLight },
   headerSafe: { backgroundColor: Colors.background },
   header: {
     backgroundColor: Colors.background,
@@ -193,10 +193,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   toggleOn: { backgroundColor: Colors.background },
-  toggleTxt: { color: '#888', fontWeight: '700', fontSize: 13 },
+  toggleTxt: { color: Colors.textDark, fontWeight: '700', fontSize: 13 },
   toggleTxtOn: { color: Colors.textPrimary },
-  section: { color: '#333', fontWeight: 'bold', fontSize: 16, marginBottom: 10 },
-  empty: { color: '#888', textAlign: 'center', marginTop: 24 },
+  section: { color: Colors.textDark, fontWeight: 'bold', fontSize: 16, marginBottom: 10 },
+  empty: { color: Colors.textMutedDark, textAlign: 'center', marginTop: 24 },
   feedCard: {
     borderRadius: 16,
     overflow: 'hidden',

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Colors } from '../constants/colors';
 import { useAuth } from '../hooks/useAuth';
 
 const SPLASH_MS = 1800;
@@ -41,6 +42,6 @@ export default function LaunchScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#255943' },
+  container: { flex: 1, backgroundColor: Colors.background },
   image: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
 });

@@ -135,7 +135,7 @@ Quando encontrar qualquer erro:
 3. Resolva o erro
 4. Use `registrar_erro_solucao` para documentar
 5. Use `atualizar_padrao` no arquivo relevante
-6. Re-indexe: python C:/Users/gusta/obsidian/indexar_obsidian_chroma.py --force
+6. Re-indexe: python C:/Users/gusta/obsidian/indexar_rapido.py --force
 
 Arquivo de referência do template:
 C:/Users/gusta/obsidian/fabrica/template-erro-aprendizado.md

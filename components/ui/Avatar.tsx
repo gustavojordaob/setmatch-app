@@ -53,7 +53,7 @@ export function Avatar({ uri, nome, size = 'md', verified }: AvatarProps) {
 const styles = StyleSheet.create({
   outer: { position: 'relative' },
   wrap: {
-    backgroundColor: '#4A4A4A',
+    backgroundColor: Colors.avatarPlaceholder,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

@@ -11,7 +11,7 @@ const TAB_CONFIG: {
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
   { name: 'home', label: 'Home', icon: 'home' },
-  { name: 'trofeu', label: 'Troféu', icon: 'trophy' },
+  { name: 'trofeu', label: 'Rankings', icon: 'trophy' },
   { name: 'estatisticas', label: 'Estatísticas', icon: 'stats-chart' },
   { name: 'perfil', label: 'Perfil', icon: 'person' },
 ];

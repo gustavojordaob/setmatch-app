@@ -12,7 +12,8 @@ interface RecentMatchCardProps {
   vitoria?: boolean;
   jogador1: PlayerLine;
   jogador2: PlayerLine;
-  data: string;
+  data?: string;
+  showMeta?: boolean;
 }
 
 export function RecentMatchCard({
@@ -20,9 +21,10 @@ export function RecentMatchCard({
   jogador1,
   jogador2,
   data,
+  showMeta = true,
 }: RecentMatchCardProps) {
   return (
-    <View>
+    <View style={styles.wrap}>
       <View style={styles.card}>
         {vitoria ? (
           <View style={styles.badge}>
@@ -33,14 +35,16 @@ export function RecentMatchCard({
         <View style={styles.divider} />
         <PlayerRow {...jogador2} />
       </View>
-      <View style={styles.meta}>
-        <View style={styles.chips}>
-          <Text style={styles.chipActive}>🏆</Text>
-          <Text style={styles.chip}>🎾</Text>
-          <Text style={styles.chip}>📊</Text>
+      {showMeta && data ? (
+        <View style={styles.meta}>
+          <View style={styles.chips}>
+            <Text style={styles.chipActive}>🏆</Text>
+            <Text style={styles.chip}>🎾</Text>
+            <Text style={styles.chip}>📊</Text>
+          </View>
+          <Text style={styles.date}>{data}</Text>
         </View>
-        <Text style={styles.date}>{data}</Text>
-      </View>
+      ) : null}
     </View>
   );
 }
@@ -68,6 +72,7 @@ function PlayerRow({ nome, sets, winner }: PlayerLine) {
 }
 
 const styles = StyleSheet.create({
+  wrap: { marginBottom: 8 },
   card: {
     backgroundColor: Colors.primary,
     borderRadius: 16,
@@ -106,5 +111,5 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', gap: 8 },
   chipActive: { fontSize: 18 },
   chip: { fontSize: 18, opacity: 0.4 },
-  date: { color: '#888', fontSize: 12, fontWeight: '600' },
+  date: { color: Colors.textMutedDark, fontSize: 12, fontWeight: '600' },
 });
