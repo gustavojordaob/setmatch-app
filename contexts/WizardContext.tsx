@@ -7,16 +7,23 @@ import {
   type ReactNode,
 } from 'react';
 import type { EsporteId } from '../constants/esportes';
-import type { Genero, NivelAtividade } from '../types/usuario';
+import type { Genero, NivelAtividade, UserRole } from '../types/usuario';
 
 export interface WizardDraft {
   idade?: number;
   genero?: Genero;
   peso?: number;
   altura?: number;
+  cidade?: string;
+  bairro?: string;
+  estado?: string;
+  cep?: string;
+  rua?: string;
+  telefone?: string;
   esportes?: EsporteId[];
   nivel?: NivelAtividade;
   fotoUrl?: string;
+  role?: UserRole;
 }
 
 interface WizardContextValue {

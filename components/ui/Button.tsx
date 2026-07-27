@@ -80,8 +80,6 @@ function stylesForVariant(variant: ButtonVariant) {
 const styles = StyleSheet.create({
   base: {
     height: 56,
-    width: '100%',
-    maxWidth: '100%',
     alignSelf: 'stretch',
     borderRadius: Radius.pill,
     paddingHorizontal: 20,

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,8 +9,24 @@ import { useAuth } from '../hooks/useAuth';
 
 export default function PrimeiroAcessoScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading, isAdminClube, onboardingComplete } = useAuth();
   const nome = user?.displayName?.split(' ')[0] ?? 'Jogador';
+
+  useEffect(() => {
+    if (loading) return;
+    if (isAdminClube) {
+      router.replace(onboardingComplete ? '/clube/painel' : '/clube/onboarding');
+      return;
+    }
+    if (onboardingComplete) {
+      router.replace('/(tabs)/home');
+    }
+  }, [loading, isAdminClube, onboardingComplete, router]);
+
+  // Evita flash do wizard enquanto o perfil ainda carrega
+  if (loading || isAdminClube || onboardingComplete) {
+    return <View style={styles.safe} />;
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>

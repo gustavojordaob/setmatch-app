@@ -16,9 +16,9 @@ export default function PerfilScreen() {
 
   const nome = perfil?.nome ?? user?.displayName ?? 'Gustavo';
   const email = perfil?.email ?? user?.email ?? 'gustavo@setmatch.com';
-  const v = perfil?.vitorias ?? 30;
-  const d = perfil?.derrotas ?? 7;
-  const torneios = 5;
+  const v = perfil?.vitorias ?? 0;
+  const d = perfil?.derrotas ?? 0;
+  const torneios = 0;
 
   function confirmarLogout() {
     Alert.alert('Sair da conta', 'Deseja encerrar sua sessão?', [
@@ -85,6 +85,27 @@ export default function PerfilScreen() {
             <StatCircle value={String(torneios)} label="Torneios" />
           </View>
 
+          {perfil?.cidade ? (
+            <Text style={styles.cidade}>
+              📍 {[perfil.bairro, perfil.cidade, perfil.estado].filter(Boolean).join(' · ')}
+            </Text>
+          ) : null}
+          {perfil?.telefone ? (
+            <Text style={styles.cidade}>📱 {perfil.telefone}</Text>
+          ) : null}
+          {perfil?.setmatchId ? (
+            <Text style={styles.cidade}>ID: {perfil.setmatchId}</Text>
+          ) : null}
+
+          <Button label="Editar perfil" onPress={() => router.push('/perfil/editar')} />
+          <Button
+            label="Minhas estatísticas"
+            variant="outline"
+            onPress={() => router.push('/(tabs)/estatisticas')}
+          />
+          <Button label="Meus clubes" onPress={() => router.push('/meus-clubes')} />
+          <Button label="Meus pagamentos" onPress={() => router.push('/pagamentos')} />
+          <Button label="Amigos" variant="outline" onPress={() => router.push('/(tabs)/amigos')} />
           <Button label="Meus Badges" variant="outline" onPress={() => {}} />
 
           <View style={styles.badgeGrid}>
@@ -151,6 +172,7 @@ const styles = StyleSheet.create({
   profileHeader: { alignItems: 'center', gap: 8, marginTop: 8 },
   nome: { ...Typography.userName, color: Colors.textPrimary, fontSize: 30 },
   email: { color: Colors.textPrimary, opacity: 0.85, fontSize: 14 },
+  cidade: { color: Colors.accent, fontSize: 13, fontWeight: '600', textAlign: 'center' },
   statsRow: { flexDirection: 'row', gap: 16, marginVertical: 8 },
   statCircle: {
     width: 96,

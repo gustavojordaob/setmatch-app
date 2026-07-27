@@ -1,4 +1,69 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "solicitacoes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "rankingId", "order": "ASCENDING" },
+        { "fieldPath": "uid", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "solicitacoes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "donoUid", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "amizades",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deUid", "order": "ASCENDING" },
+        { "fieldPath": "paraUid", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "amizades",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "paraUid", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "amizades",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deUid", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "conversas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "participantes", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "atualizadoEm", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pagamentos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clubeId", "order": "ASCENDING" },
+        { "fieldPath": "criadoEm", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "matriculas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clubeId", "order": "ASCENDING" },
+        { "fieldPath": "uid", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

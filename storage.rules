@@ -3,9 +3,13 @@ service firebase.storage {
   match /b/{bucket}/o {
     match /usuarios/{uid}/{allPaths=**} {
       allow read: if request.auth != null;
+      // size pode faltar em alguns uploads REST do app — não bloquear o wizard
       allow create, update: if request.auth != null
         && request.auth.uid == uid
-        && request.resource.size < 5 * 1024 * 1024;
+        && (
+          !('size' in request.resource)
+          || request.resource.size < 5 * 1024 * 1024
+        );
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
   }

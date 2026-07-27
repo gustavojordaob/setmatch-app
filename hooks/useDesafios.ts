@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   collection,
   onSnapshot,
@@ -14,10 +14,19 @@ export type DesafioStatus = 'pendente' | 'aceito' | 'recusado' | 'finalizado';
 export interface Desafio {
   id: string;
   desafiante: string;
+  desafianteNome: string;
+  desafianteFoto?: string;
   desafiado: string;
+  desafiadoNome: string;
+  desafiadoFoto?: string;
   esporte: string;
   quadra: string;
   status: DesafioStatus;
+  formato?: string;
+  mensagem?: string;
+  dataSugerida?: string;
+  clubeNome?: string;
+  partidaId?: string;
   criadoEm?: { seconds: number };
 }
 
@@ -29,6 +38,28 @@ function mergeDesafios(a: Desafio[], b: Desafio[]): Desafio[] {
     const ty = y.criadoEm?.seconds ?? 0;
     return ty - tx;
   });
+}
+
+function mapDoc(d: { id: string; data: () => Record<string, unknown> }): Desafio {
+  const raw = d.data();
+  return {
+    id: d.id,
+    desafiante: String(raw.desafiante ?? ''),
+    desafianteNome: String(raw.desafianteNome ?? 'Jogador'),
+    desafianteFoto: raw.desafianteFoto ? String(raw.desafianteFoto) : undefined,
+    desafiado: String(raw.desafiado ?? ''),
+    desafiadoNome: String(raw.desafiadoNome ?? 'Jogador'),
+    desafiadoFoto: raw.desafiadoFoto ? String(raw.desafiadoFoto) : undefined,
+    esporte: String(raw.esporte ?? ''),
+    quadra: String(raw.quadra ?? ''),
+    status: (raw.status as DesafioStatus) ?? 'pendente',
+    formato: raw.formato ? String(raw.formato) : undefined,
+    mensagem: raw.mensagem ? String(raw.mensagem) : undefined,
+    dataSugerida: raw.dataSugerida ? String(raw.dataSugerida) : undefined,
+    clubeNome: raw.clubeNome ? String(raw.clubeNome) : undefined,
+    partidaId: raw.partidaId ? String(raw.partidaId) : undefined,
+    criadoEm: raw.criadoEm as { seconds: number } | undefined,
+  };
 }
 
 export function useDesafios() {
@@ -52,28 +83,11 @@ export function useDesafios() {
     const qA = query(collection(db, 'desafios'), where('desafiante', '==', user.uid));
     const qB = query(collection(db, 'desafios'), where('desafiado', '==', user.uid));
 
-    const mapDoc = (d: { id: string; data: () => Record<string, unknown> }): Desafio => {
-      const raw = d.data();
-      return {
-        id: d.id,
-        desafiante: String(raw.desafiante ?? ''),
-        desafiado: String(raw.desafiado ?? ''),
-        esporte: String(raw.esporte ?? ''),
-        quadra: String(raw.quadra ?? ''),
-        status: (raw.status as DesafioStatus) ?? 'pendente',
-        criadoEm: raw.criadoEm as { seconds: number } | undefined,
-      };
-    };
-
     let unsubA: Unsubscribe | undefined;
     let unsubB: Unsubscribe | undefined;
 
-    unsubA = onSnapshot(qA, (snap) => {
-      setChunkA(snap.docs.map((d) => mapDoc(d)));
-    });
-    unsubB = onSnapshot(qB, (snap) => {
-      setChunkB(snap.docs.map((d) => mapDoc(d)));
-    });
+    unsubA = onSnapshot(qA, (snap) => setChunkA(snap.docs.map((d) => mapDoc(d))));
+    unsubB = onSnapshot(qB, (snap) => setChunkB(snap.docs.map((d) => mapDoc(d))));
 
     return () => {
       unsubA?.();
@@ -87,5 +101,35 @@ export function useDesafios() {
     setLoading(false);
   }, [chunkA, chunkB, user]);
 
-  return { desafios, loading };
+  const meuUid = user?.uid;
+
+  /** Convites recebidos aguardando minha resposta. */
+  const recebidosPendentes = useMemo(
+    () => desafios.filter((d) => d.status === 'pendente' && d.desafiado === meuUid),
+    [desafios, meuUid]
+  );
+
+  const enviadosPendentes = useMemo(
+    () => desafios.filter((d) => d.status === 'pendente' && d.desafiante === meuUid),
+    [desafios, meuUid]
+  );
+
+  const agendados = useMemo(
+    () => desafios.filter((d) => d.status === 'aceito'),
+    [desafios]
+  );
+
+  const historico = useMemo(
+    () => desafios.filter((d) => d.status === 'finalizado' || d.status === 'recusado'),
+    [desafios]
+  );
+
+  return {
+    desafios,
+    loading,
+    recebidosPendentes,
+    enviadosPendentes,
+    agendados,
+    historico,
+  };
 }

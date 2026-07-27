@@ -4,31 +4,35 @@ import { useRouter } from 'expo-router';
 import { Colors } from '../constants/colors';
 import { useAuth } from '../hooks/useAuth';
 
-const SPLASH_MS = 1800;
+const SPLASH_MS = 1200;
 
 export default function LaunchScreen() {
   const router = useRouter();
-  const { user, loading, onboardingComplete } = useAuth();
+  const { user, loading, onboardingComplete, isAdminClube } = useAuth();
   const navigated = useRef(false);
 
   useEffect(() => {
     if (loading || navigated.current) return;
 
     const timer = setTimeout(() => {
+      if (navigated.current) return;
       navigated.current = true;
+
       if (!user) {
         router.replace('/onboarding');
         return;
       }
-      if (onboardingComplete) {
-        router.replace('/(tabs)/home');
-      } else {
-        router.replace('/primeiro-acesso');
+
+      if (isAdminClube) {
+        router.replace(onboardingComplete ? '/clube/painel' : '/clube/onboarding');
+        return;
       }
+
+      router.replace(onboardingComplete ? '/(tabs)/home' : '/primeiro-acesso');
     }, SPLASH_MS);
 
     return () => clearTimeout(timer);
-  }, [user, loading, onboardingComplete, router]);
+  }, [user, loading, onboardingComplete, isAdminClube, router]);
 
   return (
     <View style={styles.container}>

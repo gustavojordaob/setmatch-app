@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,6 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Radius } from '../../constants/radius';
 import { RecentMatchCard } from '../../components/home/RecentMatchCard';
+import { useAuth } from '../../hooks/useAuth';
+import { formatDataPartida, usePartidas } from '../../hooks/usePartidas';
 
 type AbaCal = 'proximas' | 'historico';
 
@@ -13,7 +15,21 @@ const TAB_PAD_BOTTOM = 100;
 
 export default function EstatisticasScreen() {
   const router = useRouter();
+  const { user, perfil } = useAuth();
+  const { partidas } = usePartidas();
   const [aba, setAba] = useState<AbaCal>('historico');
+  const meuNome = perfil?.nome ?? user?.displayName ?? 'Você';
+
+  const porData = useMemo(() => {
+    const map = new Map<string, typeof partidas>();
+    partidas.forEach((p) => {
+      const key = formatDataPartida(p) || 'Sem data';
+      const list = map.get(key) ?? [];
+      list.push(p);
+      map.set(key, list);
+    });
+    return Array.from(map.entries());
+  }, [partidas]);
 
   return (
     <View style={styles.root}>
@@ -58,22 +74,35 @@ export default function EstatisticasScreen() {
           </View>
 
           {aba === 'historico' ? (
-            <>
-              <Text style={styles.dateHead}>26/05/2026</Text>
-              <RecentMatchCard
-                vitoria
-                jogador1={{ nome: 'Gustavo', sets: [6, 6, 6], winner: true }}
-                jogador2={{ nome: 'Guilherme', sets: [4, 3, 0] }}
-                showMeta={false}
-              />
-              <Text style={[styles.dateHead, { marginTop: 16 }]}>25/05/2026</Text>
-              <RecentMatchCard
-                vitoria
-                jogador1={{ nome: 'Gustavo', sets: [6, 6, 6], winner: true }}
-                jogador2={{ nome: 'Guilherme', sets: [4, 3, 0] }}
-                showMeta={false}
-              />
-            </>
+            porData.length === 0 ? (
+              <Text style={styles.empty}>Sem partidas no histórico.</Text>
+            ) : (
+              porData.map(([data, lista]) => (
+                <View key={data}>
+                  <Text style={styles.dateHead}>{data}</Text>
+                  {lista.map((p) => {
+                    const vitoria = p.vencedor === user?.uid;
+                    return (
+                      <RecentMatchCard
+                        key={p.id}
+                        vitoria={vitoria}
+                        jogador1={{
+                          nome: p.jogador1Nome ?? (p.jogador1 === user?.uid ? meuNome : 'Jogador'),
+                          sets: p.sets.map((s) => s.j1),
+                          winner: p.vencedor === p.jogador1,
+                        }}
+                        jogador2={{
+                          nome: p.jogador2Nome ?? (p.jogador2 === user?.uid ? meuNome : 'Adversário'),
+                          sets: p.sets.map((s) => s.j2),
+                          winner: p.vencedor === p.jogador2,
+                        }}
+                        showMeta={false}
+                      />
+                    );
+                  })}
+                </View>
+              ))
+            )
           ) : (
             <Text style={styles.empty}>Sem partidas próximas agendadas.</Text>
           )}
@@ -145,6 +174,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     marginBottom: 10,
+    marginTop: 8,
   },
   empty: {
     color: Colors.textSecondary,

@@ -1,9 +1,10 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import {
   Dimensions,
   FlatList,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   type NativeScrollEvent,
@@ -34,6 +35,8 @@ export function RulerPicker({
   const listRef = useRef<FlatList<number>>(null);
   const pad = (SCREEN_W - TICK_W) / 2;
   const idx = values.indexOf(value);
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(String(value));
 
   useEffect(() => {
     if (idx >= 0) {
@@ -47,6 +50,22 @@ export function RulerPicker({
     if (v !== value) onChange(v);
   }
 
+  function commitText() {
+    const parsed = parseInt(text, 10);
+    const min = values[0];
+    const max = values[values.length - 1];
+    const clamped = Number.isNaN(parsed)
+      ? value
+      : Math.min(Math.max(parsed, min), max);
+    setText(String(clamped));
+    setEditing(false);
+    if (clamped !== value) onChange(clamped);
+    const newIdx = values.indexOf(clamped);
+    if (newIdx >= 0) {
+      listRef.current?.scrollToOffset({ offset: newIdx * TICK_W, animated: true });
+    }
+  }
+
   const left = values[Math.max(0, idx - 5)];
   const right = values[Math.min(values.length - 1, idx + 5)];
 
@@ -54,9 +73,31 @@ export function RulerPicker({
     <View style={styles.wrap}>
       <View style={styles.sideLabels}>
         <Text style={styles.side}>{unitLeft ?? format(left)}</Text>
-        <View style={styles.centerCircle}>
-          <Text style={styles.centerVal}>{format(value)}</Text>
-        </View>
+        {editing ? (
+          <View style={styles.centerCircle}>
+            <TextInput
+              style={styles.centerInput}
+              value={text}
+              onChangeText={setText}
+              onBlur={commitText}
+              onSubmitEditing={commitText}
+              keyboardType="number-pad"
+              maxLength={3}
+              autoFocus
+              selectionColor={Colors.accent}
+            />
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.centerCircle}
+            onPress={() => {
+              setText(String(value));
+              setEditing(true);
+            }}
+          >
+            <Text style={styles.centerVal}>{format(value)}</Text>
+          </TouchableOpacity>
+        )}
         <Text style={styles.side}>{unitRight ?? format(right)}</Text>
       </View>
       <View style={styles.centerLine} />
@@ -133,6 +174,14 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 28,
     fontWeight: 'bold',
+  },
+  centerInput: {
+    color: Colors.textPrimary,
+    fontSize: 28,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    width: 76,
+    padding: 0,
   },
   centerLine: {
     alignSelf: 'center',

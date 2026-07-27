@@ -4,6 +4,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { WizardProvider } from '../contexts/WizardContext';
+import { EsporteProvider } from '../contexts/EsporteContext';
+import { ClubeProvider } from '../contexts/ClubeContext';
 import { AuthGuard } from '../components/AuthGuard';
 
 SplashScreen.preventAutoHideAsync();
@@ -29,7 +31,11 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <WizardProvider>
-        <RootStack />
+        <EsporteProvider>
+          <ClubeProvider>
+            <RootStack />
+          </ClubeProvider>
+        </EsporteProvider>
       </WizardProvider>
     </AuthProvider>
   );

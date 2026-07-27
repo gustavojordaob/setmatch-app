@@ -13,7 +13,7 @@ export default function WizardGeneroScreen() {
   return (
     <WizardLayout
       title="Qual o seu gênero?"
-      onContinue={() => router.push('/wizard/peso')}
+      onContinue={() => router.push('/wizard/telefone')}
       continueDisabled={!selecionado}
     >
       <View style={styles.row}>

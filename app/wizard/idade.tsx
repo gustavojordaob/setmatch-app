@@ -16,7 +16,7 @@ export default function WizardIdadeScreen() {
 
   return (
     <WizardLayout title="Qual a sua idade?" onContinue={continuar} showBack={false}>
-      <ScrollPicker min={16} max={80} value={idade} onChange={setIdade} />
+      <ScrollPicker min={5} max={90} value={idade} onChange={setIdade} />
     </WizardLayout>
   );
 }

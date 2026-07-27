@@ -11,8 +11,10 @@ const TAB_CONFIG: {
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
   { name: 'home', label: 'Home', icon: 'home' },
+  { name: 'desafios', label: 'Partidas', icon: 'tennisball' },
   { name: 'trofeu', label: 'Rankings', icon: 'trophy' },
-  { name: 'estatisticas', label: 'Estatísticas', icon: 'stats-chart' },
+  { name: 'aulas', label: 'Aulas', icon: 'school' },
+  { name: 'mensagens', label: 'Chat', icon: 'chatbubbles' },
   { name: 'perfil', label: 'Perfil', icon: 'person' },
 ];
 
@@ -73,24 +75,24 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceDark,
     borderRadius: 40,
     height: 64,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
   },
   activePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: Colors.accent,
     borderRadius: Radius.pill,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
   activeLabel: {
     color: Colors.textOnAccent,
     fontWeight: 'bold',
-    fontSize: 13,
+    fontSize: 12,
   },
   inactive: {
-    padding: 10,
+    padding: 7,
     alignItems: 'center',
     justifyContent: 'center',
   },

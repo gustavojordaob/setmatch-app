@@ -87,6 +87,13 @@ export default function LoginScreen() {
               Registre-se
             </Text>
           </View>
+
+          <Text
+            style={styles.adminLink}
+            onPress={() => router.push('/(auth)/admin-login')}
+          >
+            Sou dono de clube — já tenho acesso admin
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -117,4 +124,11 @@ const styles = StyleSheet.create({
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' },
   footerMuted: { color: Colors.textPrimary },
   footerLink: { color: Colors.accent, fontWeight: 'bold' },
+  adminLink: {
+    color: Colors.accent,
+    textAlign: 'center',
+    fontWeight: 'bold',
+    marginTop: 8,
+    textDecorationLine: 'underline',
+  },
 });
