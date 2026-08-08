@@ -12,5 +12,33 @@ service firebase.storage {
         );
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
+
+    // Fotos do feed social
+    match /posts/{uid}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && (
+          !('size' in request.resource)
+          || request.resource.size < 8 * 1024 * 1024
+        );
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Vídeos de aulas online — professor/admin faz upload no próprio path
+    match /aulas/{uid}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && (
+          !('size' in request.resource)
+          || request.resource.size < 200 * 1024 * 1024
+        )
+        && (
+          !('contentType' in request.resource)
+          || request.resource.contentType.matches('video/.*')
+        );
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }

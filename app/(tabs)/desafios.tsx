@@ -18,7 +18,8 @@ import { ESPORTES } from '../../constants/esportes';
 import { labelFormato } from '../../constants/formatosPartida';
 import { atualizarStatusDesafio } from '../../services/desafios';
 
-const TAB_PAD_BOTTOM = 88;
+import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
+const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
 
 type Aba = 'recebidos' | 'enviados' | 'agendados' | 'historico';
 

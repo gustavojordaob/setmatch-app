@@ -57,11 +57,62 @@
       ]
     },
     {
+      "collectionGroup": "pagamentos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "donoUid", "order": "ASCENDING" },
+        { "fieldPath": "uid", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pagamentos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "donoUid", "order": "ASCENDING" },
+        { "fieldPath": "atualizadoEm", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "matriculas",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "clubeId", "order": "ASCENDING" },
         { "fieldPath": "uid", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "matriculas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clubeId", "order": "ASCENDING" },
+        { "fieldPath": "donoUid", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "matriculas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clubeId", "order": "ASCENDING" },
+        { "fieldPath": "donoUid", "order": "ASCENDING" },
+        { "fieldPath": "uid", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "aulasPublicadas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "modo", "order": "ASCENDING" },
+        { "fieldPath": "ativo", "order": "ASCENDING" },
+        { "fieldPath": "ordem", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "aulasPublicadas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "donoUid", "order": "ASCENDING" },
+        { "fieldPath": "modo", "order": "ASCENDING" },
+        { "fieldPath": "ordem", "order": "ASCENDING" }
       ]
     }
   ],

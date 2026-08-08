@@ -9,12 +9,14 @@ export interface Post {
   autorNome: string;
   autorFoto?: string;
   texto: string;
+  imagemUrl?: string;
   esporte?: EsporteId;
   clubeId?: string;
-  tipo?: 'texto' | 'resultado' | 'convite';
+  tipo?: 'texto' | 'resultado' | 'convite' | 'foto';
   partidaId?: string;
   curtidas: number;
   curtidoPor: string[];
+  comentariosCount: number;
   criadoEm?: { seconds: number };
 }
 
@@ -36,12 +38,14 @@ export function useFeed(max = 50) {
               autorNome: String(raw.autorNome ?? 'Jogador'),
               autorFoto: raw.autorFoto ? String(raw.autorFoto) : undefined,
               texto: String(raw.texto ?? ''),
+              imagemUrl: raw.imagemUrl ? String(raw.imagemUrl) : undefined,
               esporte: raw.esporte as EsporteId | undefined,
               clubeId: raw.clubeId ? String(raw.clubeId) : undefined,
               tipo: (raw.tipo as Post['tipo']) ?? 'texto',
               partidaId: raw.partidaId ? String(raw.partidaId) : undefined,
               curtidas: Number(raw.curtidas ?? 0),
               curtidoPor: (raw.curtidoPor as string[]) ?? [],
+              comentariosCount: Number(raw.comentariosCount ?? 0),
               criadoEm: raw.criadoEm as { seconds: number } | undefined,
             };
           })

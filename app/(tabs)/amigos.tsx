@@ -33,7 +33,8 @@ import {
 } from '../../services/amigos';
 import { abrirOuCriarConversaAmigo } from '../../services/mensagens';
 
-const TAB_PAD = 100;
+import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
+const TAB_PAD = TAB_BAR_CLEARANCE;
 
 export default function AmigosScreen() {
   const router = useRouter();
@@ -75,6 +76,7 @@ export default function AmigosScreen() {
           (u) =>
             u.uid !== user?.uid &&
             u.role !== 'admin_clube' &&
+            u.role !== 'professor' &&
             u.nome.toLowerCase().includes(t)
         );
       setResultados(list);

@@ -5,14 +5,26 @@ import { useAuth } from '../../hooks/useAuth';
 
 interface AuthSocialRowProps {
   loading?: boolean;
+  disabled?: boolean;
+  onBlocked?: () => void;
   onGoogleStart?: () => void;
   onGoogleEnd?: () => void;
 }
 
-export function AuthSocialRow({ loading, onGoogleStart, onGoogleEnd }: AuthSocialRowProps) {
+export function AuthSocialRow({
+  loading,
+  disabled,
+  onBlocked,
+  onGoogleStart,
+  onGoogleEnd,
+}: AuthSocialRowProps) {
   const { signInWithGoogle } = useAuth();
 
   async function onGoogle() {
+    if (disabled) {
+      onBlocked?.();
+      return;
+    }
     onGoogleStart?.();
     try {
       await signInWithGoogle();
@@ -32,7 +44,7 @@ export function AuthSocialRow({ loading, onGoogleStart, onGoogleEnd }: AuthSocia
       <TouchableOpacity
         style={styles.circle}
         onPress={onGoogle}
-        disabled={loading}
+        disabled={loading || disabled}
         accessibilityLabel="Google"
       >
         <Text style={styles.letter}>G</Text>

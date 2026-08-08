@@ -11,7 +11,8 @@ import { formatDataPartida, usePartidas } from '../../hooks/usePartidas';
 
 type AbaCal = 'proximas' | 'historico';
 
-const TAB_PAD_BOTTOM = 100;
+import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
+const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
 
 export default function EstatisticasScreen() {
   const router = useRouter();

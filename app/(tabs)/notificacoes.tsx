@@ -12,7 +12,8 @@ import { Avatar } from '../../components/ui/Avatar';
 
 type TabNotif = 'confrontos' | 'mensagens' | 'lembretes' | 'sistema';
 
-const TAB_PAD_BOTTOM = 88;
+import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
+const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
 
 const MOCK_HOJE = [
   { hora: '10:30 AM', id: '1' },

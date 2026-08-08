@@ -1,0 +1,32 @@
+{
+  "name": "Setmatch",
+  "short_name": "Setmatch",
+  "description": "Tênis, padel, raquetinha e beach — desafios, rankings, aulas e torneios",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#255943",
+  "theme_color": "#255943",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/icons/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

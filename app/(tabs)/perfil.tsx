@@ -7,18 +7,41 @@ import { Typography } from '../../constants/typography';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../hooks/useAuth';
+import { useEffect, useMemo, useState } from 'react';
+import { badgesConquistados } from '../../constants/badges';
+import { jogadorFoiCampeao } from '../../services/partidasHistorico';
+import { AccountComplianceLinks } from '../../components/legal/AccountComplianceLinks';
 
-const TAB_PAD_BOTTOM = 88;
+import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
+const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
 
 export default function PerfilScreen() {
   const router = useRouter();
   const { user, perfil, signOut } = useAuth();
+  const [campeao, setCampeao] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    void jogadorFoiCampeao(user.uid).then(setCampeao);
+  }, [user?.uid]);
 
   const nome = perfil?.nome ?? user?.displayName ?? 'Gustavo';
   const email = perfil?.email ?? user?.email ?? 'gustavo@setmatch.com';
   const v = perfil?.vitorias ?? 0;
   const d = perfil?.derrotas ?? 0;
-  const torneios = 0;
+  const torneios = campeao ? 1 : 0;
+
+  const badges = useMemo(
+    () =>
+      badgesConquistados({
+        vitorias: v,
+        derrotas: d,
+        temFoto: Boolean(perfil?.fotoUrl ?? user?.photoURL),
+        temCidade: Boolean(perfil?.cidade),
+        campeaoTorneio: campeao,
+      }),
+    [v, d, perfil?.fotoUrl, perfil?.cidade, user?.photoURL, campeao]
+  );
 
   function confirmarLogout() {
     Alert.alert('Sair da conta', 'Deseja encerrar sua sessão?', [
@@ -106,17 +129,27 @@ export default function PerfilScreen() {
           <Button label="Meus clubes" onPress={() => router.push('/meus-clubes')} />
           <Button label="Meus pagamentos" onPress={() => router.push('/pagamentos')} />
           <Button label="Amigos" variant="outline" onPress={() => router.push('/(tabs)/amigos')} />
-          <Button label="Meus Badges" variant="outline" onPress={() => {}} />
+          <Button
+            label="Buscar jogadores"
+            variant="outline"
+            onPress={() => router.push('/buscar')}
+          />
 
+          <Text style={styles.badgeSection}>Meus badges</Text>
           <View style={styles.badgeGrid}>
-            {Array.from({ length: 8 }).map((_, i) => (
-              <View key={i} style={styles.badgeCell}>
-                {i === 0 ? (
-                  <Ionicons name="trophy" size={32} color={Colors.accent} />
-                ) : null}
-              </View>
-            ))}
+            {badges.length === 0 ? (
+              <Text style={styles.cidade}>Jogue partidas para desbloquear badges.</Text>
+            ) : (
+              badges.map((b) => (
+                <View key={b.id} style={styles.badgeCell}>
+                  <Ionicons name={b.icon} size={28} color={Colors.accent} />
+                  <Text style={styles.badgeLabel}>{b.nome}</Text>
+                </View>
+              ))
+            )}
           </View>
+
+          <AccountComplianceLinks onLogout={confirmarLogout} />
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -193,6 +226,13 @@ const styles = StyleSheet.create({
     width: '100%',
     justifyContent: 'center',
   },
+  badgeSection: {
+    color: Colors.textPrimary,
+    fontWeight: '800',
+    fontSize: 16,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
   badgeCell: {
     width: '22%',
     aspectRatio: 1,
@@ -201,5 +241,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 72,
+    padding: 6,
+  },
+  badgeLabel: {
+    color: Colors.textPrimary,
+    fontSize: 9,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 4,
   },
 });

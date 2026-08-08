@@ -26,6 +26,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="perfil" />
       <Tabs.Screen name="estatisticas" options={{ href: null }} />
       <Tabs.Screen name="amigos" options={{ href: null }} />
+      <Tabs.Screen name="proximos" options={{ href: null }} />
       <Tabs.Screen name="notificacoes" options={{ href: null }} />
     </Tabs>
   );

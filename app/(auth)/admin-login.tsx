@@ -15,6 +15,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAuth } from '../../hooks/useAuth';
 import { solicitarContaAdminClube } from '../../utils/whatsapp';
+import { LegalConsent } from '../../components/legal/LegalConsent';
 
 export default function AdminLoginScreen() {
   const router = useRouter();
@@ -22,8 +23,13 @@ export default function AdminLoginScreen() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [loading, setLoading] = useState(false);
+  const [aceitouLegal, setAceitouLegal] = useState(false);
 
   async function onLogin() {
+    if (!aceitouLegal) {
+      Alert.alert('Termos', 'Aceite os Termos de Uso e a Política de Privacidade para continuar.');
+      return;
+    }
     if (!email.trim() || !senha) {
       Alert.alert('Admin Clube', 'Preencha e-mail e senha.');
       return;
@@ -69,7 +75,17 @@ export default function AdminLoginScreen() {
             showPasswordToggle
           />
 
-          <Button label="Entrar como admin" onPress={onLogin} loading={loading} />
+          <LegalConsent
+            accepted={aceitouLegal}
+            onToggle={() => setAceitouLegal((v) => !v)}
+          />
+
+          <Button
+            label="Entrar como admin"
+            onPress={onLogin}
+            loading={loading}
+            disabled={!aceitouLegal}
+          />
 
           <View style={styles.box}>
             <Text style={styles.boxTitle}>Ainda não tem acesso?</Text>

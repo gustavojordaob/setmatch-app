@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Colors } from '../../constants/colors';
 import { Radius } from '../../constants/radius';
+import { TAB_BAR_HEIGHT } from '../../constants/tabBar';
 
 const TAB_CONFIG: {
   name: string;
@@ -18,11 +19,20 @@ const TAB_CONFIG: {
   { name: 'perfil', label: 'Perfil', icon: 'person' },
 ];
 
+/** Padding inferior recomendado para ScrollViews das tabs. */
+export function useTabBarClearance(): number {
+  const insets = useSafeAreaInsets();
+  return TAB_BAR_HEIGHT + Math.max(insets.bottom, 8) + 24;
+}
+
 export function BottomNav({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.outer, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+    <View
+      pointerEvents="box-none"
+      style={[styles.outer, { paddingBottom: Math.max(insets.bottom, 8) }]}
+    >
       <View style={styles.bar}>
         {state.routes
           .filter((r) => TAB_CONFIG.some((t) => t.name === r.name))
@@ -52,7 +62,11 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
 
             return (
               <TouchableOpacity key={route.key} onPress={onPress} style={styles.inactive}>
-                <Ionicons name={`${cfg.icon}-outline` as keyof typeof Ionicons.glyphMap} size={26} color={Colors.white} />
+                <Ionicons
+                  name={`${cfg.icon}-outline` as keyof typeof Ionicons.glyphMap}
+                  size={26}
+                  color={Colors.white}
+                />
               </TouchableOpacity>
             );
           })}
@@ -67,6 +81,8 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     bottom: 0,
+    zIndex: 100,
+    elevation: 24,
   },
   bar: {
     flexDirection: 'row',
@@ -74,7 +90,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     backgroundColor: Colors.surfaceDark,
     borderRadius: 40,
-    height: 64,
+    height: TAB_BAR_HEIGHT,
     paddingHorizontal: 8,
   },
   activePill: {

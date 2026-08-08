@@ -21,6 +21,7 @@ import { aceitarSolicitacao, recusarSolicitacao } from '../../services/rankings'
 import { listarClubesDoDono, type ClubeCompleto } from '../../services/clubes';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../utils/firebaseConfig';
+import { AccountComplianceLinks } from '../../components/legal/AccountComplianceLinks';
 
 export default function ClubePainelScreen() {
   const router = useRouter();
@@ -63,15 +64,26 @@ export default function ClubePainelScreen() {
 
   const clube = clubes[0];
 
+  function confirmarLogout() {
+    Alert.alert('Sair da conta', 'Deseja encerrar sua sessão?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Sair',
+        style: 'destructive',
+        onPress: () => {
+          void signOut().then(() => router.replace('/onboarding'));
+        },
+      },
+    ]);
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Painel do clube</Text>
-        <TouchableOpacity
-          onPress={() => {
-            void signOut().then(() => router.replace('/onboarding'));
-          }}
-        >
+        <Text style={styles.title}>
+          {perfil?.role === 'professor' ? 'Painel do professor' : 'Painel do clube'}
+        </Text>
+        <TouchableOpacity onPress={confirmarLogout} accessibilityLabel="Sair da conta">
           <Ionicons name="log-out-outline" size={24} color={Colors.white} />
         </TouchableOpacity>
       </View>
@@ -92,11 +104,27 @@ export default function ClubePainelScreen() {
 
         {!clube && !loading ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Cadastre seu clube</Text>
-            <Text style={styles.cardSub}>
-              Nome, endereço completo, esportes e telefone — para jogadores encontrarem você.
+            <Text style={styles.cardTitle}>
+              {perfil?.role === 'professor' ? 'Espaço do professor' : 'Cadastre seu clube'}
             </Text>
-            <Button label="Criar meu clube" onPress={() => router.push('/clube/novo')} />
+            <Text style={styles.cardSub}>
+              {perfil?.role === 'professor'
+                ? 'Publique aulas online sem precisar de clube físico, ou cadastre um local para aulas presenciais.'
+                : 'Nome, endereço completo, esportes e telefone — para jogadores encontrarem você.'}
+            </Text>
+            <Button
+              label="Publicar aulas (online / presencial)"
+              onPress={() => router.push('/clube/aulas-publicar')}
+            />
+            {perfil?.role !== 'professor' ? (
+              <Button label="Criar meu clube" onPress={() => router.push('/clube/novo')} />
+            ) : (
+              <Button
+                label="Cadastrar local presencial (opcional)"
+                variant="outline"
+                onPress={() => router.push('/clube/novo')}
+              />
+            )}
           </View>
         ) : null}
 
@@ -139,6 +167,11 @@ export default function ClubePainelScreen() {
             />
             <Action
               icon="calendar-outline"
+              label="Meus torneios"
+              onPress={() => router.push('/clube/torneios')}
+            />
+            <Action
+              icon="add-circle-outline"
               label="Criar torneio"
               onPress={() =>
                 router.push({
@@ -151,6 +184,11 @@ export default function ClubePainelScreen() {
               icon="school-outline"
               label="Regras gerais de aulas"
               onPress={() => router.push('/clube/aulas-regras')}
+            />
+            <Action
+              icon="videocam-outline"
+              label="Publicar aulas online / presencial"
+              onPress={() => router.push('/clube/aulas-publicar')}
             />
             <Action
               icon="fitness-outline"
@@ -205,6 +243,8 @@ export default function ClubePainelScreen() {
             ) : null}
           </>
         ) : null}
+
+        <AccountComplianceLinks onLogout={confirmarLogout} />
       </ScrollView>
     </SafeAreaView>
   );

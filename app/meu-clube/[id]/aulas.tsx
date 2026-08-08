@@ -17,6 +17,8 @@ import { Colors } from '../../../constants/colors';
 import { Button } from '../../../components/ui/Button';
 import { useAuth } from '../../../hooks/useAuth';
 import { useMeusClubes } from '../../../hooks/useMeusClubes';
+import { useMeusPagamentos } from '../../../hooks/usePagamentos';
+import { garantirCobrancaMatriculaAluno } from '../../../services/pagamentos';
 import { abrirOuCriarConversaClube, enviarMensagem } from '../../../services/mensagens';
 import {
   TIPOS_MODALIDADE_AULA,
@@ -26,6 +28,7 @@ import {
 import { ESPORTES } from '../../../constants/esportes';
 import type { ClubeCompleto } from '../../../services/clubes';
 import { abrirWhatsApp } from '../../../utils/whatsapp';
+import { iniciarCheckoutMercadoPago } from '../../../utils/mercadoPago';
 
 /** Aluno NÃO se matricula sozinho — manda mensagem; o clube cadastra pelo Setmatch ID. */
 export default function MinhasAulasClubeScreen() {
@@ -33,15 +36,54 @@ export default function MinhasAulasClubeScreen() {
   const router = useRouter();
   const { user, perfil } = useAuth();
   const { matriculas } = useMeusClubes();
+  const { pagamentos } = useMeusPagamentos();
   const [clube, setClube] = useState<ClubeCompleto | null>(null);
   const [mods, setMods] = useState<ModalidadeAula[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   const matricula = useMemo(
     () => matriculas.find((m) => m.clubeId === id),
     [matriculas, id]
   );
+
+  const cobrancaAberta = useMemo(() => {
+    if (!id || !user) return null;
+    return (
+      pagamentos.find(
+        (p) =>
+          p.clubeId === id &&
+          p.tipo === 'aula' &&
+          (p.status === 'aguardando_pagamento' ||
+            p.status === 'pendente' ||
+            p.status === 'atrasado' ||
+            p.status === 'recusado')
+      ) ?? null
+    );
+  }, [pagamentos, id, user]);
+
+  // Matrícula antiga sem cobrança: gera pagamento automaticamente
+  useEffect(() => {
+    if (!user || !perfil || !matricula || !clube) return;
+    const valor = Number(matricula.valorFinal ?? 0);
+    if (!(valor > 0) || cobrancaAberta) return;
+    if (matricula.status === 'inativo') return;
+    void garantirCobrancaMatriculaAluno({
+      matriculaId: matricula.id,
+      clubeId: clube.id,
+      clubeNome: clube.nome,
+      donoUid: matricula.donoUid || clube.donoUid,
+      uid: user.uid,
+      setmatchId: perfil.setmatchId || '',
+      nome: perfil.nome,
+      telefone: perfil.telefone,
+      modalidadeNome: matricula.modalidadeNome,
+      valor,
+    }).catch(() => {
+      /* rules antigas / rede — usuário ainda pode pedir no chat */
+    });
+  }, [user, perfil, matricula, clube, cobrancaAberta]);
 
   useEffect(() => {
     if (!id) return;
@@ -153,12 +195,60 @@ export default function MinhasAulasClubeScreen() {
         <View style={styles.statusCard}>
           <Text style={styles.statusLabel}>Sua matrícula</Text>
           {matricula ? (
-            <Text style={styles.statusValue}>Status: {matricula.status}</Text>
+            <>
+              <Text style={styles.statusValue}>Status: {matricula.status}</Text>
+              {matricula.modalidadeNome ? (
+                <Text style={styles.regras}>
+                  {matricula.modalidadeNome}
+                  {matricula.valorFinal != null
+                    ? ` · R$ ${Number(matricula.valorFinal).toFixed(2)}/mês`
+                    : ''}
+                </Text>
+              ) : null}
+            </>
           ) : (
             <Text style={styles.statusValue}>Você ainda não é aluno neste clube.</Text>
           )}
           {clube.aulas?.regras ? (
             <Text style={styles.regras}>{clube.aulas.regras}</Text>
+          ) : null}
+
+          {cobrancaAberta ? (
+            <View style={styles.payBox}>
+              <Text style={styles.payTitle}>
+                Mensalidade em aberto · R$ {cobrancaAberta.valor.toFixed(2)}
+              </Text>
+              <Text style={styles.regras}>
+                {cobrancaAberta.aulaTitulo || 'Aulas'} · {cobrancaAberta.status}
+              </Text>
+              <Button
+                label={paying ? 'Abrindo…' : 'Pagar agora (PIX / cartão)'}
+                loading={paying}
+                onPress={() =>
+                  void (async () => {
+                    setPaying(true);
+                    try {
+                      await iniciarCheckoutMercadoPago({
+                        pagamentoId: cobrancaAberta.id,
+                        titulo: `Aulas · ${clube.nome}`,
+                        valor: cobrancaAberta.valor,
+                        ciclo: 'mensal',
+                        permitePix: true,
+                        permiteCartao: true,
+                      });
+                    } catch (e: unknown) {
+                      Alert.alert(
+                        'Pagamento',
+                        e instanceof Error ? e.message : 'Falha no checkout'
+                      );
+                    } finally {
+                      setPaying(false);
+                    }
+                  })()
+                }
+                style={{ marginTop: 10 }}
+              />
+            </View>
           ) : null}
         </View>
 
@@ -254,6 +344,13 @@ const styles = StyleSheet.create({
   statusLabel: { color: Colors.accent, fontWeight: 'bold', fontSize: 12, marginBottom: 4 },
   statusValue: { color: Colors.textPrimary, fontWeight: '600', fontSize: 15 },
   regras: { color: Colors.textSecondary, marginTop: 8, fontSize: 13, lineHeight: 18 },
+  payBox: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+  },
+  payTitle: { color: Colors.accent, fontWeight: '900', fontSize: 15 },
   section: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 16, marginBottom: 12 },
   modCard: {
     backgroundColor: Colors.surface,

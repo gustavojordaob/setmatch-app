@@ -4,6 +4,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   query,
   serverTimestamp,
   updateDoc,
@@ -112,6 +113,15 @@ export async function registrarPartidaDoDesafio(input: {
     clubeId: input.clubeId,
     tipo: 'resultado',
     partidaId: partidaRef.id,
+  });
+
+  const perdedor =
+    input.vencedor === input.jogador1 ? input.jogador2 : input.jogador1;
+  await updateDoc(doc(db, 'usuarios', input.vencedor), {
+    vitorias: increment(1),
+  });
+  await updateDoc(doc(db, 'usuarios', perdedor), {
+    derrotas: increment(1),
   });
 
   return partidaRef.id;

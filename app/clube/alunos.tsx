@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -49,7 +48,10 @@ export default function AlunosClubeScreen() {
 
   const valorFinal = useMemo(() => {
     if (!modalidade) return 0;
-    return calcValorComDesconto(modalidade.valorMensal, Number(desconto.replace(',', '.')) || 0);
+    return calcValorComDesconto(
+      modalidade.valorMensal,
+      Number(desconto.replace(',', '.')) || 0
+    );
   }, [modalidade, desconto]);
 
   useFocusEffect(
@@ -88,13 +90,23 @@ export default function AlunosClubeScreen() {
         modalidadeNome: modalidade?.nome,
         valorBase: modalidade?.valorMensal ?? 0,
         descontoPercent: desc,
-        valorFinal: modalidade ? calcValorComDesconto(modalidade.valorMensal, desc) : 0,
-        status: 'ativo',
+        valorFinal: modalidade
+          ? calcValorComDesconto(modalidade.valorMensal, desc)
+          : 0,
+        // sem status: com valor fica pendente até pagar
       });
+      const cobrancaOk = valorFinal > 0 && Boolean(m.pagamentoId);
       Alert.alert(
         'Aluno',
         `${m.nome} (${m.setmatchId}) adicionado` +
-          (modalidade ? `\n${modalidade.nome} · R$ ${valorFinal.toFixed(2)}/mês` : '')
+          (modalidade
+            ? `\n${modalidade.nome} · R$ ${valorFinal.toFixed(2)}/mês`
+            : '') +
+          (cobrancaOk
+            ? '\n\nCobrança criada: o aluno vê em Meus pagamentos.'
+            : valorFinal > 0
+              ? '\n\nAluno vinculado. Se a cobrança não aparecer, peça a ele abrir Aulas → este clube.'
+              : '')
       );
       setSetmatchId('');
       setDesconto('0');
@@ -126,6 +138,75 @@ export default function AlunosClubeScreen() {
     }
   }
 
+  const formHeader = (
+    <View style={styles.addBox}>
+      <Text style={styles.hint}>
+        Digite o ID do jogador (ex: SM-JOG001), escolha a modalidade e um desconto
+        se precisar. Role a tela para ver todos os alunos.
+      </Text>
+
+      <Text style={styles.label}>ID Setmatch</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="SM-XXXXXX"
+        placeholderTextColor={Colors.textSecondary}
+        autoCapitalize="characters"
+        autoCorrect={false}
+        value={setmatchId}
+        onChangeText={setSetmatchId}
+      />
+
+      <Text style={styles.label}>Modalidade de aula</Text>
+      {modalidades.length === 0 ? (
+        <TouchableOpacity
+          style={styles.warnBox}
+          onPress={() => router.push('/clube/aulas-modalidades')}
+        >
+          <Text style={styles.warnTxt}>
+            Cadastre modalidades primeiro (individual, trio, beach…). Toque aqui.
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.chipsWrap}>
+          {modalidades.map((m) => {
+            const on = m.id === modalidadeId;
+            return (
+              <TouchableOpacity
+                key={m.id}
+                style={[styles.chip, on && styles.chipOn]}
+                onPress={() => setModalidadeId(m.id)}
+              >
+                <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>
+                  {m.nome} · R$ {m.valorMensal.toFixed(0)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      <Text style={styles.label}>Desconto do aluno (%)</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="0"
+        placeholderTextColor={Colors.textSecondary}
+        keyboardType="decimal-pad"
+        value={desconto}
+        onChangeText={setDesconto}
+      />
+      {modalidade ? (
+        <Text style={styles.preview}>
+          Valor: R$ {modalidade.valorMensal.toFixed(2)} →{' '}
+          <Text style={styles.previewAccent}>R$ {valorFinal.toFixed(2)}/mês</Text>
+        </Text>
+      ) : null}
+
+      <Button label="Adicionar aluno" onPress={adicionar} loading={busy} />
+
+      <Text style={styles.section}>Alunos do clube</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
@@ -142,89 +223,29 @@ export default function AlunosClubeScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.addBox}
-        >
-          <Text style={styles.hint}>
-            Digite o ID do jogador (ex: SM-JOG001), escolha a modalidade e um desconto se precisar.
-          </Text>
-
-          <Text style={styles.label}>ID Setmatch</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="SM-XXXXXX"
-            placeholderTextColor={Colors.textSecondary}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            value={setmatchId}
-            onChangeText={setSetmatchId}
-          />
-
-          <Text style={styles.label}>Modalidade de aula</Text>
-          {modalidades.length === 0 ? (
-            <TouchableOpacity
-              style={styles.warnBox}
-              onPress={() => router.push('/clube/aulas-modalidades')}
-            >
-              <Text style={styles.warnTxt}>
-                Cadastre modalidades primeiro (individual, trio, beach…). Toque aqui.
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.chipsWrap}>
-              {modalidades.map((m) => {
-                const on = m.id === modalidadeId;
-                return (
-                  <TouchableOpacity
-                    key={m.id}
-                    style={[styles.chip, on && styles.chipOn]}
-                    onPress={() => setModalidadeId(m.id)}
-                  >
-                    <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>
-                      {m.nome} · R$ {m.valorMensal.toFixed(0)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-
-          <Text style={styles.label}>Desconto do aluno (%)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="0"
-            placeholderTextColor={Colors.textSecondary}
-            keyboardType="decimal-pad"
-            value={desconto}
-            onChangeText={setDesconto}
-          />
-          {modalidade ? (
-            <Text style={styles.preview}>
-              Valor: R$ {modalidade.valorMensal.toFixed(2)} →{' '}
-              <Text style={styles.previewAccent}>R$ {valorFinal.toFixed(2)}/mês</Text>
-            </Text>
-          ) : null}
-
-          <Button label="Adicionar aluno" onPress={adicionar} loading={busy} />
-        </ScrollView>
-
-        {loading ? (
-          <ActivityIndicator color={Colors.accent} style={{ marginTop: 16 }} />
+        {loading && matriculas.length === 0 ? (
+          <ActivityIndicator color={Colors.accent} style={{ marginTop: 24 }} />
         ) : (
           <FlatList
             data={matriculas}
             keyExtractor={(i) => i.id}
             style={{ flex: 1 }}
-            contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 40 }}
+            contentContainerStyle={styles.listContent}
             keyboardShouldPersistTaps="handled"
-            ListHeaderComponent={<Text style={styles.section}>Alunos do clube</Text>}
-            ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno ainda.</Text>}
+            ListHeaderComponent={formHeader}
+            ListEmptyComponent={
+              <Text style={styles.empty}>Nenhum aluno ainda.</Text>
+            }
             renderItem={({ item }) => (
               <View style={styles.card}>
                 <TouchableOpacity
                   style={{ flex: 1 }}
-                  onPress={() => router.push(`/jogador/${item.uid}`)}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/jogador/[uid]',
+                      params: { uid: item.uid, contexto: 'aluno_clube' },
+                    })
+                  }
                 >
                   <Text style={styles.nome}>{item.nome}</Text>
                   <Text style={styles.meta}>
@@ -243,7 +264,11 @@ export default function AlunosClubeScreen() {
                   ) : null}
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => void msgAluno(item.uid, item.nome)}>
-                  <Ionicons name="chatbubble-ellipses" size={22} color={Colors.accent} />
+                  <Ionicons
+                    name="chatbubble-ellipses"
+                    size={22}
+                    color={Colors.accent}
+                  />
                 </TouchableOpacity>
                 {item.telefone ? (
                   <TouchableOpacity
@@ -276,9 +301,24 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   title: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 18 },
-  addBox: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8 },
-  hint: { color: Colors.textSecondary, fontSize: 12, lineHeight: 18, marginBottom: 4 },
-  label: { color: Colors.textPrimary, fontWeight: '700', fontSize: 13, marginTop: 4 },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 48,
+    gap: 10,
+  },
+  addBox: { paddingTop: 12, paddingBottom: 8, gap: 8 },
+  hint: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  label: {
+    color: Colors.textPrimary,
+    fontWeight: '700',
+    fontSize: 13,
+    marginTop: 4,
+  },
   input: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
@@ -312,7 +352,8 @@ const styles = StyleSheet.create({
   section: {
     color: Colors.textPrimary,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginTop: 20,
+    marginBottom: 4,
     fontSize: 15,
   },
   card: {
@@ -325,5 +366,10 @@ const styles = StyleSheet.create({
   },
   nome: { color: Colors.textPrimary, fontWeight: 'bold' },
   meta: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
-  empty: { color: Colors.textSecondary, textAlign: 'center', marginTop: 12 },
+  empty: {
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 24,
+  },
 });

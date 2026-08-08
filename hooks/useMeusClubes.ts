@@ -48,7 +48,16 @@ export function useMeusClubes() {
   const { user } = useAuth();
   const { meus: meusRankings } = useRankings();
   const [matriculas, setMatriculas] = useState<
-    { clubeId: string; clubeNome: string; status: string }[]
+    {
+      id: string;
+      clubeId: string;
+      clubeNome: string;
+      donoUid?: string;
+      status: string;
+      modalidadeNome?: string;
+      valorFinal?: number;
+      pagamentoId?: string;
+    }[]
   >([]);
   const [pagClubeIds, setPagClubeIds] = useState<string[]>([]);
   const [clubesMap, setClubesMap] = useState<Record<string, MeuClubeResumo>>({});
@@ -65,9 +74,19 @@ export function useMeusClubes() {
         snap.docs.map((d) => {
           const raw = d.data();
           return {
+            id: d.id,
             clubeId: String(raw.clubeId ?? ''),
             clubeNome: String(raw.clubeNome ?? ''),
+            donoUid: raw.donoUid ? String(raw.donoUid) : undefined,
             status: String(raw.status ?? 'pendente'),
+            modalidadeNome: raw.modalidadeNome
+              ? String(raw.modalidadeNome)
+              : undefined,
+            valorFinal:
+              raw.valorFinal != null ? Number(raw.valorFinal) : undefined,
+            pagamentoId: raw.pagamentoId
+              ? String(raw.pagamentoId)
+              : undefined,
           };
         })
       );

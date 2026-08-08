@@ -7,7 +7,8 @@ import { Avatar } from '../../components/ui/Avatar';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversas, type Conversa } from '../../hooks/useConversas';
 
-const TAB_PAD_BOTTOM = 88;
+import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
+const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
 
 function formatHora(seconds?: number): string {
   if (!seconds) return '';

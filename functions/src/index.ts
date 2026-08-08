@@ -4,6 +4,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { onRequest } from 'firebase-functions/v2/https';
 import { defineString } from 'firebase-functions/params';
 import { setGlobalOptions } from 'firebase-functions/v2';
+import { wipeSetmatchUser } from './deleteAccount';
 
 initializeApp();
 setGlobalOptions({ region: 'southamerica-east1' });
@@ -287,3 +288,28 @@ export const webhookMercadoPagoSetmatch = onRequest(
     }
   }
 );
+
+/**
+ * Exclusão permanente de conta (App Store / Play / LGPD).
+ * POST + Authorization: Bearer <Firebase ID token>
+ */
+export const excluirConta = onRequest({ cors: true, timeoutSeconds: 300 }, async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).json({ ok: false, error: 'Método não permitido' });
+    return;
+  }
+
+  try {
+    const uid = await requireUid(req as never);
+    await wipeSetmatchUser(uid);
+    res.json({ ok: true });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Erro ao excluir conta';
+    if (msg === 'UNAUTHORIZED') {
+      res.status(401).json({ ok: false, error: 'Não autorizado' });
+      return;
+    }
+    console.error('excluirConta', e);
+    res.status(500).json({ ok: false, error: msg });
+  }
+});

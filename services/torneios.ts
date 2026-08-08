@@ -2,14 +2,26 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
+  increment,
+  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
+  type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
 import type { EsporteId } from '../constants/esportes';
+import type {
+  DefinicaoChaveId,
+  EstruturaMataId,
+  FormatoChavesId,
+  FormatoPartidaTorneioId,
+  GruposConfig,
+} from '../constants/chaveamentosTorneio';
 
 export type TorneioStatus = 'aberto' | 'em_andamento' | 'finalizado';
 
@@ -27,6 +39,17 @@ export interface Torneio {
   donoUid: string;
   status: TorneioStatus;
   totalInscritos: number;
+  formatoChaves?: FormatoChavesId;
+  definicaoChave?: DefinicaoChaveId;
+  estruturaMata?: EstruturaMataId;
+  gruposConfig?: GruposConfig;
+  formatoPartidaId?: FormatoPartidaTorneioId;
+  bannerUrl?: string;
+  estruturaPreview?: string;
+  campeaoUid?: string;
+  campeaoNome?: string;
+  /** true quando o admin sorteou/liberou a chave para todos verem */
+  chaveLiberada?: boolean;
   pagamento?: {
     ativo: boolean;
     valor: number;
@@ -60,6 +83,14 @@ function mapTorneio(id: string, raw: Record<string, unknown>): Torneio {
     donoUid: String(raw.donoUid ?? ''),
     status: (raw.status as TorneioStatus) ?? 'aberto',
     totalInscritos: Number(raw.totalInscritos ?? 0),
+    formatoChaves: raw.formatoChaves as FormatoChavesId | undefined,
+    definicaoChave: raw.definicaoChave as DefinicaoChaveId | undefined,
+    estruturaMata: raw.estruturaMata != null ? (Number(raw.estruturaMata) as EstruturaMataId) : undefined,
+    formatoPartidaId: raw.formatoPartidaId as FormatoPartidaTorneioId | undefined,
+    estruturaPreview: raw.estruturaPreview ? String(raw.estruturaPreview) : undefined,
+    campeaoUid: raw.campeaoUid ? String(raw.campeaoUid) : undefined,
+    campeaoNome: raw.campeaoNome ? String(raw.campeaoNome) : undefined,
+    chaveLiberada: Boolean(raw.chaveLiberada),
     pagamento: raw.pagamento
       ? {
           ativo: Boolean((raw.pagamento as { ativo?: boolean }).ativo),
@@ -86,6 +117,13 @@ export async function criarTorneioCompleto(input: {
   dataFim?: string;
   descricao?: string;
   local?: string;
+  formatoChaves?: FormatoChavesId;
+  definicaoChave?: DefinicaoChaveId;
+  estruturaMata?: EstruturaMataId;
+  gruposConfig?: GruposConfig;
+  formatoPartidaId?: FormatoPartidaTorneioId;
+  bannerUrl?: string;
+  estruturaPreview?: string;
   pagamento?: {
     ativo: boolean;
     valor: number;
@@ -106,6 +144,13 @@ export async function criarTorneioCompleto(input: {
     dataFim: input.dataFim ?? '',
     descricao: input.descricao?.trim() ?? '',
     local: input.local?.trim() ?? '',
+    formatoChaves: input.formatoChaves ?? 'simples',
+    definicaoChave: input.definicaoChave ?? 'sorteio',
+    estruturaMata: input.estruturaMata ?? 16,
+    gruposConfig: input.gruposConfig ?? null,
+    formatoPartidaId: input.formatoPartidaId ?? 'melhor_de_3_stb',
+    bannerUrl: input.bannerUrl ?? '',
+    estruturaPreview: input.estruturaPreview ?? '',
     status: 'aberto' as TorneioStatus,
     totalInscritos: 0,
     pagamento: input.pagamento ?? {
@@ -137,6 +182,16 @@ export async function listarTorneiosDoClube(clubeId: string): Promise<Torneio[]>
   return snap.docs.map((d) => mapTorneio(d.id, d.data()));
 }
 
+/** Torneios criados pelo admin/professor (todos os clubes). */
+export async function listarTorneiosDoDono(donoUid: string): Promise<Torneio[]> {
+  const snap = await getDocs(
+    query(collection(db, 'torneios'), where('donoUid', '==', donoUid))
+  );
+  return snap.docs
+    .map((d) => mapTorneio(d.id, d.data()))
+    .sort((a, b) => (b.dataInicio ?? '').localeCompare(a.dataInicio ?? ''));
+}
+
 export async function inscreverTorneio(input: {
   torneioId: string;
   uid: string;
@@ -144,7 +199,17 @@ export async function inscreverTorneio(input: {
   fotoUrl?: string;
   telefone?: string;
 }): Promise<void> {
+  const tRef = doc(db, 'torneios', input.torneioId);
+  const tSnap = await getDoc(tRef);
+  if (!tSnap.exists()) throw new Error('Torneio não encontrado.');
+  if (String(tSnap.data().status ?? 'aberto') !== 'aberto') {
+    throw new Error('Inscrições fechadas.');
+  }
+
   const ref = doc(db, 'torneios', input.torneioId, 'inscritos', input.uid);
+  const ja = await getDoc(ref);
+  if (ja.exists()) throw new Error('Você já está inscrito neste torneio.');
+
   await setDoc(ref, {
     uid: input.uid,
     nome: input.nome,
@@ -152,13 +217,33 @@ export async function inscreverTorneio(input: {
     telefone: input.telefone ?? '',
     criadoEm: serverTimestamp(),
   });
+  await updateDoc(tRef, {
+    totalInscritos: increment(1),
+  });
 }
 
 export async function jaInscrito(torneioId: string, uid: string): Promise<boolean> {
-  const snap = await getDocs(
-    query(collection(db, 'torneios', torneioId, 'inscritos'), where('uid', '==', uid))
-  );
-  return !snap.empty;
+  const snap = await getDoc(doc(db, 'torneios', torneioId, 'inscritos', uid));
+  return snap.exists();
+}
+
+export function ouvirInscritosTorneio(
+  torneioId: string,
+  onData: (lista: InscricaoTorneio[]) => void
+): Unsubscribe {
+  return onSnapshot(collection(db, 'torneios', torneioId, 'inscritos'), (snap) => {
+    const list = snap.docs.map((d) => {
+      const raw = d.data();
+      return {
+        uid: String(raw.uid ?? d.id),
+        nome: String(raw.nome ?? 'Jogador'),
+        fotoUrl: raw.fotoUrl ? String(raw.fotoUrl) : undefined,
+        telefone: raw.telefone ? String(raw.telefone) : undefined,
+      };
+    });
+    list.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    onData(list);
+  });
 }
 
 /** Interesse em aulas no clube — admin recebe e explica pagamento fora do app. */

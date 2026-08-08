@@ -22,6 +22,8 @@ export interface ClubeCompleto {
   endereco?: string;
   telefone?: string;
   descricao?: string;
+  lat?: number;
+  lng?: number;
   esportes: EsporteId[];
   donoUid: string;
   donoNome: string;

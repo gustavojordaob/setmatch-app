@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 
-const PUBLIC_ROOTS = new Set(['index', '(auth)', 'onboarding']);
+const PUBLIC_ROOTS = new Set(['index', '(auth)', 'onboarding', 'baixar']);
 
 function homeFor(isAdmin: boolean, onboardingOk: boolean): string {
   if (isAdmin) return onboardingOk ? '/clube/painel' : '/clube/onboarding';

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/colors';
 import { ESPORTES } from '../../constants/esportes';
 import { NOTICIAS } from '../../constants/noticias';
@@ -28,10 +31,13 @@ import { EsporteSwitcher } from '../../components/EsporteSwitcher';
 import { ClubeSwitcher } from '../../components/ClubeSwitcher';
 import { alternarCurtida, criarPost } from '../../services/feed';
 import { useDesafios } from '../../hooks/useDesafios';
+import { uploadFotoPost } from '../../utils/uploadFoto';
+import { compartilharPostFora } from '../../utils/compartilharPost';
 
 type TabKey = 'resultados' | 'proximas';
 
-const TAB_PAD_BOTTOM = 88;
+import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
+const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -52,6 +58,7 @@ export default function HomeScreen() {
   const { partidas: partidasAmigos } = usePartidasAmigos(amigoUids, esporteAtivo);
   const [aba, setAba] = useState<TabKey>('resultados');
   const [texto, setTexto] = useState('');
+  const [fotoUri, setFotoUri] = useState<string | null>(null);
   const [publicando, setPublicando] = useState(false);
 
   const nome = perfil?.nome ?? user?.displayName ?? 'Gustavo';
@@ -92,19 +99,44 @@ export default function HomeScreen() {
     [esporteAtivo]
   );
 
+  async function escolherFoto() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permissão', 'Precisamos acessar suas fotos para publicar.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [4, 3],
+    });
+    if (!result.canceled && result.assets[0]?.uri) {
+      setFotoUri(result.assets[0].uri);
+    }
+  }
+
   async function publicar() {
-    if (!user || !texto.trim()) return;
+    if (!user || (!texto.trim() && !fotoUri)) return;
     setPublicando(true);
     try {
+      let imagemUrl: string | undefined;
+      if (fotoUri) {
+        imagemUrl = await uploadFotoPost(fotoUri);
+      }
       await criarPost({
         autorUid: user.uid,
         autorNome: nome,
         autorFoto: perfil?.fotoUrl ?? user.photoURL ?? '',
         texto,
+        imagemUrl,
         esporte: esporteAtivo,
         clubeId: clubeAtivoId ?? undefined,
       });
       setTexto('');
+      setFotoUri(null);
+    } catch (e: unknown) {
+      Alert.alert('Erro', e instanceof Error ? e.message : 'Não foi possível publicar.');
     } finally {
       setPublicando(false);
     }
@@ -154,6 +186,18 @@ export default function HomeScreen() {
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={Colors.textOnAccent} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.pertoBanner}
+          onPress={() => router.push('/(tabs)/proximos')}
+        >
+          <Ionicons name="navigate-outline" size={22} color={Colors.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.pertoTitle}>Perto de mim</Text>
+            <Text style={styles.pertoSub}>Pessoas e quadras próximas da sua localização</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.textMutedDark} />
         </TouchableOpacity>
 
         {recebidosEsporte.length > 0 || enviadosEsporte.length > 0 ? (
@@ -312,9 +356,17 @@ export default function HomeScreen() {
           <Text style={styles.section}>
             Feed{clubeAtivo ? ` · ${clubeAtivo.nome}` : ''}
           </Text>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/amigos')}>
-            <Text style={styles.amigosLink}>Amigos</Text>
-          </TouchableOpacity>
+          <View style={styles.feedLinks}>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/proximos')}>
+              <Text style={styles.amigosLink}>Perto de mim</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/buscar')}>
+              <Text style={styles.amigosLink}>Buscar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/amigos')}>
+              <Text style={styles.amigosLink}>Amigos</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {jogosNoFeed.length > 0 ? (
@@ -364,27 +416,40 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.composer}>
-          <Avatar uri={perfil?.fotoUrl ?? user?.photoURL} nome={nome} size="sm" />
-          <TextInput
-            style={styles.composerInput}
-            placeholder={`Compartilhe algo de ${ESPORTES.find((e) => e.id === esporteAtivo)?.nome ?? 'esporte'}…`}
-            placeholderTextColor={Colors.textMutedDark}
-            value={texto}
-            onChangeText={setTexto}
-            multiline
-          />
-          <TouchableOpacity
-            style={[styles.postBtn, !texto.trim() && styles.postBtnOff]}
-            onPress={publicar}
-            disabled={!texto.trim() || publicando}
-          >
-            {publicando ? (
-              <ActivityIndicator color={Colors.textOnAccent} size="small" />
-            ) : (
-              <Ionicons name="send" size={18} color={Colors.textOnAccent} />
-            )}
-          </TouchableOpacity>
+        <View style={styles.composerWrap}>
+          <View style={styles.composer}>
+            <Avatar uri={perfil?.fotoUrl ?? user?.photoURL} nome={nome} size="sm" />
+            <TextInput
+              style={styles.composerInput}
+              placeholder={`Compartilhe algo de ${ESPORTES.find((e) => e.id === esporteAtivo)?.nome ?? 'esporte'}…`}
+              placeholderTextColor={Colors.textMutedDark}
+              value={texto}
+              onChangeText={setTexto}
+              multiline
+            />
+            <TouchableOpacity style={styles.fotoBtn} onPress={() => void escolherFoto()}>
+              <Ionicons name="image-outline" size={22} color={Colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.postBtn, !texto.trim() && !fotoUri && styles.postBtnOff]}
+              onPress={() => void publicar()}
+              disabled={(!texto.trim() && !fotoUri) || publicando}
+            >
+              {publicando ? (
+                <ActivityIndicator color={Colors.textOnAccent} size="small" />
+              ) : (
+                <Ionicons name="send" size={18} color={Colors.textOnAccent} />
+              )}
+            </TouchableOpacity>
+          </View>
+          {fotoUri ? (
+            <View style={styles.fotoPreviewRow}>
+              <Image source={{ uri: fotoUri }} style={styles.fotoPreview} />
+              <TouchableOpacity onPress={() => setFotoUri(null)}>
+                <Text style={styles.fotoRemover}>Remover foto</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
 
         {feedLoading ? (
@@ -400,7 +465,11 @@ export default function HomeScreen() {
             const espMeta = ESPORTES.find((e) => e.id === (p.esporte ?? 'tenis'));
             return (
               <View key={p.id} style={styles.postCard}>
-                <View style={styles.postHead}>
+                <TouchableOpacity
+                  style={styles.postHead}
+                  onPress={() => router.push(`/jogador/${p.autorUid}`)}
+                  activeOpacity={0.8}
+                >
                   <Avatar uri={p.autorFoto} nome={p.autorNome} size="sm" />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.postAutor}>{p.autorNome}</Text>
@@ -411,19 +480,50 @@ export default function HomeScreen() {
                     ) : null}
                   </View>
                   <Text style={styles.postEsporteBadge}>{espMeta?.emoji ?? '🎾'}</Text>
-                </View>
-                <Text style={styles.postTexto}>{p.texto}</Text>
-                <TouchableOpacity
-                  style={styles.likeRow}
-                  onPress={() => user && alternarCurtida(p.id, user.uid, !curtido)}
-                >
-                  <Ionicons
-                    name={curtido ? 'heart' : 'heart-outline'}
-                    size={18}
-                    color={curtido ? Colors.danger : Colors.textMutedDark}
-                  />
-                  <Text style={styles.likeTxt}>{p.curtidas}</Text>
                 </TouchableOpacity>
+                {p.texto ? <Text style={styles.postTexto}>{p.texto}</Text> : null}
+                {p.imagemUrl ? (
+                  <TouchableOpacity onPress={() => router.push(`/post/${p.id}`)}>
+                    <Image source={{ uri: p.imagemUrl }} style={styles.postImg} />
+                  </TouchableOpacity>
+                ) : null}
+                <View style={styles.actionsRow}>
+                  <TouchableOpacity
+                    style={styles.likeRow}
+                    onPress={() => user && alternarCurtida(p.id, user.uid, !curtido)}
+                  >
+                    <Ionicons
+                      name={curtido ? 'heart' : 'heart-outline'}
+                      size={18}
+                      color={curtido ? Colors.danger : Colors.textMutedDark}
+                    />
+                    <Text style={styles.likeTxt}>{p.curtidas}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.likeRow}
+                    onPress={() => router.push(`/post/${p.id}`)}
+                  >
+                    <Ionicons
+                      name="chatbubble-outline"
+                      size={17}
+                      color={Colors.textMutedDark}
+                    />
+                    <Text style={styles.likeTxt}>{p.comentariosCount}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.likeRow}
+                    onPress={() =>
+                      void compartilharPostFora({
+                        postId: p.id,
+                        autorNome: p.autorNome,
+                        texto: p.texto,
+                      })
+                    }
+                  >
+                    <Ionicons name="share-outline" size={18} color={Colors.textMutedDark} />
+                    <Text style={styles.likeTxt}>Compartilhar</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             );
           })
@@ -489,10 +589,23 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
     borderRadius: 18,
     padding: 14,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   inviteTitle: { color: Colors.textOnAccent, fontWeight: 'bold', fontSize: 15 },
   inviteSub: { color: Colors.textOnAccent, opacity: 0.85, fontSize: 12, marginTop: 2 },
+  pertoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.white,
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  pertoTitle: { color: Colors.textDark, fontWeight: 'bold', fontSize: 15 },
+  pertoSub: { color: Colors.textMutedDark, fontSize: 12, marginTop: 2 },
   convitesBox: { marginBottom: 8 },
   convitesHead: {
     flexDirection: 'row',
@@ -557,7 +670,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 28,
   },
-  amigosLink: { color: Colors.primary, fontWeight: 'bold', fontSize: 14, marginBottom: 14 },
+  feedLinks: { flexDirection: 'row', gap: 16, marginBottom: 14 },
+  amigosLink: { color: Colors.accent, fontWeight: 'bold', fontSize: 14 },
   feedToggle: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   feedChip: {
     paddingHorizontal: 14,
@@ -587,6 +701,7 @@ const styles = StyleSheet.create({
   newsTagTxt: { color: Colors.textOnAccent, fontSize: 11, fontWeight: 'bold' },
   newsTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700', lineHeight: 19 },
   newsFonte: { color: Colors.accent, fontSize: 12, fontWeight: '600' },
+  composerWrap: { marginBottom: 16 },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -594,7 +709,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: 18,
     padding: 12,
-    marginBottom: 16,
   },
   composerInput: {
     flex: 1,
@@ -603,6 +717,22 @@ const styles = StyleSheet.create({
     maxHeight: 120,
     paddingTop: 4,
   },
+  fotoBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fotoPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  fotoPreview: { width: 72, height: 72, borderRadius: 12 },
+  fotoRemover: { color: Colors.danger, fontWeight: '700', fontSize: 13 },
   postBtn: {
     width: 40,
     height: 40,
@@ -625,6 +755,18 @@ const styles = StyleSheet.create({
   postEsporte: { color: Colors.textMutedDark, fontSize: 11, marginTop: 1 },
   postEsporteBadge: { fontSize: 22 },
   postTexto: { color: Colors.textDark, fontSize: 14, lineHeight: 20 },
+  postImg: {
+    width: '100%',
+    height: 200,
+    borderRadius: 14,
+    backgroundColor: Colors.bodyLight,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 18,
+    marginTop: 2,
+  },
   likeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   likeTxt: { color: Colors.textMutedDark, fontSize: 13, fontWeight: '600' },
 });

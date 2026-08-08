@@ -40,7 +40,8 @@ import { db } from '../../utils/firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 import type { Ranking, Solicitacao } from '../../types/ranking';
 
-const TAB_PAD_BOTTOM = 110;
+import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
+const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
 type Aba = 'rankings' | 'torneios';
 
 export default function TrofeuScreen() {

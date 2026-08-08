@@ -106,3 +106,16 @@ export async function uploadFotoPerfil(uri: string): Promise<string> {
   // iOS/Android: REST + Uint8Array — o SDK JS cria Blob internamente e quebra no RN.
   return uploadViaRest(uri, objectPath);
 }
+
+/** Foto de post no feed — path `posts/{uid}/...` */
+export async function uploadFotoPost(uri: string): Promise<string> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Não autenticado');
+
+  const objectPath = `posts/${user.uid}/post_${Date.now()}.jpg`;
+
+  if (Platform.OS === 'web') {
+    return uploadViaWebSdk(uri, objectPath);
+  }
+  return uploadViaRest(uri, objectPath);
+}

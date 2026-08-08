@@ -16,7 +16,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.fabricaapps.setmatch"
+      "bundleIdentifier": "com.fabricaapps.setmatch",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,6 +27,7 @@
         "backgroundColor": "#255943"
       },
       "package": "com.fabricaapps.setmatch",
+      "softwareKeyboardLayoutMode": "resize",
       "edgeToEdgeEnabled": true,
       "intentFilters": [
         {
@@ -41,11 +45,25 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "static",
+      "name": "Setmatch",
+      "shortName": "Setmatch",
+      "description": "Desafios, rankings, aulas e torneios — tênis, padel, raquetinha e beach",
+      "themeColor": "#255943",
+      "backgroundColor": "#255943",
+      "lang": "pt-BR"
     },
     "plugins": [
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "O Setmatch usa sua localização para mostrar jogadores e quadras perto de você."
+        }
+      ]
     ],
     "extra": {
       "router": {},

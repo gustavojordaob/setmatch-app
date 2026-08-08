@@ -19,6 +19,8 @@ function mapPagamento(id: string, raw: Record<string, unknown>): PagamentoDoc {
     rankingNome: raw.rankingNome ? String(raw.rankingNome) : undefined,
     torneioId: raw.torneioId ? String(raw.torneioId) : undefined,
     torneioNome: raw.torneioNome ? String(raw.torneioNome) : undefined,
+    aulaPublicadaId: raw.aulaPublicadaId ? String(raw.aulaPublicadaId) : undefined,
+    aulaTitulo: raw.aulaTitulo ? String(raw.aulaTitulo) : undefined,
     valor: Number(raw.valor ?? 0),
     ciclo: (raw.ciclo as PagamentoDoc['ciclo']) ?? 'unico',
     status: (raw.status as StatusPagamento) ?? 'pendente',
@@ -81,7 +83,35 @@ export function usePagamentosDoClube(clubeId?: string) {
   return { pagamentos, loading };
 }
 
+/** Professor/admin: aulas online + tudo onde é donoUid (com ou sem clube). */
+export function usePagamentosDoDono(donoUid?: string) {
+  const [pagamentos, setPagamentos] = useState<PagamentoDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!donoUid) {
+      setPagamentos([]);
+      setLoading(false);
+      return;
+    }
+    const q = query(collection(db, 'pagamentos'), where('donoUid', '==', donoUid));
+    return onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs.map((d) => mapPagamento(d.id, d.data()));
+        list.sort((a, b) => (b.criadoEm?.seconds ?? 0) - (a.criadoEm?.seconds ?? 0));
+        setPagamentos(list);
+        setLoading(false);
+      },
+      () => setLoading(false)
+    );
+  }, [donoUid]);
+
+  return { pagamentos, loading };
+}
+
 export function useMatriculasDoClube(clubeId?: string) {
+  const { user } = useAuth();
   const [matriculas, setMatriculas] = useState<
     {
       id: string;
@@ -98,12 +128,17 @@ export function useMatriculasDoClube(clubeId?: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!clubeId) {
+    if (!clubeId || !user) {
       setMatriculas([]);
       setLoading(false);
       return;
     }
-    const q = query(collection(db, 'matriculas'), where('clubeId', '==', clubeId));
+    // donoUid na query — rules exigem igualdade com auth.uid para list
+    const q = query(
+      collection(db, 'matriculas'),
+      where('clubeId', '==', clubeId),
+      where('donoUid', '==', user.uid)
+    );
     return onSnapshot(
       q,
       (snap) => {
@@ -128,7 +163,7 @@ export function useMatriculasDoClube(clubeId?: string) {
       },
       () => setLoading(false)
     );
-  }, [clubeId]);
+  }, [clubeId, user]);
 
   return { matriculas, loading };
 }

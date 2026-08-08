@@ -62,7 +62,7 @@ export function ClubeProvider({ children }: { children: ReactNode }) {
         const q = query(
           collection(db, 'clubes'),
           where('esportes', 'array-contains', esporteAtivo),
-          limit(40)
+          limit(80)
         );
         const snap = await getDocs(q);
         if (cancelled) return;

@@ -1,4 +1,3 @@
-import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -8,32 +7,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Radius } from '../../constants/radius';
 import { useAuth } from '../../hooks/useAuth';
-import { listarClubesDoDono } from '../../services/clubes';
 import { liberarPagamentoAdmin } from '../../services/pagamentos';
-import { usePagamentosDoClube } from '../../hooks/usePagamentos';
+import { usePagamentosDoDono } from '../../hooks/usePagamentos';
 import { abrirOuCriarConversaAmigo, enviarMensagem } from '../../services/mensagens';
 import type { PagamentoDoc } from '../../types/pagamento';
 
 export default function FinanceiroClubeScreen() {
   const router = useRouter();
   const { user, perfil } = useAuth();
-  const [clubeId, setClubeId] = useState<string>();
-  const { pagamentos, loading } = usePagamentosDoClube(clubeId);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!user) return;
-      void listarClubesDoDono(user.uid).then((list) => {
-        if (list[0]) setClubeId(list[0].id);
-      });
-    }, [user])
-  );
+  const { pagamentos, loading } = usePagamentosDoDono(user?.uid);
 
   async function liberar(p: PagamentoDoc) {
     Alert.alert('Liberar acesso', `Liberar ${p.nome} sem esperar o Mercado Pago?`, [
@@ -71,7 +59,9 @@ export default function FinanceiroClubeScreen() {
         <Text style={styles.title}>Financeiro</Text>
         <View style={{ width: 26 }} />
       </View>
-      <Text style={styles.sub}>Pagamentos Mercado Pago · aulas, rankings e torneios</Text>
+      <Text style={styles.sub}>
+        Pagamentos e pedidos de liberação · aulas online, rankings e torneios
+      </Text>
 
       {loading ? (
         <ActivityIndicator color={Colors.accent} style={{ marginTop: 24 }} />
@@ -91,8 +81,10 @@ export default function FinanceiroClubeScreen() {
                   {item.tipo.toUpperCase()} · R$ {item.valor.toFixed(2)} · {item.ciclo}
                 </Text>
                 <Text style={styles.status}>{item.status}</Text>
-                {item.torneioNome || item.rankingNome ? (
-                  <Text style={styles.meta}>{item.torneioNome || item.rankingNome}</Text>
+                {item.aulaTitulo || item.torneioNome || item.rankingNome ? (
+                  <Text style={styles.meta}>
+                    {item.aulaTitulo || item.torneioNome || item.rankingNome}
+                  </Text>
                 ) : null}
               </View>
               <View style={styles.actions}>

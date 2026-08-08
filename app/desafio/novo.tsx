@@ -31,6 +31,8 @@ import {
   type ConfrontoResumo,
   type StatsJogador,
 } from '../../services/desafios';
+import { VsCard } from '../../components/jogador/VsCard';
+import { calcularProbabilidadeVitoria } from '../../utils/probabilidade';
 
 type AmigoRow = { uid: string; nome: string; fotoUrl?: string };
 
@@ -217,6 +219,11 @@ export default function NovoDesafioScreen() {
                 toque em Convidar.
               </Text>
               <Button label="Ver amigos" onPress={() => router.push('/(tabs)/amigos')} />
+              <Button
+                label="Buscar jogadores"
+                variant="outline"
+                onPress={() => router.push('/buscar')}
+              />
             </View>
           ) : (
             lista.map((item) => (
@@ -234,56 +241,41 @@ export default function NovoDesafioScreen() {
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          {/* VS hero */}
-          <View style={styles.vsCard}>
-            <Text style={styles.esporteBadge}>
-              {esporteMeta?.emoji} {esporteMeta?.nome}
-              {clubeAtivo ? ` · ${clubeAtivo.nome}` : ''}
-            </Text>
+          <Text style={styles.esporteBadge}>
+            {esporteMeta?.emoji} {esporteMeta?.nome}
+            {clubeAtivo ? ` · ${clubeAtivo.nome}` : ''}
+          </Text>
 
-            <View style={styles.vsRow}>
-              <View style={styles.playerCol}>
-                <Avatar uri={perfil?.fotoUrl} nome={perfil?.nome} size="lg" />
-                <Text style={styles.playerName} numberOfLines={1}>
-                  {perfil?.nome?.split(' ')[0] ?? 'Você'}
-                </Text>
-                <Text style={styles.playerStat}>
-                  {perfil?.vitorias ?? 0}V · {perfil?.derrotas ?? 0}D
-                </Text>
-              </View>
-
-              <View style={styles.vsMid}>
-                <Text style={styles.vsText}>VS</Text>
-                {confrontos.length > 0 ? (
-                  <Text style={styles.h2hScore}>
-                    {h2h.meus}–{h2h.dele}
-                  </Text>
-                ) : (
-                  <Text style={styles.h2hNew}>1º jogo</Text>
-                )}
-              </View>
-
-              <View style={styles.playerCol}>
-                {loadingOpp ? (
-                  <ActivityIndicator color={Colors.accent} />
-                ) : (
-                  <>
-                    <Avatar
-                      uri={oponente?.fotoUrl ?? selecionado?.fotoUrl}
-                      nome={oponente?.nome ?? selecionado?.nome}
-                      size="lg"
-                    />
-                    <Text style={styles.playerName} numberOfLines={1}>
-                      {(oponente?.nome ?? selecionado?.nome)?.split(' ')[0]}
-                    </Text>
-                    <Text style={styles.playerStat}>
-                      {oponente?.vitorias ?? 0}V · {oponente?.derrotas ?? 0}D
-                    </Text>
-                  </>
-                )}
-              </View>
+          {perfil && oponente ? (
+            <VsCard
+              nomeA={perfil.nome}
+              fotoA={perfil.fotoUrl}
+              nomeB={oponente.nome}
+              fotoB={oponente.fotoUrl}
+              probabilidadeA={calcularProbabilidadeVitoria({
+                vitoriasA: perfil.vitorias,
+                derrotasA: perfil.derrotas,
+                vitoriasB: oponente.vitorias,
+                derrotasB: oponente.derrotas,
+                nivelA: perfil.nivel,
+                nivelB: oponente.nivel,
+                h2hA: h2h.meus,
+                h2hB: h2h.dele,
+              })}
+            />
+          ) : (
+            <View style={styles.vsCard}>
+              <ActivityIndicator color={Colors.accent} />
             </View>
-          </View>
+          )}
+
+          {confrontos.length > 0 ? (
+            <Text style={styles.h2hNew}>
+              H2H histórico: {h2h.meus}–{h2h.dele}
+            </Text>
+          ) : (
+            <Text style={styles.h2hNew}>1º confronto direto</Text>
+          )}
 
           {/* Stats comparison */}
           {oponente && perfil ? (

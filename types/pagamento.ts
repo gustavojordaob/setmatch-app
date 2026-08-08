@@ -1,4 +1,4 @@
-export type TipoPagamento = 'aula' | 'ranking' | 'torneio';
+export type TipoPagamento = 'aula' | 'aula_online' | 'ranking' | 'torneio';
 export type CicloPagamento = 'unico' | 'mensal';
 export type StatusPagamento =
   | 'pendente'
@@ -46,6 +46,9 @@ export interface PagamentoDoc {
   rankingNome?: string;
   torneioId?: string;
   torneioNome?: string;
+  /** Aula online publicada (`aulasPublicadas/{id}`) */
+  aulaPublicadaId?: string;
+  aulaTitulo?: string;
   valor: number;
   ciclo: CicloPagamento;
   status: StatusPagamento;

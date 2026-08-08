@@ -14,6 +14,7 @@ import { Colors } from '../../constants/colors';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { AuthSocialRow } from '../../components/auth/AuthSocialRow';
+import { LegalConsent } from '../../components/legal/LegalConsent';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function CadastroScreen() {
@@ -24,8 +25,13 @@ export default function CadastroScreen() {
   const [senha, setSenha] = useState('');
   const [confirmar, setConfirmar] = useState('');
   const [loading, setLoading] = useState(false);
+  const [aceitouLegal, setAceitouLegal] = useState(false);
 
   async function onCadastrar() {
+    if (!aceitouLegal) {
+      Alert.alert('Termos', 'Aceite os Termos de Uso e a Política de Privacidade para continuar.');
+      return;
+    }
     if (!nome.trim() || !email.trim() || senha.length < 6) {
       Alert.alert('Cadastro', 'Preencha nome, e-mail e senha (mín. 6).');
       return;
@@ -83,7 +89,17 @@ export default function CadastroScreen() {
             showPasswordToggle
           />
 
-          <Button label="Criar Conta" onPress={onCadastrar} loading={loading} />
+          <LegalConsent
+            accepted={aceitouLegal}
+            onToggle={() => setAceitouLegal((v) => !v)}
+          />
+
+          <Button
+            label="Criar Conta"
+            onPress={onCadastrar}
+            loading={loading}
+            disabled={!aceitouLegal}
+          />
 
           <View style={styles.divider}>
             <View style={styles.line} />
@@ -91,7 +107,16 @@ export default function CadastroScreen() {
             <View style={styles.line} />
           </View>
 
-          <AuthSocialRow loading={loading} />
+          <AuthSocialRow
+            loading={loading}
+            disabled={!aceitouLegal}
+            onBlocked={() =>
+              Alert.alert(
+                'Termos',
+                'Aceite os Termos de Uso e a Política de Privacidade para continuar.'
+              )
+            }
+          />
 
           <View style={styles.footer}>
             <Text style={styles.footerMuted}>Já tem uma conta? </Text>

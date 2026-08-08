@@ -95,8 +95,10 @@ export default function MeusPagamentosScreen() {
               <Text style={styles.meta}>
                 R$ {item.valor.toFixed(2)} · {item.ciclo} · {item.status}
               </Text>
-              {item.torneioNome || item.rankingNome ? (
-                <Text style={styles.meta}>{item.torneioNome || item.rankingNome}</Text>
+              {item.torneioNome || item.rankingNome || item.aulaTitulo ? (
+                <Text style={styles.meta}>
+                  {item.torneioNome || item.rankingNome || item.aulaTitulo}
+                </Text>
               ) : null}
               {podePagar(item.status) ? (
                 <Button

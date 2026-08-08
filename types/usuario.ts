@@ -4,8 +4,10 @@ export type NivelAtividade = 'iniciante' | 'intermediario' | 'avancado';
 
 export type Genero = 'masculino' | 'feminino' | 'outro' | 'prefiro_nao_dizer';
 
-/** jogador = app comum · admin_clube = dono de academia/clube */
-export type UserRole = 'jogador' | 'admin_clube';
+/** jogador = app comum · admin_clube = dono de academia · professor = instrutor */
+export type UserRole = 'jogador' | 'admin_clube' | 'professor';
+
+export type TipoAdmin = 'clube' | 'professor';
 
 export interface EnderecoUsuario {
   cep?: string;
@@ -20,6 +22,7 @@ export interface UsuarioFirestore {
   fotoUrl: string;
   email: string;
   role: UserRole;
+  tipoAdmin?: TipoAdmin;
   /** ID amigável SM-XXXXXX — admin adiciona aluno / ranking */
   setmatchId: string;
   esportes: EsporteId[];
@@ -35,6 +38,10 @@ export interface UsuarioFirestore {
   rua: string;
   /** Celular com DDD — WhatsApp / contato direto */
   telefone: string;
+  /** Geolocalização opcional — “perto de mim” */
+  lat?: number;
+  lng?: number;
+  localizacaoAtualizadaEm?: unknown;
   vitorias: number;
   derrotas: number;
   onboardingOk: boolean;

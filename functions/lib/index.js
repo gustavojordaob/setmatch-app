@@ -1,12 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.webhookMercadoPagoSetmatch = exports.criarPreferenciaSetmatch = void 0;
+exports.excluirConta = exports.webhookMercadoPagoSetmatch = exports.criarPreferenciaSetmatch = void 0;
 const app_1 = require("firebase-admin/app");
 const firestore_1 = require("firebase-admin/firestore");
 const auth_1 = require("firebase-admin/auth");
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const v2_1 = require("firebase-functions/v2");
+const deleteAccount_1 = require("./deleteAccount");
 (0, app_1.initializeApp)();
 (0, v2_1.setGlobalOptions)({ region: 'southamerica-east1' });
 /** Token MP via functions/.env (MP_ACCESS_TOKEN=APP_USR-...). Sem Secret Manager no MVP. */
@@ -238,6 +239,30 @@ exports.webhookMercadoPagoSetmatch = (0, https_1.onRequest)({ cors: true }, asyn
     }
     catch (e) {
         console.error('webhook error', e);
+    }
+});
+/**
+ * Exclusão permanente de conta (App Store / Play / LGPD).
+ * POST + Authorization: Bearer <Firebase ID token>
+ */
+exports.excluirConta = (0, https_1.onRequest)({ cors: true, timeoutSeconds: 300 }, async (req, res) => {
+    if (req.method !== 'POST') {
+        res.status(405).json({ ok: false, error: 'Método não permitido' });
+        return;
+    }
+    try {
+        const uid = await requireUid(req);
+        await (0, deleteAccount_1.wipeSetmatchUser)(uid);
+        res.json({ ok: true });
+    }
+    catch (e) {
+        const msg = e instanceof Error ? e.message : 'Erro ao excluir conta';
+        if (msg === 'UNAUTHORIZED') {
+            res.status(401).json({ ok: false, error: 'Não autorizado' });
+            return;
+        }
+        console.error('excluirConta', e);
+        res.status(500).json({ ok: false, error: msg });
     }
 });
 //# sourceMappingURL=index.js.map

@@ -14,6 +14,7 @@ import { Colors } from '../../constants/colors';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { AuthSocialRow } from '../../components/auth/AuthSocialRow';
+import { LegalConsent } from '../../components/legal/LegalConsent';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function LoginScreen() {
@@ -22,8 +23,13 @@ export default function LoginScreen() {
   const [login, setLogin] = useState('');
   const [senha, setSenha] = useState('');
   const [loading, setLoading] = useState(false);
+  const [aceitouLegal, setAceitouLegal] = useState(false);
 
   async function onEmailLogin() {
+    if (!aceitouLegal) {
+      Alert.alert('Termos', 'Aceite os Termos de Uso e a Política de Privacidade para continuar.');
+      return;
+    }
     if (!login.trim() || !senha) {
       Alert.alert('Login', 'Preencha login e senha.');
       return;
@@ -71,7 +77,17 @@ export default function LoginScreen() {
             Esqueceu sua senha?
           </Text>
 
-          <Button label="Log In" onPress={onEmailLogin} loading={loading} />
+          <LegalConsent
+            accepted={aceitouLegal}
+            onToggle={() => setAceitouLegal((v) => !v)}
+          />
+
+          <Button
+            label="Log In"
+            onPress={onEmailLogin}
+            loading={loading}
+            disabled={!aceitouLegal}
+          />
 
           <View style={styles.divider}>
             <View style={styles.line} />
@@ -79,7 +95,16 @@ export default function LoginScreen() {
             <View style={styles.line} />
           </View>
 
-          <AuthSocialRow loading={loading} />
+          <AuthSocialRow
+            loading={loading}
+            disabled={!aceitouLegal}
+            onBlocked={() =>
+              Alert.alert(
+                'Termos',
+                'Aceite os Termos de Uso e a Política de Privacidade para continuar.'
+              )
+            }
+          />
 
           <View style={styles.footer}>
             <Text style={styles.footerMuted}>Não tem uma conta? </Text>

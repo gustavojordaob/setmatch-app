@@ -18,17 +18,49 @@ service cloud.firestore {
       return isAuth() && userDoc().role == 'admin_clube';
     }
 
+    function isProfessor() {
+      return isAuth() && userDoc().role == 'professor';
+    }
+
+    function isAdminOuProfessor() {
+      return isAdminClube() || isProfessor();
+    }
+
+    function isDonoClube(clubeId) {
+      return isAuth()
+        && get(/databases/$(database)/documents/clubes/$(clubeId)).data.donoUid == request.auth.uid;
+    }
+
+    // Bump de V/D/torneios após placar (adversário ou organizador) — só esses campos
+    function onlyStatsBump() {
+      return isAuth()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['vitorias', 'derrotas', 'torneiosVencidos']);
+    }
+
+    // Jogador ao se inscrever só pode incrementar totalInscritos (+1)
+    function onlyTotalInscritosBump() {
+      return isAuth()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['totalInscritos'])
+        && request.resource.data.totalInscritos
+            == resource.data.get('totalInscritos', 0) + 1;
+    }
+
     // role admin_clube só via Console / Admin SDK (equipe Setmatch)
     match /usuarios/{uid} {
       allow read: if isAuth();
       allow create: if isSelf(uid)
         && request.resource.data.role == 'jogador';
       // Não pode mudar role; se o doc antigo não tiver role, só permite gravar jogador
-      allow update: if isSelf(uid)
-        && (
-          !('role' in resource.data)
-            ? request.resource.data.role == 'jogador'
-            : request.resource.data.role == resource.data.role
+      allow update: if onlyStatsBump()
+        || (
+          isSelf(uid)
+          && (
+            !('role' in resource.data)
+              ? request.resource.data.role == 'jogador'
+              : request.resource.data.role == resource.data.role
+          )
         );
     }
 
@@ -50,7 +82,7 @@ service cloud.firestore {
 
     match /clubes/{clubeId} {
       allow read: if isAuth();
-      allow create: if isAdminClube()
+      allow create: if isAdminOuProfessor()
         && request.auth.uid == request.resource.data.donoUid;
       allow update, delete: if isAuth()
         && request.auth.uid == resource.data.donoUid;
@@ -79,9 +111,14 @@ service cloud.firestore {
 
     match /torneios/{torneioId} {
       allow read: if isAuth();
-      allow create: if isAdminClube()
+      allow create: if isAdminOuProfessor()
         && request.auth.uid == request.resource.data.donoUid;
-      allow update, delete: if isAuth()
+      allow update: if isAuth()
+        && (
+          request.auth.uid == resource.data.donoUid
+          || onlyTotalInscritosBump()
+        );
+      allow delete: if isAuth()
         && request.auth.uid == resource.data.donoUid;
 
       match /inscritos/{uid} {
@@ -92,6 +129,21 @@ service cloud.firestore {
         allow update, delete: if isAuth()
           && (request.auth.uid == uid
               || request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid);
+      }
+
+      // Chaveamento vivo — dono gera; jogadores do confronto ou dono registram placar
+      match /confrontos/{confrontoId} {
+        allow read: if isAuth();
+        allow create: if isAuth()
+          && request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid;
+        allow update: if isAuth()
+          && (
+            request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid
+            || request.auth.uid == resource.data.j1Uid
+            || request.auth.uid == resource.data.j2Uid
+          );
+        allow delete: if isAuth()
+          && request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid;
       }
     }
 
@@ -109,23 +161,46 @@ service cloud.firestore {
       allow read: if isAuth()
         && (request.auth.uid == resource.data.uid
             || request.auth.uid == resource.data.donoUid);
+      // Aluno cria a própria cobrança; admin/dono cria ao matricular o aluno
       allow create: if isAuth()
-        && request.auth.uid == request.resource.data.uid;
+        && (
+          request.auth.uid == request.resource.data.uid
+          || request.auth.uid == request.resource.data.donoUid
+        );
       allow update: if isAuth()
         && (request.auth.uid == resource.data.donoUid
             || request.auth.uid == resource.data.uid);
     }
 
+    // Admin lista por donoUid (+ clubeId). Aluno lista por uid.
     match /matriculas/{id} {
       allow read: if isAuth()
         && (request.auth.uid == resource.data.uid
-            || request.auth.uid == resource.data.donoUid);
+            || request.auth.uid == resource.data.donoUid
+            || isDonoClube(resource.data.clubeId));
       allow create: if isAuth()
         && (request.auth.uid == request.resource.data.uid
             || request.auth.uid == request.resource.data.donoUid);
       allow update: if isAuth()
         && (request.auth.uid == resource.data.donoUid
-            || request.auth.uid == resource.data.uid);
+            || request.auth.uid == resource.data.uid
+            || isDonoClube(resource.data.clubeId));
+    }
+
+    match /aulasPublicadas/{id} {
+      allow read: if isAuth();
+      allow create: if isAdminOuProfessor()
+        && request.auth.uid == request.resource.data.donoUid;
+      allow update, delete: if isAuth()
+        && request.auth.uid == resource.data.donoUid;
+    }
+
+    match /quadras/{id} {
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.auth.uid == request.resource.data.donoUid;
+      allow update, delete: if isAuth()
+        && request.auth.uid == resource.data.donoUid;
     }
 
     match /solicitacoes/{solId} {
@@ -146,6 +221,20 @@ service cloud.firestore {
       allow update: if isAuth();
       allow delete: if isAuth()
         && request.auth.uid == resource.data.autorUid;
+
+      // Subcoleção de comentários do feed
+      match /comentarios/{comentarioId} {
+        allow read: if isAuth();
+        allow create: if isAuth()
+          && request.auth.uid == request.resource.data.autorUid
+          && request.resource.data.texto is string
+          && request.resource.data.texto.size() > 0
+          && request.resource.data.texto.size() < 2000;
+        allow update: if false;
+        allow delete: if isAuth()
+          && (request.auth.uid == resource.data.autorUid
+              || request.auth.uid == get(/databases/$(database)/documents/posts/$(postId)).data.autorUid);
+      }
     }
 
     match /amizades/{id} {

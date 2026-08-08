@@ -208,7 +208,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [ensureUsuarioDoc, loadPerfil]);
 
   const onboardingComplete = useMemo(() => !!perfil?.onboardingOk, [perfil?.onboardingOk]);
-  const isAdminClube = useMemo(() => perfil?.role === 'admin_clube', [perfil?.role]);
+  /** Painel admin: dono de clube OU professor. */
+  const isAdminClube = useMemo(
+    () => perfil?.role === 'admin_clube' || perfil?.role === 'professor',
+    [perfil?.role]
+  );
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email.trim(), password);
