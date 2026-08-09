@@ -16,10 +16,12 @@ import { Input } from '../../components/ui/Input';
 import { AuthSocialRow } from '../../components/auth/AuthSocialRow';
 import { LegalConsent } from '../../components/legal/LegalConsent';
 import { useAuth } from '../../hooks/useAuth';
+import { useT } from '../../hooks/useI18n';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { signInWithEmail } = useAuth();
+  const t = useT();
   const [login, setLogin] = useState('');
   const [senha, setSenha] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,11 +29,11 @@ export default function LoginScreen() {
 
   async function onEmailLogin() {
     if (!aceitouLegal) {
-      Alert.alert('Termos', 'Aceite os Termos de Uso e a Política de Privacidade para continuar.');
+      Alert.alert(t('legal.termsTitle'), t('legal.acceptToContinue'));
       return;
     }
     if (!login.trim() || !senha) {
-      Alert.alert('Login', 'Preencha login e senha.');
+      Alert.alert(t('auth.login'), t('auth.fillLoginPassword'));
       return;
     }
     setLoading(true);
@@ -39,7 +41,7 @@ export default function LoginScreen() {
       await signInWithEmail(login, senha);
       router.replace('/');
     } catch (e: unknown) {
-      Alert.alert('Login', e instanceof Error ? e.message : 'Falha ao entrar.');
+      Alert.alert(t('auth.login'), e instanceof Error ? e.message : t('auth.loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -52,19 +54,19 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>Bem Vindo!</Text>
+          <Text style={styles.title}>{t('auth.welcome')}</Text>
 
           <Input
-            label="Login"
-            placeholder="Digite seu email our nome de usuário"
+            label={t('auth.login')}
+            placeholder={t('auth.loginPlaceholder')}
             value={login}
             onChangeText={setLogin}
             autoCapitalize="none"
           />
 
           <Input
-            label="Senha"
-            placeholder="Digite A sua senha"
+            label={t('auth.password')}
+            placeholder={t('auth.passwordPlaceholder')}
             value={senha}
             onChangeText={setSenha}
             showPasswordToggle
@@ -74,7 +76,7 @@ export default function LoginScreen() {
             style={styles.forgot}
             onPress={() => router.push('/(auth)/esqueci-senha')}
           >
-            Esqueceu sua senha?
+            {t('auth.forgotPassword')}
           </Text>
 
           <LegalConsent
@@ -83,7 +85,7 @@ export default function LoginScreen() {
           />
 
           <Button
-            label="Log In"
+            label={t('auth.logIn')}
             onPress={onEmailLogin}
             loading={loading}
             disabled={!aceitouLegal}
@@ -91,7 +93,7 @@ export default function LoginScreen() {
 
           <View style={styles.divider}>
             <View style={styles.line} />
-            <Text style={styles.dividerText}>ou</Text>
+            <Text style={styles.dividerText}>{t('common.or')}</Text>
             <View style={styles.line} />
           </View>
 
@@ -99,17 +101,14 @@ export default function LoginScreen() {
             loading={loading}
             disabled={!aceitouLegal}
             onBlocked={() =>
-              Alert.alert(
-                'Termos',
-                'Aceite os Termos de Uso e a Política de Privacidade para continuar.'
-              )
+              Alert.alert(t('legal.termsTitle'), t('legal.acceptToContinue'))
             }
           />
 
           <View style={styles.footer}>
-            <Text style={styles.footerMuted}>Não tem uma conta? </Text>
+            <Text style={styles.footerMuted}>{t('auth.noAccount')} </Text>
             <Text style={styles.footerLink} onPress={() => router.push('/(auth)/cadastro')}>
-              Registre-se
+              {t('auth.register')}
             </Text>
           </View>
 
@@ -117,7 +116,7 @@ export default function LoginScreen() {
             style={styles.adminLink}
             onPress={() => router.push('/(auth)/admin-login')}
           >
-            Sou dono de clube — já tenho acesso admin
+            {t('auth.clubOwnerLink')}
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

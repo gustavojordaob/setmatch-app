@@ -1,49 +1,49 @@
 import { Linking, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
-import {
-  PRIVACY_PAGE_URL,
-  SUPPORT_PAGE_URL,
-  TERMS_PAGE_URL,
-} from '../../constants/legal';
+import { PRIVACY_PAGE_URL, TERMS_PAGE_URL } from '../../constants/legal';
 import { Button } from '../ui/Button';
 import { useDeleteAccount } from '../../hooks/useDeleteAccount';
+import { useT } from '../../hooks/useI18n';
+import { LanguagePicker } from './LanguagePicker';
 
 type Props = {
   onLogout: () => void;
 };
 
 export function AccountComplianceLinks({ onLogout }: Props) {
+  const router = useRouter();
   const { confirmDeleteAccount, deleting } = useDeleteAccount();
+  const t = useT();
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.section}>Conta e legal</Text>
+      <LanguagePicker />
+      <Text style={styles.section}>{t('legal.accountSection')}</Text>
       <Button
-        label="Ajuda e suporte"
+        label={t('legal.helpSupport')}
         variant="outline"
-        onPress={() => void Linking.openURL(SUPPORT_PAGE_URL)}
+        onPress={() => router.push('/ajuda')}
       />
       <Button
-        label="Termos de uso"
+        label={t('legal.termsOfUse')}
         variant="outline"
         onPress={() => void Linking.openURL(TERMS_PAGE_URL)}
       />
       <Button
-        label="Política de privacidade"
+        label={t('legal.privacyPolicy')}
         variant="outline"
         onPress={() => void Linking.openURL(PRIVACY_PAGE_URL)}
       />
-      <Button label="Sair da conta" variant="outline" onPress={onLogout} />
+      <Button label={t('legal.logout')} variant="outline" onPress={onLogout} />
       <Button
-        label="Excluir minha conta"
+        label={t('legal.deleteAccount')}
         variant="outline"
         loading={deleting}
         onPress={confirmDeleteAccount}
         style={styles.dangerBtn}
       />
-      <Text style={styles.hint}>
-        Excluir remove permanentemente seus dados pessoais (exigência das lojas e LGPD).
-      </Text>
+      <Text style={styles.hint}>{t('legal.deleteHint')}</Text>
     </View>
   );
 }

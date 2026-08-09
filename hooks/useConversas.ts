@@ -14,10 +14,25 @@ export interface Conversa {
   tipo: 'amigo' | 'clube';
   participantes: string[];
   nomes?: Record<string, string>;
+  fotos?: Record<string, string>;
   clubeId?: string;
   clubeNome?: string;
   ultimoTexto: string;
+  ultimoDeUid?: string;
+  /** Contagem de não lidas por uid do participante. */
+  naoLidas?: Record<string, number>;
   atualizadoEm?: { seconds: number };
+}
+
+export function naoLidasDaConversa(c: Conversa, uid?: string | null): number {
+  if (!uid) return 0;
+  const n = Number(c.naoLidas?.[uid] ?? 0);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+export function totalNaoLidas(conversas: Conversa[], uid?: string | null): number {
+  if (!uid) return 0;
+  return conversas.reduce((acc, c) => acc + naoLidasDaConversa(c, uid), 0);
 }
 
 export interface Mensagem {
@@ -49,9 +64,12 @@ export function useConversas() {
           tipo: (raw.tipo as Conversa['tipo']) ?? 'amigo',
           participantes: (raw.participantes as string[]) ?? [],
           nomes: raw.nomes as Record<string, string> | undefined,
+          fotos: raw.fotos as Record<string, string> | undefined,
           clubeId: raw.clubeId ? String(raw.clubeId) : undefined,
           clubeNome: raw.clubeNome ? String(raw.clubeNome) : undefined,
           ultimoTexto: String(raw.ultimoTexto ?? ''),
+          ultimoDeUid: raw.ultimoDeUid ? String(raw.ultimoDeUid) : undefined,
+          naoLidas: (raw.naoLidas as Record<string, number> | undefined) ?? {},
           atualizadoEm: raw.atualizadoEm as { seconds: number } | undefined,
         };
       });

@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { WizardProvider } from '../contexts/WizardContext';
 import { EsporteProvider } from '../contexts/EsporteContext';
 import { ClubeProvider } from '../contexts/ClubeContext';
+import { LocaleProvider } from '../contexts/LocaleContext';
 import { AuthGuard } from '../components/AuthGuard';
 
 SplashScreen.preventAutoHideAsync();
@@ -29,14 +30,16 @@ function RootStack() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <WizardProvider>
-        <EsporteProvider>
-          <ClubeProvider>
-            <RootStack />
-          </ClubeProvider>
-        </EsporteProvider>
-      </WizardProvider>
-    </AuthProvider>
+    <LocaleProvider>
+      <AuthProvider>
+        <WizardProvider>
+          <EsporteProvider>
+            <ClubeProvider>
+              <RootStack />
+            </ClubeProvider>
+          </EsporteProvider>
+        </WizardProvider>
+      </AuthProvider>
+    </LocaleProvider>
   );
 }

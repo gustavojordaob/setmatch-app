@@ -20,7 +20,8 @@ import { useMeusPagamentos } from '../../../hooks/usePagamentos';
 import { useRankings } from '../../../hooks/useRankings';
 import { useMeusClubes } from '../../../hooks/useMeusClubes';
 import { abrirOuCriarConversaClube } from '../../../services/mensagens';
-import { iniciarCheckoutMercadoPago } from '../../../utils/mercadoPago';
+import { iniciarCheckoutStripe } from '../../../utils/stripeCheckout';
+import { pagarComEscolhaDeMeio } from '../../../utils/checkoutComMeio';
 import type { ClubeCompleto } from '../../../services/clubes';
 import type { PagamentoDoc } from '../../../types/pagamento';
 
@@ -91,12 +92,31 @@ export default function MeuClubeDetailScreen() {
   async function pagar(p: PagamentoDoc) {
     setPaying(p.id);
     try {
-      await iniciarCheckoutMercadoPago({
-        pagamentoId: p.id,
-        titulo: `${p.tipo} · ${p.clubeNome}`,
-        valor: p.valor,
-        ciclo: p.ciclo,
-      });
+      if (p.meioPagamento) {
+        await iniciarCheckoutStripe({
+          pagamentoId: p.id,
+          titulo: `${p.tipo} · ${p.clubeNome}`,
+          valor: p.valor,
+          ciclo: p.ciclo,
+          meio: p.meioPagamento,
+          permitePix: p.meioPagamento === 'pix',
+          permiteCartao: p.meioPagamento === 'cartao',
+          descontoPercent: p.descontoPercent,
+          valorBase: p.valorBase,
+        });
+      } else {
+        await pagarComEscolhaDeMeio({
+          pagamentoId: p.id,
+          titulo: `${p.tipo} · ${p.clubeNome}`,
+          ciclo: p.ciclo,
+          regras: {
+            valor: p.valorBase ?? p.valor,
+            permitePix: true,
+            permiteCartao: true,
+            ciclo: p.ciclo,
+          },
+        });
+      }
     } catch (e: unknown) {
       Alert.alert('Pagamento', e instanceof Error ? e.message : 'Falha');
     } finally {

@@ -13,25 +13,27 @@ import { Colors } from '../../constants/colors';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAuth } from '../../hooks/useAuth';
+import { useT } from '../../hooks/useI18n';
 
 export default function EsqueciSenhaScreen() {
   const router = useRouter();
   const { resetPassword } = useAuth();
+  const t = useT();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function enviar() {
     if (!email.trim()) {
-      Alert.alert('E-mail', 'Informe seu e-mail.');
+      Alert.alert(t('auth.email'), t('auth.emailRequired'));
       return;
     }
     setLoading(true);
     try {
       await resetPassword(email);
-      Alert.alert('Enviado', 'Verifique sua caixa de entrada para redefinir a senha.');
+      Alert.alert(t('auth.resetSentTitle'), t('auth.resetSentBody'));
       router.back();
     } catch (e: unknown) {
-      Alert.alert('Erro', e instanceof Error ? e.message : 'Não foi possível enviar.');
+      Alert.alert(t('common.error'), e instanceof Error ? e.message : t('auth.sendFailed'));
     } finally {
       setLoading(false);
     }
@@ -44,24 +46,22 @@ export default function EsqueciSenhaScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.title}>Esqueceu a sua senha?</Text>
-          <Text style={styles.sub}>
-            Digite o seu endereço de email e enviaremos um link para resetar a sua senha
-          </Text>
+          <Text style={styles.title}>{t('auth.forgotTitle')}</Text>
+          <Text style={styles.sub}>{t('auth.forgotSubtitle')}</Text>
 
           <Input
-            label="Endereço de Email"
-            placeholder="Digite o seu email"
+            label={t('auth.emailAddress')}
+            placeholder={t('auth.emailPlaceholder')}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
           />
 
-          <Button label="Enviar link" onPress={enviar} loading={loading} />
+          <Button label={t('auth.sendLink')} onPress={enviar} loading={loading} />
 
           <Text style={styles.back} onPress={() => router.back()}>
-            Voltar para Login
+            {t('auth.backToLogin')}
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

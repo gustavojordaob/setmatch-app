@@ -7,10 +7,13 @@ import { Typography } from '../../constants/typography';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../hooks/useAuth';
+import { useT } from '../../hooks/useI18n';
 import { useEffect, useMemo, useState } from 'react';
 import { badgesConquistados } from '../../constants/badges';
 import { jogadorFoiCampeao } from '../../services/partidasHistorico';
 import { AccountComplianceLinks } from '../../components/legal/AccountComplianceLinks';
+import { useTotalNaoLidas } from '../../hooks/useTotalNaoLidas';
+import { UnreadBadge } from '../../components/ui/UnreadBadge';
 
 import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
 const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
@@ -18,6 +21,8 @@ const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
 export default function PerfilScreen() {
   const router = useRouter();
   const { user, perfil, signOut } = useAuth();
+  const t = useT();
+  const msgsNaoLidas = useTotalNaoLidas();
   const [campeao, setCampeao] = useState(false);
 
   useEffect(() => {
@@ -44,10 +49,10 @@ export default function PerfilScreen() {
   );
 
   function confirmarLogout() {
-    Alert.alert('Sair da conta', 'Deseja encerrar sua sessão?', [
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(t('perfil.logoutTitle'), t('perfil.logoutConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Sair',
+        text: t('perfil.logout'),
         style: 'destructive',
         onPress: () => {
           void (async () => {
@@ -56,8 +61,8 @@ export default function PerfilScreen() {
               router.replace('/onboarding');
             } catch (e: unknown) {
               Alert.alert(
-                'Sair',
-                e instanceof Error ? e.message : 'Não foi possível sair.'
+                t('perfil.logout'),
+                e instanceof Error ? e.message : t('common.logoutFailed')
               );
             }
           })();
@@ -70,20 +75,20 @@ export default function PerfilScreen() {
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.safe}>
         <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Perfil</Text>
+          <Text style={styles.headerTitle}>{t('perfil.title')}</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={styles.headerIconBtn}
               onPress={() => router.push('/(tabs)/notificacoes')}
-              accessibilityLabel="Notificações"
+              accessibilityLabel={t('nav.notifications')}
             >
               <Ionicons name="notifications-outline" size={22} color={Colors.white} />
-              <View style={styles.bellDot} />
+              <UnreadBadge count={msgsNaoLidas} dotOnly />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.headerIconBtn}
               onPress={confirmarLogout}
-              accessibilityLabel="Sair da conta"
+              accessibilityLabel={t('perfil.logoutTitle')}
             >
               <Ionicons name="log-out-outline" size={22} color={Colors.white} />
             </TouchableOpacity>
@@ -103,9 +108,9 @@ export default function PerfilScreen() {
           </View>
 
           <View style={styles.statsRow}>
-            <StatCircle value={String(v)} label="Vitórias" />
-            <StatCircle value={String(d)} label="Derrotas" />
-            <StatCircle value={String(torneios)} label="Torneios" />
+            <StatCircle value={String(v)} label={t('perfil.wins')} />
+            <StatCircle value={String(d)} label={t('perfil.losses')} />
+            <StatCircle value={String(torneios)} label={t('perfil.tournaments')} />
           </View>
 
           {perfil?.cidade ? (
@@ -120,25 +125,29 @@ export default function PerfilScreen() {
             <Text style={styles.cidade}>ID: {perfil.setmatchId}</Text>
           ) : null}
 
-          <Button label="Editar perfil" onPress={() => router.push('/perfil/editar')} />
+          <Button label={t('perfil.edit')} onPress={() => router.push('/perfil/editar')} />
           <Button
-            label="Minhas estatísticas"
+            label={t('perfil.myStats')}
             variant="outline"
             onPress={() => router.push('/(tabs)/estatisticas')}
           />
-          <Button label="Meus clubes" onPress={() => router.push('/meus-clubes')} />
-          <Button label="Meus pagamentos" onPress={() => router.push('/pagamentos')} />
-          <Button label="Amigos" variant="outline" onPress={() => router.push('/(tabs)/amigos')} />
+          <Button label={t('perfil.myClubs')} onPress={() => router.push('/meus-clubes')} />
+          <Button label={t('perfil.myPayments')} onPress={() => router.push('/pagamentos')} />
           <Button
-            label="Buscar jogadores"
+            label={t('perfil.friends')}
+            variant="outline"
+            onPress={() => router.push('/(tabs)/amigos')}
+          />
+          <Button
+            label={t('perfil.searchPlayers')}
             variant="outline"
             onPress={() => router.push('/buscar')}
           />
 
-          <Text style={styles.badgeSection}>Meus badges</Text>
+          <Text style={styles.badgeSection}>{t('perfil.myBadges')}</Text>
           <View style={styles.badgeGrid}>
             {badges.length === 0 ? (
-              <Text style={styles.cidade}>Jogue partidas para desbloquear badges.</Text>
+              <Text style={styles.cidade}>{t('perfil.unlockBadges')}</Text>
             ) : (
               badges.map((b) => (
                 <View key={b.id} style={styles.badgeCell}>
@@ -191,15 +200,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  bellDot: {
-    position: 'absolute',
-    top: 8,
-    right: 10,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.accent,
   },
   scroll: { paddingHorizontal: 20, alignItems: 'center', gap: 20 },
   profileHeader: { alignItems: 'center', gap: 8, marginTop: 8 },

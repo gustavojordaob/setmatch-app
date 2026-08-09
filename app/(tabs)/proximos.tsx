@@ -26,11 +26,13 @@ import {
   type PessoaProxima,
   type QuadraProxima,
 } from '../../services/localizacao';
+import { useT } from '../../hooks/useI18n';
 
 type Aba = 'pessoas' | 'quadras';
 
 export default function ProximosScreen() {
   const router = useRouter();
+  const t = useT();
   const { user, perfil } = useAuth();
   const [aba, setAba] = useState<Aba>('pessoas');
   const [loading, setLoading] = useState(true);
@@ -70,11 +72,11 @@ export default function ProximosScreen() {
       setPessoas(p);
       setQuadras(q);
     } catch (e: unknown) {
-      setErro(e instanceof Error ? e.message : 'Falha ao carregar.');
+      setErro(e instanceof Error ? e.message : t('common.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [user, perfil?.estado]);
+  }, [user, perfil?.estado, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -88,26 +90,30 @@ export default function ProximosScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={Colors.accent} />
         </TouchableOpacity>
-        <Text style={styles.title}>Perto de mim</Text>
+        <Text style={styles.title}>{t('home.nearMeTitle')}</Text>
         <TouchableOpacity onPress={() => void carregar()}>
           <Ionicons name="refresh" size={22} color={Colors.accent} />
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.sub}>Raio de {RAIO_PADRAO_KM} km · pessoas e quadras/clubes</Text>
+      <Text style={styles.sub}>{t('proximos.peopleCourts')}</Text>
 
       <View style={styles.tabs}>
         <TouchableOpacity
           style={[styles.tab, aba === 'pessoas' && styles.tabOn]}
           onPress={() => setAba('pessoas')}
         >
-          <Text style={[styles.tabTxt, aba === 'pessoas' && styles.tabTxtOn]}>Pessoas</Text>
+          <Text style={[styles.tabTxt, aba === 'pessoas' && styles.tabTxtOn]}>
+            {t('proximos.people')}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, aba === 'quadras' && styles.tabOn]}
           onPress={() => setAba('quadras')}
         >
-          <Text style={[styles.tabTxt, aba === 'quadras' && styles.tabTxtOn]}>Quadras</Text>
+          <Text style={[styles.tabTxt, aba === 'quadras' && styles.tabTxtOn]}>
+            {t('proximos.courts')}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -125,9 +131,7 @@ export default function ProximosScreen() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <Text style={styles.emptyTxt}>
-              Nenhuma pessoa com localização no raio. Peça aos amigos para abrir esta tela.
-            </Text>
+            <Text style={styles.emptyTxt}>{t('proximos.noPeople')}</Text>
           }
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -152,9 +156,7 @@ export default function ProximosScreen() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <Text style={styles.emptyTxt}>
-              Nenhum clube/quadra com coordenadas no raio.
-            </Text>
+            <Text style={styles.emptyTxt}>{t('proximos.noCourts')}</Text>
           }
           renderItem={({ item }) => (
             <TouchableOpacity

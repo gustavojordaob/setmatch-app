@@ -32,12 +32,14 @@ import {
   solicitarAmizade,
 } from '../../services/amigos';
 import { abrirOuCriarConversaAmigo } from '../../services/mensagens';
+import { useT } from '../../hooks/useI18n';
 
 import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
 const TAB_PAD = TAB_BAR_CLEARANCE;
 
 export default function AmigosScreen() {
   const router = useRouter();
+  const t = useT();
   const { user, perfil } = useAuth();
   const { amigos, pendentesRecebidas } = useAmigos();
   const conversas = useConversas();
@@ -53,9 +55,9 @@ export default function AmigosScreen() {
   );
 
   async function buscar() {
-    const t = busca.trim().toLowerCase();
-    if (t.length < 2) {
-      Alert.alert('Amigos', 'Digite ao menos 2 letras.');
+    const termo = busca.trim().toLowerCase();
+    if (termo.length < 2) {
+      Alert.alert(t('amigos.title'), t('buscar.minChars'));
       return;
     }
     setBuscando(true);
@@ -77,7 +79,7 @@ export default function AmigosScreen() {
             u.uid !== user?.uid &&
             u.role !== 'admin_clube' &&
             u.role !== 'professor' &&
-            u.nome.toLowerCase().includes(t)
+            u.nome.toLowerCase().includes(termo)
         );
       setResultados(list);
     } finally {
@@ -103,6 +105,7 @@ export default function AmigosScreen() {
     const id = await abrirOuCriarConversaAmigo({
       uidA: user.uid,
       nomeA: perfil?.nome ?? 'Você',
+      fotoA: perfil?.fotoUrl,
       uidB: amigoUid,
       nomeB: amigoNome,
     });
@@ -113,7 +116,7 @@ export default function AmigosScreen() {
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.safe}>
         <View style={styles.header}>
-          <Text style={styles.title}>Amigos</Text>
+          <Text style={styles.title}>{t('amigos.title')}</Text>
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="close" size={26} color={Colors.white} />
           </TouchableOpacity>
@@ -122,7 +125,7 @@ export default function AmigosScreen() {
         <View style={styles.search}>
           <TextInput
             style={styles.input}
-            placeholder="Buscar jogador por nome"
+            placeholder={t('amigos.searchPlaceholder')}
             placeholderTextColor={Colors.textSecondary}
             value={busca}
             onChangeText={setBusca}
@@ -144,7 +147,7 @@ export default function AmigosScreen() {
             <>
               {pendentesRecebidas.length > 0 ? (
                 <View style={styles.box}>
-                  <Text style={styles.section}>Solicitações</Text>
+                  <Text style={styles.section}>{t('amigos.requests')}</Text>
                   {pendentesRecebidas.map((s) => (
                     <View key={s.id} style={styles.row}>
                       <Avatar uri={s.deFoto} nome={s.deNome} size="sm" />
@@ -184,10 +187,12 @@ export default function AmigosScreen() {
                 </View>
               ) : null}
 
-              <Text style={styles.section}>Meus amigos</Text>
+              <Text style={styles.section}>{t('amigos.myFriends')}</Text>
             </>
           }
-          ListEmptyComponent={<Text style={styles.empty}>Nenhum amigo ainda. Busque e adicione!</Text>}
+          ListEmptyComponent={
+            <Text style={styles.empty}>{t('amigos.empty')}</Text>
+          }
           renderItem={({ item }) => (
             <View style={styles.row}>
               <TouchableOpacity

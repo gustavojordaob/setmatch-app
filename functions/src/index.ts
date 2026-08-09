@@ -5,11 +5,20 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { defineString } from 'firebase-functions/params';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { wipeSetmatchUser } from './deleteAccount';
+import { syncPagamentoAprovado } from './pagamentosSync';
+
+export {
+  criarCheckoutStripe,
+  confirmarCheckoutStripe,
+  webhookStripeSetmatch,
+  stripeConnectOnboarding,
+  stripeConnectStatus,
+} from './stripeHandlers';
 
 initializeApp();
 setGlobalOptions({ region: 'southamerica-east1' });
 
-/** Token MP via functions/.env (MP_ACCESS_TOKEN=APP_USR-...). Sem Secret Manager no MVP. */
+/** Token MP legado — app usa Stripe; mantido por compatibilidade. */
 const mpAccessToken = defineString('MP_ACCESS_TOKEN', { default: '' });
 const db = getFirestore();
 
@@ -21,15 +30,9 @@ async function requireUid(req: { headers: Record<string, unknown> }): Promise<st
   return decoded.uid;
 }
 
-function addMonths(date: Date, months: number): Date {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + months);
-  return d;
-}
-
 /**
+ * @deprecated Preferir criarCheckoutStripe
  * Cria preferência Checkout Pro (PIX + cartão 1x conforme flags).
- * ACCESS_TOKEN fica só no secret — nunca no app.
  */
 export const criarPreferenciaSetmatch = onRequest(
   { cors: true },
@@ -43,7 +46,7 @@ export const criarPreferenciaSetmatch = onRequest(
       const token = mpAccessToken.value();
       if (!token) {
         res.status(503).json({
-          error: 'MP_ACCESS_TOKEN não configurado em functions/.env',
+          error: 'MP desativado. Use Stripe (criarCheckoutStripe).',
         });
         return;
       }
@@ -165,86 +168,6 @@ export const criarPreferenciaSetmatch = onRequest(
   }
 );
 
-async function syncPagamentoAprovado(pagamentoId: string, paymentId: string, status: string) {
-  const pagRef = db.collection('pagamentos').doc(pagamentoId);
-  const snap = await pagRef.get();
-  if (!snap.exists) return;
-  const pag = snap.data()!;
-
-  const aprovado = status === 'approved';
-  const patch: Record<string, unknown> = {
-    paymentId,
-    mpStatus: status,
-    atualizadoEm: FieldValue.serverTimestamp(),
-  };
-
-  if (aprovado) {
-    patch.status = 'aprovado';
-    if (pag.ciclo === 'mensal') {
-      patch.vigenteAte = addMonths(new Date(), 1);
-    }
-  } else if (status === 'rejected' || status === 'cancelled') {
-    patch.status = status === 'cancelled' ? 'cancelado' : 'recusado';
-  } else if (status === 'pending' || status === 'in_process') {
-    patch.status = 'aguardando_pagamento';
-  }
-
-  await pagRef.update(patch);
-
-  if (!aprovado) return;
-
-  // Ativa matrícula de aulas
-  if (pag.tipo === 'aula' && pag.clubeId && pag.uid) {
-    const mats = await db
-      .collection('matriculas')
-      .where('clubeId', '==', pag.clubeId)
-      .where('uid', '==', pag.uid)
-      .limit(1)
-      .get();
-    if (!mats.empty) {
-      await mats.docs[0].ref.update({
-        status: 'ativo',
-        pagamentoId,
-        atualizadoEm: FieldValue.serverTimestamp(),
-      });
-    }
-  }
-
-  // Torneio: marca inscrição como paga
-  if (pag.tipo === 'torneio' && pag.torneioId && pag.uid) {
-    await db
-      .collection('torneios')
-      .doc(pag.torneioId)
-      .collection('inscritos')
-      .doc(pag.uid)
-      .set(
-        {
-          pago: true,
-          pagamentoId,
-          pagoEm: FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
-  }
-
-  // Ranking: marca membro como adimplente (campo no classificacao se existir)
-  if (pag.tipo === 'ranking' && pag.rankingId && pag.uid) {
-    await db
-      .collection('rankings')
-      .doc(pag.rankingId)
-      .collection('classificacao')
-      .doc(pag.uid)
-      .set(
-        {
-          pagamentoOk: true,
-          pagamentoId,
-          atualizadoEm: FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
-  }
-}
-
 export const webhookMercadoPagoSetmatch = onRequest(
   { cors: true },
   async (req, res) => {
@@ -282,7 +205,10 @@ export const webhookMercadoPagoSetmatch = onRequest(
       const pagamentoId = payment.external_reference;
       if (!pagamentoId) return;
 
-      await syncPagamentoAprovado(pagamentoId, String(payment.id), payment.status);
+      await syncPagamentoAprovado(pagamentoId, String(payment.id), payment.status, {
+        provedor: 'mercadopago',
+        mpStatus: payment.status,
+      });
     } catch (e) {
       console.error('webhook error', e);
     }

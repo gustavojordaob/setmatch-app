@@ -17,6 +17,7 @@ import { useDesafios, type Desafio } from '../../hooks/useDesafios';
 import { ESPORTES } from '../../constants/esportes';
 import { labelFormato } from '../../constants/formatosPartida';
 import { atualizarStatusDesafio } from '../../services/desafios';
+import { useT } from '../../hooks/useI18n';
 
 import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
 const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
@@ -32,6 +33,7 @@ const ABAS: { id: Aba; label: string }[] = [
 
 export default function PartidasScreen() {
   const router = useRouter();
+  const t = useT();
   const { user } = useAuth();
   const {
     loading,
@@ -62,7 +64,7 @@ export default function PartidasScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Partidas</Text>
+        <Text style={styles.title}>{t('desafios.title')}</Text>
         <TouchableOpacity
           style={styles.novoBtn}
           onPress={() => router.push('/desafio/novo')}
@@ -73,21 +75,21 @@ export default function PartidasScreen() {
       </View>
 
       <View style={styles.tabsRow}>
-        {ABAS.map((t) => {
-          const on = aba === t.id;
+        {ABAS.map((tab) => {
+          const on = aba === tab.id;
           const badge =
-            t.id === 'recebidos'
+            tab.id === 'recebidos'
               ? recebidosPendentes.length
-              : t.id === 'agendados'
+              : tab.id === 'agendados'
                 ? agendados.length
                 : 0;
           return (
             <TouchableOpacity
-              key={t.id}
+              key={tab.id}
               style={[styles.tab, on && styles.tabOn]}
-              onPress={() => setAba(t.id)}
+              onPress={() => setAba(tab.id)}
             >
-              <Text style={[styles.tabTxt, on && styles.tabTxtOn]}>{t.label}</Text>
+              <Text style={[styles.tabTxt, on && styles.tabTxtOn]}>{tab.label}</Text>
               {badge > 0 ? (
                 <View style={styles.badge}>
                   <Text style={styles.badgeTxt}>{badge}</Text>
@@ -119,7 +121,7 @@ export default function PartidasScreen() {
                   style={styles.ctaBtn}
                   onPress={() => router.push('/desafio/novo')}
                 >
-                  <Text style={styles.ctaTxt}>Desafiar alguém</Text>
+                  <Text style={styles.ctaTxt}>{t('desafios.challengeSomeone')}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -157,6 +159,7 @@ function ConfrontoCard({
   onAceitar: () => void;
   onRecusar: () => void;
 }) {
+  const t = useT();
   const esp = ESPORTES.find((e) => e.id === d.esporte);
   const euDesafiei = d.desafiante === meuUid;
   const souDesafiado = d.desafiado === meuUid;
@@ -176,7 +179,7 @@ function ConfrontoCard({
           <Text style={[styles.statusTxt, { color: st.color }]}>{st.label}</Text>
         </View>
         <Text style={styles.espTxt}>
-          {esp?.emoji} {esp?.nome}
+          {esp?.emoji} {d.esporte ? t(`esporte.${d.esporte}`) : esp?.nome}
         </Text>
       </View>
 
@@ -226,7 +229,7 @@ function ConfrontoCard({
             {busy ? (
               <ActivityIndicator size="small" color={Colors.textOnAccent} />
             ) : (
-              <Text style={styles.actAcceptTxt}>Aceitar</Text>
+              <Text style={styles.actAcceptTxt}>{t('desafios.accept')}</Text>
             )}
           </TouchableOpacity>
           <TouchableOpacity
@@ -234,7 +237,7 @@ function ConfrontoCard({
             onPress={onRecusar}
             disabled={busy}
           >
-            <Text style={styles.actRejectTxt}>Recusar</Text>
+            <Text style={styles.actRejectTxt}>{t('desafios.decline')}</Text>
           </TouchableOpacity>
         </View>
       ) : d.status === 'aceito' ? (

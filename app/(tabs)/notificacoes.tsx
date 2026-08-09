@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,9 +6,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Radius } from '../../constants/radius';
 import { useAuth } from '../../hooks/useAuth';
-import { useConversas, type Conversa } from '../../hooks/useConversas';
+import {
+  naoLidasDaConversa,
+  totalNaoLidas,
+  useConversas,
+  type Conversa,
+} from '../../hooks/useConversas';
 import { useDesafios } from '../../hooks/useDesafios';
 import { Avatar } from '../../components/ui/Avatar';
+import { UnreadBadge } from '../../components/ui/UnreadBadge';
+import { useT } from '../../hooks/useI18n';
 
 type TabNotif = 'confrontos' | 'mensagens' | 'lembretes' | 'sistema';
 
@@ -38,12 +45,33 @@ function formatHora(seconds?: number): string {
 
 export default function NotificacoesScreen() {
   const router = useRouter();
+  const t = useT();
   const { user } = useAuth();
   const conversas = useConversas();
   const { recebidosPendentes, agendados } = useDesafios();
   const [aba, setAba] = useState<TabNotif>('confrontos');
+  const [autoAba, setAutoAba] = useState(false);
 
-  const comMensagem = conversas.filter((c) => c.ultimoTexto);
+  const msgsNaoLidas = totalNaoLidas(conversas, user?.uid);
+
+  const comMensagem = useMemo(() => {
+    const list = conversas.filter((c) => c.ultimoTexto);
+    list.sort((a, b) => {
+      const ua = naoLidasDaConversa(a, user?.uid);
+      const ub = naoLidasDaConversa(b, user?.uid);
+      if (ub !== ua) return ub - ua;
+      return (b.atualizadoEm?.seconds ?? 0) - (a.atualizadoEm?.seconds ?? 0);
+    });
+    return list;
+  }, [conversas, user?.uid]);
+
+  useEffect(() => {
+    if (autoAba) return;
+    if (msgsNaoLidas > 0) {
+      setAba('mensagens');
+      setAutoAba(true);
+    }
+  }, [msgsNaoLidas, autoAba]);
 
   function tituloDa(c: Conversa): string {
     if (c.tipo === 'clube') return c.clubeNome ?? 'Clube';
@@ -58,7 +86,7 @@ export default function NotificacoesScreen() {
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.back}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>Notificações</Text>
+          <Text style={styles.title}>{t('notificacoes.title')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -68,7 +96,7 @@ export default function NotificacoesScreen() {
             onPress={() => setAba('confrontos')}
           >
             <Text style={[styles.toggleTxt, aba === 'confrontos' && styles.toggleTxtOn]}>
-              CONFRONTOS
+              {t('home.confrontos').toUpperCase()}
             </Text>
             {recebidosPendentes.length > 0 ? (
               <View style={styles.tabBadge}>
@@ -81,8 +109,15 @@ export default function NotificacoesScreen() {
             onPress={() => setAba('mensagens')}
           >
             <Text style={[styles.toggleTxt, aba === 'mensagens' && styles.toggleTxtOn]}>
-              MENSAGENS
+              {t('mensagens.title').toUpperCase()}
             </Text>
+            {msgsNaoLidas > 0 ? (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeTxt}>
+                  {msgsNaoLidas > 99 ? '99+' : msgsNaoLidas}
+                </Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.toggleBtn, aba === 'lembretes' && styles.toggleOn]}
@@ -133,13 +168,15 @@ export default function NotificacoesScreen() {
                       </Text>
                     </View>
                     <View style={styles.respTag}>
-                      <Text style={styles.respTagTxt}>RESPONDER</Text>
+                      <Text style={styles.respTagTxt}>{t('home.respond')}</Text>
                     </View>
                   </TouchableOpacity>
                 ))}
 
                 {agendados.length > 0 ? (
-                  <Text style={[styles.section, { marginTop: 16 }]}>Partidas marcadas</Text>
+                  <Text style={[styles.section, { marginTop: 16 }]}>
+                    {t('desafios.scheduled')}
+                  </Text>
                 ) : null}
                 {agendados.map((d) => {
                   const outroNome = d.desafiante === user?.uid ? d.desafiadoNome : d.desafianteNome;
@@ -169,36 +206,44 @@ export default function NotificacoesScreen() {
             comMensagem.length === 0 ? (
               <View style={styles.emptyBox}>
                 <Ionicons name="chatbubbles-outline" size={36} color={Colors.textSecondary} />
-                <Text style={styles.empty}>Nenhuma mensagem recente.</Text>
+                <Text style={styles.empty}>{t('mensagens.noneRecent')}</Text>
                 <TouchableOpacity onPress={() => router.push('/(tabs)/mensagens')}>
                   <Text style={styles.emptyLink}>Ir para Mensagens</Text>
                 </TouchableOpacity>
               </View>
             ) : (
-              comMensagem.map((c) => (
-                <TouchableOpacity
-                  key={c.id}
-                  style={styles.card}
-                  onPress={() => router.push(`/chat/${c.id}`)}
-                >
-                  <View style={styles.iconBox}>
-                    <Ionicons
-                      name={c.tipo === 'clube' ? 'business' : 'chatbubble-ellipses'}
-                      size={20}
-                      color={Colors.accent}
-                    />
-                  </View>
-                  <View style={styles.cardBody}>
-                    <Text style={styles.cardTitle} numberOfLines={1}>
-                      {tituloDa(c)}
-                    </Text>
-                    <Text style={styles.cardSub} numberOfLines={1}>
-                      {c.ultimoTexto}
-                    </Text>
-                  </View>
-                  <Text style={styles.hora}>{formatHora(c.atualizadoEm?.seconds)}</Text>
-                </TouchableOpacity>
-              ))
+              comMensagem.map((c) => {
+                const outroUid = c.participantes.find((p) => p !== user?.uid);
+                const fotoUri = outroUid ? c.fotos?.[outroUid] : undefined;
+                const unread = naoLidasDaConversa(c, user?.uid);
+                return (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={[styles.card, unread > 0 && styles.cardUnread]}
+                    onPress={() => router.push(`/chat/${c.id}`)}
+                  >
+                    <Avatar uri={fotoUri} nome={tituloDa(c)} size="sm" />
+                    <View style={styles.cardBody}>
+                      <Text
+                        style={[styles.cardTitle, unread > 0 && styles.cardTitleUnread]}
+                        numberOfLines={1}
+                      >
+                        {tituloDa(c)}
+                      </Text>
+                      <Text
+                        style={[styles.cardSub, unread > 0 && styles.cardSubUnread]}
+                        numberOfLines={1}
+                      >
+                        {c.ultimoTexto}
+                      </Text>
+                    </View>
+                    <View style={styles.rightCol}>
+                      <Text style={styles.hora}>{formatHora(c.atualizadoEm?.seconds)}</Text>
+                      <UnreadBadge count={unread} />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
             )
           ) : (
             <>
@@ -220,14 +265,15 @@ export default function NotificacoesScreen() {
 }
 
 function NotifCard({ hora }: { hora: string }) {
+  const t = useT();
   return (
     <View style={styles.card}>
       <View style={styles.iconBox}>
         <Ionicons name="trophy" size={22} color={Colors.accent} />
       </View>
       <View style={styles.cardBody}>
-        <Text style={styles.cardTitle}>Notificação</Text>
-        <Text style={styles.cardSub}>Texto Placeholder para as notificações.</Text>
+        <Text style={styles.cardTitle}>{t('notificacoes.title')}</Text>
+        <Text style={styles.cardSub}>{t('notificacoes.placeholder')}</Text>
       </View>
       <Text style={styles.hora}>{hora}</Text>
     </View>
@@ -300,6 +346,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     gap: 12,
   },
+  cardUnread: {
+    borderWidth: 1,
+    borderColor: Colors.accent,
+  },
   iconBox: {
     width: 44,
     height: 44,
@@ -310,7 +360,10 @@ const styles = StyleSheet.create({
   },
   cardBody: { flex: 1 },
   cardTitle: { color: Colors.textPrimary, fontWeight: 'bold' },
+  cardTitleUnread: { color: Colors.accent },
   cardSub: { color: Colors.textSecondary, fontSize: 12, marginTop: 4 },
+  cardSubUnread: { color: Colors.textPrimary, fontWeight: '600' },
+  rightCol: { alignItems: 'flex-end', gap: 6 },
   hora: { color: Colors.textSecondary, fontSize: 11 },
   emptyBox: { alignItems: 'center', gap: 10, marginTop: 40 },
   empty: { color: Colors.textSecondary },

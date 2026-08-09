@@ -8,6 +8,7 @@ import { Radius } from '../../constants/radius';
 import { RecentMatchCard } from '../../components/home/RecentMatchCard';
 import { useAuth } from '../../hooks/useAuth';
 import { formatDataPartida, usePartidas } from '../../hooks/usePartidas';
+import { useT } from '../../hooks/useI18n';
 
 type AbaCal = 'proximas' | 'historico';
 
@@ -16,6 +17,7 @@ const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
 
 export default function EstatisticasScreen() {
   const router = useRouter();
+  const t = useT();
   const { user, perfil } = useAuth();
   const { partidas } = usePartidas();
   const [aba, setAba] = useState<AbaCal>('historico');
@@ -36,13 +38,13 @@ export default function EstatisticasScreen() {
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.safe}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} accessibilityLabel="Voltar">
+          <TouchableOpacity onPress={() => router.back()} accessibilityLabel={t('nav.back')}>
             <Ionicons name="arrow-back" size={26} color={Colors.accent} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.bell}
             onPress={() => router.push('/(tabs)/notificacoes')}
-            accessibilityLabel="Notificações"
+            accessibilityLabel={t('nav.notifications')}
           >
             <Ionicons name="notifications-outline" size={22} color={Colors.white} />
             <View style={styles.bellDot} />
@@ -52,7 +54,7 @@ export default function EstatisticasScreen() {
         <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: TAB_PAD_BOTTOM }]}>
           <View style={styles.titleRow}>
             <Ionicons name="trophy" size={36} color={Colors.accent} />
-            <Text style={styles.title}>CALENDÁRIO</Text>
+            <Text style={styles.title}>{t('home.calendar')}</Text>
           </View>
 
           <View style={styles.toggleRow}>
@@ -61,7 +63,7 @@ export default function EstatisticasScreen() {
               onPress={() => setAba('proximas')}
             >
               <Text style={[styles.toggleTxt, aba === 'proximas' && styles.toggleTxtOn]}>
-                PRÓXIMAS
+                {t('home.upcoming')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -69,14 +71,14 @@ export default function EstatisticasScreen() {
               onPress={() => setAba('historico')}
             >
               <Text style={[styles.toggleTxt, aba === 'historico' && styles.toggleTxtOn]}>
-                HISTÓRICO
+                {t('home.history')}
               </Text>
             </TouchableOpacity>
           </View>
 
           {aba === 'historico' ? (
             porData.length === 0 ? (
-              <Text style={styles.empty}>Sem partidas no histórico.</Text>
+              <Text style={styles.empty}>{t('home.noHistory')}</Text>
             ) : (
               porData.map(([data, lista]) => (
                 <View key={data}>
@@ -105,7 +107,7 @@ export default function EstatisticasScreen() {
               ))
             )
           ) : (
-            <Text style={styles.empty}>Sem partidas próximas agendadas.</Text>
+            <Text style={styles.empty}>{t('home.noUpcoming')}</Text>
           )}
         </ScrollView>
       </SafeAreaView>

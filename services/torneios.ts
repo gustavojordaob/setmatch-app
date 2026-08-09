@@ -57,6 +57,8 @@ export interface Torneio {
     prazoPagamento?: string;
     permitePix: boolean;
     permiteCartao: boolean;
+    descontoPixPercent?: number;
+    descontoCartaoPercent?: number;
   };
 }
 
@@ -101,6 +103,12 @@ function mapTorneio(id: string, raw: Record<string, unknown>): Torneio {
             : undefined,
           permitePix: Boolean((raw.pagamento as { permitePix?: boolean }).permitePix ?? true),
           permiteCartao: Boolean((raw.pagamento as { permiteCartao?: boolean }).permiteCartao ?? true),
+          descontoPixPercent: Number(
+            (raw.pagamento as { descontoPixPercent?: number }).descontoPixPercent ?? 0
+          ),
+          descontoCartaoPercent: Number(
+            (raw.pagamento as { descontoCartaoPercent?: number }).descontoCartaoPercent ?? 0
+          ),
         }
       : undefined,
   };
@@ -131,6 +139,8 @@ export async function criarTorneioCompleto(input: {
     prazoPagamento?: string;
     permitePix: boolean;
     permiteCartao: boolean;
+    descontoPixPercent?: number;
+    descontoCartaoPercent?: number;
   };
 }): Promise<string> {
   const ref = await addDoc(collection(db, 'torneios'), {
@@ -160,6 +170,8 @@ export async function criarTorneioCompleto(input: {
       prazoPagamento: '',
       permitePix: true,
       permiteCartao: true,
+      descontoPixPercent: 0,
+      descontoCartaoPercent: 0,
     },
     criadoEm: serverTimestamp(),
   });

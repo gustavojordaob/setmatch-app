@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -11,14 +11,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Radius } from '../../constants/radius';
 import { useAuth } from '../../hooks/useAuth';
 import { useMensagens } from '../../hooks/useConversas';
-import { enviarMensagem } from '../../services/mensagens';
+import { enviarMensagem, marcarConversaComoLida } from '../../services/mensagens';
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,6 +30,15 @@ export default function ChatScreen() {
   const [enviando, setEnviando] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const listRef = useRef<FlatList>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.uid || !id) return;
+      void marcarConversaComoLida(id, user.uid).catch(() => {
+        /* rules / offline — não bloqueia o chat */
+      });
+    }, [id, user?.uid])
+  );
 
   useEffect(() => {
     const show = Keyboard.addListener(

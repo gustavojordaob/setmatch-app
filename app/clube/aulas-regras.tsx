@@ -26,6 +26,8 @@ export default function AulasRegrasScreen() {
   const [valor, setValor] = useState('250.00');
   const [regras, setRegras] = useState('');
   const [regrasGerais, setRegrasGerais] = useState('');
+  const [descontoPix, setDescontoPix] = useState('0');
+  const [descontoCartao, setDescontoCartao] = useState('0');
   const [loading, setLoading] = useState(false);
 
   useFocusEffect(
@@ -38,6 +40,8 @@ export default function AulasRegrasScreen() {
           setAtivo(c.aulas.ativo);
           setValor(String(c.aulas.valorMensal || ''));
           setRegras(c.aulas.regras || '');
+          setDescontoPix(String(c.aulas.descontoPixPercent ?? 0));
+          setDescontoCartao(String(c.aulas.descontoCartaoPercent ?? 0));
         }
         setRegrasGerais(c?.regrasGerais || '');
       });
@@ -61,6 +65,14 @@ export default function AulasRegrasScreen() {
           regras: regras.trim(),
           permitePix: true,
           permiteCartao: true,
+          descontoPixPercent: Math.min(
+            100,
+            Math.max(0, Number(String(descontoPix).replace(',', '.')) || 0)
+          ),
+          descontoCartaoPercent: Math.min(
+            100,
+            Math.max(0, Number(String(descontoCartao).replace(',', '.')) || 0)
+          ),
         },
       });
       Alert.alert('Aulas', 'Regras salvas.', [
@@ -84,7 +96,8 @@ export default function AulasRegrasScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.body}>
         <Text style={styles.sub}>
-          Defina como funcionam as aulas e a cobrança recorrente (mensal via Mercado Pago).
+          Mensalidade via Stripe. Cartão = assinatura recorrente (cobra todo mês). PIX = só o
+          mês atual. Cadastre % de desconto por meio — o aluno vê na hora de pagar.
         </Text>
         <Input
           label="Regras gerais do clube"
@@ -106,11 +119,25 @@ export default function AulasRegrasScreen() {
               keyboardType="decimal-pad"
             />
             <Input
+              label="Desconto PIX (%)"
+              value={descontoPix}
+              onChangeText={setDescontoPix}
+              keyboardType="decimal-pad"
+              placeholder="Ex: 10"
+            />
+            <Input
+              label="Desconto cartão (%)"
+              value={descontoCartao}
+              onChangeText={setDescontoCartao}
+              keyboardType="decimal-pad"
+              placeholder="Ex: 0"
+            />
+            <Input
               label="Regras das aulas / pagamento"
               value={regras}
               onChangeText={setRegras}
               multiline
-              placeholder="Cobrança todo dia 5; atraso suspende; PIX ou cartão 1x…"
+              placeholder="Cobrança todo dia 5; atraso suspende; PIX ou cartão…"
             />
           </>
         ) : null}

@@ -51,8 +51,10 @@ export default function TorneioNovoScreen() {
   const [valor, setValor] = useState('80.00');
   const [prazo, setPrazo] = useState('');
   const [regras, setRegras] = useState(
-    'Inscrição via PIX ou cartão em 1x. Pagamento até a data limite.'
+    'Inscrição via PIX ou cartão. Pagamento até a data limite.'
   );
+  const [descontoPix, setDescontoPix] = useState('0');
+  const [descontoCartao, setDescontoCartao] = useState('0');
   const [loading, setLoading] = useState(false);
 
   const formatosJogo = useMemo(() => formatosPartidaPorEsporte(esporte), [esporte]);
@@ -121,6 +123,14 @@ export default function TorneioNovoScreen() {
           prazoPagamento: prazo.trim(),
           permitePix: true,
           permiteCartao: true,
+          descontoPixPercent: Math.min(
+            100,
+            Math.max(0, Number(String(descontoPix).replace(',', '.')) || 0)
+          ),
+          descontoCartaoPercent: Math.min(
+            100,
+            Math.max(0, Number(String(descontoCartao).replace(',', '.')) || 0)
+          ),
         },
       });
       Alert.alert('Torneio', 'Torneio criado!', [
@@ -264,6 +274,23 @@ export default function TorneioNovoScreen() {
         {cobrar ? (
           <>
             <Input title="Valor (R$)" value={valor} onChangeText={setValor} keyboardType="decimal-pad" />
+            <Input
+              title="Desconto PIX (%)"
+              value={descontoPix}
+              onChangeText={setDescontoPix}
+              keyboardType="decimal-pad"
+              placeholder="Ex: 10"
+            />
+            <Input
+              title="Desconto cartão (%)"
+              value={descontoCartao}
+              onChangeText={setDescontoCartao}
+              keyboardType="decimal-pad"
+              placeholder="Ex: 0"
+            />
+            <Text style={styles.promoHint}>
+              O inscrito vê o desconto do meio na hora de pagar (ex.: PIX −10%).
+            </Text>
             <Input title="Prazo pagamento" value={prazo} onChangeText={setPrazo} />
             <Input title="Regras" value={regras} onChangeText={setRegras} />
           </>
@@ -342,5 +369,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 12,
+  },
+  promoHint: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    marginTop: 4,
+    marginBottom: 8,
+    lineHeight: 18,
   },
 });

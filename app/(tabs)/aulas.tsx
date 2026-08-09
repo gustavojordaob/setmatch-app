@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
 import { Colors, InputColors } from '../../constants/colors';
-import { ESPORTES } from '../../constants/esportes';
 import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
 import { Avatar } from '../../components/ui/Avatar';
 import { EsporteSwitcher } from '../../components/EsporteSwitcher';
@@ -27,9 +26,11 @@ import {
   type CursoProfessorResumo,
   type ModoAula,
 } from '../../services/aulasPublicadas';
+import { useT } from '../../hooks/useI18n';
 
 export default function AulasScreen() {
   const router = useRouter();
+  const t = useT();
   const { esporteAtivo } = useEsporte();
   const { clubes, matriculas, loading: loadingClubes } = useMeusClubes();
   const [modo, setModo] = useState<ModoAula>('online');
@@ -38,8 +39,7 @@ export default function AulasScreen() {
   const [busca, setBusca] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const esporteNome =
-    ESPORTES.find((e) => e.id === esporteAtivo)?.nome ?? esporteAtivo;
+  const esporteNome = t(`esporte.${esporteAtivo}`);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -151,7 +151,7 @@ export default function AulasScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Ionicons name="school" size={32} color={Colors.accent} />
-        <Text style={styles.title}>AULAS</Text>
+        <Text style={styles.title}>{t('aulas.title')}</Text>
       </View>
 
       <View style={styles.switcherWrap}>
@@ -219,7 +219,7 @@ export default function AulasScreen() {
                 <View style={styles.profBody}>
                   <Text style={styles.profNome}>{c.origemNome}</Text>
                   <Text style={styles.profMeta}>
-                    {ESPORTES.find((e) => e.id === c.esporte)?.nome ?? c.esporte}
+                    {t(`esporte.${c.esporte}`)}
                     {' · '}
                     {c.totalModulos} módulo{c.totalModulos === 1 ? '' : 's'}
                     {' · '}
@@ -232,11 +232,9 @@ export default function AulasScreen() {
           )
         ) : (
           <>
-            <Text style={styles.section}>Minhas aulas presenciais</Text>
+            <Text style={styles.section}>{t('aulas.myInPerson')}</Text>
             {minhasMatriculas.length === 0 ? (
-              <Text style={styles.emptySmall}>
-                Você ainda não está matriculado. Peça ao clube para cadastrar seu ID Setmatch.
-              </Text>
+              <Text style={styles.emptySmall}>{t('aulas.notEnrolled')}</Text>
             ) : (
               minhasMatriculas.map((m) => (
                 <TouchableOpacity
@@ -320,7 +318,7 @@ export default function AulasScreen() {
               style={styles.linkPag}
               onPress={() => router.push('/pagamentos')}
             >
-              <Text style={styles.linkPagTxt}>Meus pagamentos de aulas</Text>
+              <Text style={styles.linkPagTxt}>{t('pagamentos.title')}</Text>
               <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
             </TouchableOpacity>
           </>

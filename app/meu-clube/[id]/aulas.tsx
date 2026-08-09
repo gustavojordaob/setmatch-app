@@ -28,7 +28,7 @@ import {
 import { ESPORTES } from '../../../constants/esportes';
 import type { ClubeCompleto } from '../../../services/clubes';
 import { abrirWhatsApp } from '../../../utils/whatsapp';
-import { iniciarCheckoutMercadoPago } from '../../../utils/mercadoPago';
+import { pagarComEscolhaDeMeio, resumoPromoCurto, textoCicloPagamento } from '../../../utils/checkoutComMeio';
 
 /** Aluno NÃO se matricula sozinho — manda mensagem; o clube cadastra pelo Setmatch ID. */
 export default function MinhasAulasClubeScreen() {
@@ -220,21 +220,42 @@ export default function MinhasAulasClubeScreen() {
               </Text>
               <Text style={styles.regras}>
                 {cobrancaAberta.aulaTitulo || 'Aulas'} · {cobrancaAberta.status}
+                {`\n${textoCicloPagamento('mensal')}`}
+                {clube.aulas && resumoPromoCurto({
+                  valor: cobrancaAberta.valor,
+                  permitePix: clube.aulas.permitePix,
+                  permiteCartao: clube.aulas.permiteCartao,
+                  descontoPixPercent: clube.aulas.descontoPixPercent,
+                  descontoCartaoPercent: clube.aulas.descontoCartaoPercent,
+                })
+                  ? `\n${resumoPromoCurto({
+                      valor: cobrancaAberta.valor,
+                      permitePix: clube.aulas.permitePix,
+                      permiteCartao: clube.aulas.permiteCartao,
+                      descontoPixPercent: clube.aulas.descontoPixPercent,
+                      descontoCartaoPercent: clube.aulas.descontoCartaoPercent,
+                    })}`
+                  : ''}
               </Text>
               <Button
-                label={paying ? 'Abrindo…' : 'Pagar agora (PIX / cartão)'}
+                label={paying ? 'Abrindo…' : 'Pagar mensalidade'}
                 loading={paying}
                 onPress={() =>
                   void (async () => {
                     setPaying(true);
                     try {
-                      await iniciarCheckoutMercadoPago({
+                      await pagarComEscolhaDeMeio({
                         pagamentoId: cobrancaAberta.id,
                         titulo: `Aulas · ${clube.nome}`,
-                        valor: cobrancaAberta.valor,
                         ciclo: 'mensal',
-                        permitePix: true,
-                        permiteCartao: true,
+                        regras: {
+                          valor: cobrancaAberta.valorBase ?? cobrancaAberta.valor,
+                          permitePix: clube.aulas?.permitePix ?? true,
+                          permiteCartao: clube.aulas?.permiteCartao ?? true,
+                          descontoPixPercent: clube.aulas?.descontoPixPercent,
+                          descontoCartaoPercent: clube.aulas?.descontoCartaoPercent,
+                          ciclo: 'mensal',
+                        },
                       });
                     } catch (e: unknown) {
                       Alert.alert(

@@ -35,6 +35,8 @@ export default function RankingNovoAdminScreen() {
   const [cicloMensal, setCicloMensal] = useState(true);
   const [exigeEntrar, setExigeEntrar] = useState(true);
   const [regras, setRegras] = useState('');
+  const [descontoPix, setDescontoPix] = useState('0');
+  const [descontoCartao, setDescontoCartao] = useState('0');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -80,6 +82,11 @@ export default function RankingNovoAdminScreen() {
           exigeParaEntrar: cobrar && exigeEntrar,
           permitePix: true,
           permiteCartao: true,
+          descontoPixPercent: Math.min(100, Math.max(0, Number(String(descontoPix).replace(',', '.')) || 0)),
+          descontoCartaoPercent: Math.min(
+            100,
+            Math.max(0, Number(String(descontoCartao).replace(',', '.')) || 0)
+          ),
         },
       });
       router.replace(`/ranking/${id}`);
@@ -119,7 +126,7 @@ export default function RankingNovoAdminScreen() {
         </View>
 
         <View style={styles.switchRow}>
-          <Text style={styles.label}>Cobrar pelo ranking (Mercado Pago)</Text>
+          <Text style={styles.label}>Cobrar pelo ranking (Stripe)</Text>
           <Switch value={cobrar} onValueChange={setCobrar} trackColor={{ true: Colors.accent }} />
         </View>
         {cobrar ? (
@@ -131,13 +138,31 @@ export default function RankingNovoAdminScreen() {
               keyboardType="decimal-pad"
             />
             <View style={styles.switchRow}>
-              <Text style={styles.label}>Recorrente mensal</Text>
+              <Text style={styles.label}>Recorrente mensal (cartão auto)</Text>
               <Switch
                 value={cicloMensal}
                 onValueChange={setCicloMensal}
                 trackColor={{ true: Colors.accent }}
               />
             </View>
+            <Text style={styles.hint}>
+              Com “Recorrente mensal” ligado: cartão vira assinatura (cobra todo mês sozinho).
+              PIX cobre só o mês atual. O jogador vê isso na hora de pagar.
+            </Text>
+            <Input
+              label="Desconto PIX (%)"
+              value={descontoPix}
+              onChangeText={setDescontoPix}
+              keyboardType="decimal-pad"
+              placeholder="Ex: 10"
+            />
+            <Input
+              label="Desconto cartão (%)"
+              value={descontoCartao}
+              onChangeText={setDescontoCartao}
+              keyboardType="decimal-pad"
+              placeholder="Ex: 5"
+            />
             <View style={styles.switchRow}>
               <Text style={styles.label}>Exigir pagamento para entrar</Text>
               <Switch
@@ -175,6 +200,7 @@ const styles = StyleSheet.create({
   title: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 18 },
   body: { padding: 20, gap: 14, paddingBottom: 40 },
   meta: { color: Colors.accent, fontWeight: '600' },
+  hint: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
   label: { color: Colors.textPrimary, fontWeight: 'bold', flex: 1 },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

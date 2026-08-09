@@ -41,12 +41,16 @@ export function AuthGuard() {
     }
 
     if (isAdminClube) {
-      // Admin nunca entra no wizard / tabs do jogador
-      if (
-        root === 'wizard' ||
-        root === 'primeiro-acesso' ||
-        root === '(tabs)'
-      ) {
+      // Admin/professor: painel clube, mas pode ver notificações e mensagens
+      if (root === 'wizard' || root === 'primeiro-acesso') {
+        router.replace(dest);
+        return;
+      }
+      if (root === '(tabs)') {
+        const tab = segments[1];
+        if (tab === 'notificacoes' || tab === 'mensagens') {
+          return;
+        }
         router.replace(dest);
         return;
       }

@@ -17,6 +17,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { useClassificacao } from '../../hooks/useRankings';
 import type { Ranking } from '../../types/ranking';
 import type { EsporteId } from '../../constants/esportes';
+import { resumoPromoCurto, textoCicloPagamento } from '../../utils/checkoutComMeio';
 
 export default function RankingDetailScreen() {
   const router = useRouter();
@@ -57,6 +58,12 @@ export default function RankingDetailScreen() {
                 permiteCartao: Boolean(
                   (raw.pagamento as { permiteCartao?: boolean }).permiteCartao ?? true
                 ),
+                descontoPixPercent: Number(
+                  (raw.pagamento as { descontoPixPercent?: number }).descontoPixPercent ?? 0
+                ),
+                descontoCartaoPercent: Number(
+                  (raw.pagamento as { descontoCartaoPercent?: number }).descontoCartaoPercent ?? 0
+                ),
               }
             : undefined,
         });
@@ -87,7 +94,12 @@ export default function RankingDetailScreen() {
               </Text>
               {ranking.pagamento?.ativo ? (
                 <Text style={styles.payMeta}>
-                  Taxa R$ {ranking.pagamento.valor.toFixed(2)} · {ranking.pagamento.ciclo}
+                  Taxa R$ {ranking.pagamento.valor.toFixed(2)} ·{' '}
+                  {ranking.pagamento.ciclo === 'mensal' ? 'mensal' : 'única'}
+                  {`\n${textoCicloPagamento(ranking.pagamento.ciclo)}`}
+                  {resumoPromoCurto(ranking.pagamento)
+                    ? `\n${resumoPromoCurto(ranking.pagamento)}`
+                    : ''}
                   {ranking.pagamento.regras ? `\n${ranking.pagamento.regras}` : ''}
                 </Text>
               ) : null}

@@ -33,6 +33,12 @@ function mapRanking(d: { id: string; data: () => Record<string, unknown> }): Ran
           exigeParaEntrar: Boolean((raw.pagamento as { exigeParaEntrar?: boolean }).exigeParaEntrar),
           permitePix: Boolean((raw.pagamento as { permitePix?: boolean }).permitePix ?? true),
           permiteCartao: Boolean((raw.pagamento as { permiteCartao?: boolean }).permiteCartao ?? true),
+          descontoPixPercent: Number(
+            (raw.pagamento as { descontoPixPercent?: number }).descontoPixPercent ?? 0
+          ),
+          descontoCartaoPercent: Number(
+            (raw.pagamento as { descontoCartaoPercent?: number }).descontoCartaoPercent ?? 0
+          ),
         }
       : undefined,
     criadoEm: raw.criadoEm as { seconds: number } | undefined,

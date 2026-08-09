@@ -6,9 +6,11 @@ import { Colors } from '../constants/colors';
 import { Button } from '../components/ui/Button';
 import { ButtonFooter } from '../components/ui/ButtonFooter';
 import { useAuth } from '../hooks/useAuth';
+import { useT } from '../hooks/useI18n';
 
 export default function PrimeiroAcessoScreen() {
   const router = useRouter();
+  const t = useT();
   const { user, loading, isAdminClube, onboardingComplete } = useAuth();
   const nome = user?.displayName?.split(' ')[0] ?? 'Jogador';
 
@@ -31,15 +33,11 @@ export default function PrimeiroAcessoScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.content}>
-        <Text style={styles.title}>Bem Vindo {nome}</Text>
-        <Text style={styles.sub}>
-          Chegou a sua hora de subir de nível. Precisamos de algumas informações sobre você para
-          prepararmos uma experiência personalizada. Não perca tempo, chegou a hora de se desafiar
-          com SetMatch.
-        </Text>
+        <Text style={styles.title}>{t('primeiroAcesso.welcomeName', { name: nome })}</Text>
+        <Text style={styles.sub}>{t('primeiroAcesso.subtitle')}</Text>
       </View>
       <ButtonFooter style={styles.ctaFooter}>
-        <Button label="Vamos Lá" onPress={() => router.push('/wizard/idade')} />
+        <Button label={t('primeiroAcesso.cta')} onPress={() => router.push('/wizard/idade')} />
       </ButtonFooter>
     </SafeAreaView>
   );

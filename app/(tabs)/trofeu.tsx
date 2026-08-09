@@ -28,17 +28,19 @@ import {
 import { abrirOuCriarConversaClube, enviarMensagem } from '../../services/mensagens';
 import { registrarInteresseAulas } from '../../services/torneios';
 import { criarRegistroPagamento, solicitarAulas } from '../../services/pagamentos';
-import { iniciarCheckoutMercadoPago } from '../../utils/mercadoPago';
+import { pagarComEscolhaDeMeio, resumoPromoCurto } from '../../utils/checkoutComMeio';
 import { useTorneios } from '../../hooks/useTorneios';
 import { useAuth } from '../../hooks/useAuth';
 import { useEsporte } from '../../contexts/EsporteContext';
 import { EsporteSwitcher } from '../../components/EsporteSwitcher';
 import { ClubeSwitcher } from '../../components/ClubeSwitcher';
 import { useClube } from '../../contexts/ClubeContext';
-import { ESPORTES } from '../../constants/esportes';
 import { db } from '../../utils/firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 import type { Ranking, Solicitacao } from '../../types/ranking';
+import { useT } from '../../hooks/useI18n';
+import { useTotalNaoLidas } from '../../hooks/useTotalNaoLidas';
+import { UnreadBadge } from '../../components/ui/UnreadBadge';
 
 import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
 const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
@@ -46,7 +48,9 @@ type Aba = 'rankings' | 'torneios';
 
 export default function TrofeuScreen() {
   const router = useRouter();
+  const t = useT();
   const { user, perfil } = useAuth();
+  const msgsNaoLidas = useTotalNaoLidas();
   const { esporteAtivo } = useEsporte();
   const { clubeAtivo, clubeAtivoId } = useClube();
   const { meus, proximos, loading } = useRankings();
@@ -57,7 +61,7 @@ export default function TrofeuScreen() {
   const [enviando, setEnviando] = useState<string | null>(null);
   const [aba, setAba] = useState<Aba>('rankings');
 
-  const esporteNome = ESPORTES.find((e) => e.id === esporteAtivo)?.nome ?? 'Esporte';
+  const esporteNome = t(`esporte.${esporteAtivo}`);
   const minhaCidade = (perfil?.cidade ?? '').toLowerCase();
 
   const statusPorRanking = useMemo(() => {
@@ -157,21 +161,35 @@ export default function TrofeuScreen() {
         });
         Alert.alert(
           'Solicitação + pagamento',
-          `Taxa R$ ${r.pagamento.valor.toFixed(2)} (${r.pagamento.ciclo}). ${r.pagamento.regras || ''}`,
+          [
+            `Taxa R$ ${r.pagamento.valor.toFixed(2)} (${r.pagamento.ciclo === 'mensal' ? 'mensal' : 'única'}).`,
+            r.pagamento.ciclo === 'mensal'
+              ? 'Cartão = cobrança automática todo mês. PIX = só este mês.'
+              : 'Pagamento único.',
+            resumoPromoCurto(r.pagamento) || '',
+            r.pagamento.regras || '',
+          ]
+            .filter(Boolean)
+            .join('\n'),
           [
             {
-              text: 'Pagar agora',
+              text: t('trofeu.payNow'),
               onPress: () =>
-                void iniciarCheckoutMercadoPago({
+                void pagarComEscolhaDeMeio({
                   pagamentoId,
                   titulo: `Ranking · ${r.nome}`,
-                  valor: r.pagamento!.valor,
                   ciclo: r.pagamento!.ciclo,
-                  permitePix: r.pagamento!.permitePix,
-                  permiteCartao: r.pagamento!.permiteCartao,
+                  regras: {
+                    valor: r.pagamento!.valor,
+                    permitePix: r.pagamento!.permitePix,
+                    permiteCartao: r.pagamento!.permiteCartao,
+                    descontoPixPercent: r.pagamento!.descontoPixPercent,
+                    descontoCartaoPercent: r.pagamento!.descontoCartaoPercent,
+                    ciclo: r.pagamento!.ciclo,
+                  },
                 }),
             },
-            { text: 'Meus pagamentos', onPress: () => router.push('/pagamentos') },
+            { text: t('trofeu.myPayments'), onPress: () => router.push('/pagamentos') },
             { text: 'Chat', onPress: () => router.push(`/chat/${conversaId}`) },
           ]
         );
@@ -180,8 +198,8 @@ export default function TrofeuScreen() {
           'Solicitação enviada',
           'O dono do clube recebeu o pedido e uma mensagem no chat.',
           [
-            { text: 'Abrir chat', onPress: () => router.push(`/chat/${conversaId}`) },
-            { text: 'OK' },
+            { text: t('trofeu.openChat'), onPress: () => router.push(`/chat/${conversaId}`) },
+            { text: t('common.ok') },
           ]
         );
       }
@@ -232,7 +250,14 @@ export default function TrofeuScreen() {
       const clubeSnap = await getDoc(doc(db, 'clubes', r.clubeId));
       const aulas = clubeSnap.exists()
         ? (clubeSnap.data().aulas as
-            | { ativo?: boolean; valorMensal?: number; permitePix?: boolean; permiteCartao?: boolean }
+            | {
+                ativo?: boolean;
+                valorMensal?: number;
+                permitePix?: boolean;
+                permiteCartao?: boolean;
+                descontoPixPercent?: number;
+                descontoCartaoPercent?: number;
+              }
             | undefined)
         : undefined;
 
@@ -250,23 +275,42 @@ export default function TrofeuScreen() {
           ciclo: 'mensal',
           status: 'aguardando_pagamento',
         });
+        const promo = resumoPromoCurto({
+          valor: Number(aulas.valorMensal),
+          permitePix: aulas.permitePix ?? true,
+          permiteCartao: aulas.permiteCartao ?? true,
+          descontoPixPercent: aulas.descontoPixPercent,
+          descontoCartaoPercent: aulas.descontoCartaoPercent,
+        });
         Alert.alert(
           'Aulas',
-          `Mensalidade R$ ${Number(aulas.valorMensal).toFixed(2)}. O admin também pode liberar no painel.`,
+          [
+            `Mensalidade R$ ${Number(aulas.valorMensal).toFixed(2)}.`,
+            'Cartão = cobrança automática todo mês (assinatura). PIX = só este mês.',
+            promo || '',
+            'O admin também pode liberar no painel.',
+          ]
+            .filter(Boolean)
+            .join('\n'),
           [
             {
-              text: 'Pagar agora',
+              text: t('trofeu.payNow'),
               onPress: () =>
-                void iniciarCheckoutMercadoPago({
+                void pagarComEscolhaDeMeio({
                   pagamentoId,
                   titulo: `Aulas · ${r.clubeNome}`,
-                  valor: Number(aulas.valorMensal),
                   ciclo: 'mensal',
-                  permitePix: aulas.permitePix ?? true,
-                  permiteCartao: aulas.permiteCartao ?? true,
+                  regras: {
+                    valor: Number(aulas.valorMensal),
+                    permitePix: aulas.permitePix ?? true,
+                    permiteCartao: aulas.permiteCartao ?? true,
+                    descontoPixPercent: aulas.descontoPixPercent,
+                    descontoCartaoPercent: aulas.descontoCartaoPercent,
+                    ciclo: 'mensal',
+                  },
                 }),
             },
-            { text: 'Meus pagamentos', onPress: () => router.push('/pagamentos') },
+            { text: t('trofeu.myPayments'), onPress: () => router.push('/pagamentos') },
             { text: 'Chat', onPress: () => router.push(`/chat/${conversaId}`) },
           ]
         );
@@ -275,8 +319,8 @@ export default function TrofeuScreen() {
           'Interesse registrado',
           'O admin vai explicar valores e liberar sua matrícula.',
           [
-            { text: 'Abrir chat', onPress: () => router.push(`/chat/${conversaId}`) },
-            { text: 'OK' },
+            { text: t('trofeu.openChat'), onPress: () => router.push(`/chat/${conversaId}`) },
+            { text: t('common.ok') },
           ]
         );
       }
@@ -289,16 +333,16 @@ export default function TrofeuScreen() {
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.safe}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} accessibilityLabel="Voltar">
+          <TouchableOpacity onPress={() => router.back()} accessibilityLabel={t('nav.back')}>
             <Ionicons name="arrow-back" size={26} color={Colors.accent} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.bell}
             onPress={() => router.push('/(tabs)/notificacoes')}
-            accessibilityLabel="Notificações"
+            accessibilityLabel={t('nav.notifications')}
           >
             <Ionicons name="notifications-outline" size={22} color={Colors.white} />
-            <View style={styles.bellDot} />
+            <UnreadBadge count={msgsNaoLidas} dotOnly />
           </TouchableOpacity>
         </View>
 
@@ -314,9 +358,7 @@ export default function TrofeuScreen() {
             {minhaCidade ? ` · perto de ${perfil?.cidade}` : ''}
             {clubeAtivo ? ` · ${clubeAtivo.nome}` : ''}
           </Text>
-          <Text style={styles.esporteHint2}>
-            Escolha esporte e clube no topo. Rankings e torneios seguem o filtro.
-          </Text>
+          <Text style={styles.esporteHint2}>{t('trofeu.filterHint')}</Text>
           <TouchableOpacity
             style={styles.meusClubesBtn}
             onPress={() => router.push('/meus-clubes')}
@@ -330,13 +372,17 @@ export default function TrofeuScreen() {
               style={[styles.tab, aba === 'rankings' && styles.tabOn]}
               onPress={() => setAba('rankings')}
             >
-              <Text style={[styles.tabTxt, aba === 'rankings' && styles.tabTxtOn]}>Rankings</Text>
+              <Text style={[styles.tabTxt, aba === 'rankings' && styles.tabTxtOn]}>
+                {t('trofeu.rankings')}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tab, aba === 'torneios' && styles.tabOn]}
               onPress={() => setAba('torneios')}
             >
-              <Text style={[styles.tabTxt, aba === 'torneios' && styles.tabTxtOn]}>Torneios</Text>
+              <Text style={[styles.tabTxt, aba === 'torneios' && styles.tabTxtOn]}>
+                {t('trofeu.tournaments')}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -344,7 +390,7 @@ export default function TrofeuScreen() {
             <Ionicons name="search" size={18} color={Colors.textSecondary} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Buscar clube, cidade…"
+              placeholder={t('buscar.clubCity')}
               placeholderTextColor={Colors.textSecondary}
               value={busca}
               onChangeText={setBusca}
@@ -380,16 +426,18 @@ export default function TrofeuScreen() {
                             style={styles.verClubeLink}
                             onPress={() => router.push(`/meu-clube/${r.clubeId}`)}
                           >
-                            <Text style={styles.verClubeTxt}>Ver clube · aulas e pagamentos</Text>
+                            <Text style={styles.verClubeTxt}>{t('meusClubes.viewClub')}</Text>
                           </TouchableOpacity>
                         </View>
                       ))}
                     </>
                   ) : null}
 
-                  <Text style={styles.section}>Rankings próximos · {esporteNome}</Text>
+                  <Text style={styles.section}>
+                    {t('trofeu.rankings')} · {esporteNome}
+                  </Text>
                   {proximosFiltrados.length === 0 ? (
-                    <Text style={styles.empty}>Nenhum ranking encontrado.</Text>
+                    <Text style={styles.empty}>{t('trofeu.noActiveRanking')}</Text>
                   ) : (
                     proximosFiltrados.map((r) => {
                       const status = statusPorRanking.get(r.id);
@@ -430,7 +478,7 @@ export default function TrofeuScreen() {
                               onPress={() => void handleAulas(r)}
                               disabled={enviando === `aula-${r.id}`}
                             >
-                              <Text style={styles.msgClubeTxt}>Quero aulas</Text>
+                              <Text style={styles.msgClubeTxt}>{t('aulas.wantClasses')}</Text>
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -443,22 +491,24 @@ export default function TrofeuScreen() {
           ) : loadingTorneios ? (
             <ActivityIndicator color={Colors.accent} style={{ marginTop: 24 }} />
           ) : torneiosFiltrados.length === 0 ? (
-            <Text style={styles.empty}>Nenhum torneio de {esporteNome} por perto.</Text>
+            <Text style={styles.empty}>{t('trofeu.noTournamentYet')}</Text>
           ) : (
             <>
-              <Text style={styles.section}>Torneios · {esporteNome}</Text>
-              {torneiosFiltrados.map((t) => (
+              <Text style={styles.section}>
+                {t('trofeu.tournaments')} · {esporteNome}
+              </Text>
+              {torneiosFiltrados.map((tr) => (
                 <TouchableOpacity
-                  key={t.id}
+                  key={tr.id}
                   style={styles.torneioCard}
-                  onPress={() => router.push(`/torneio/${t.id}`)}
+                  onPress={() => router.push(`/torneio/${tr.id}`)}
                 >
-                  <Text style={styles.clubeNome}>{t.nome}</Text>
+                  <Text style={styles.clubeNome}>{tr.nome}</Text>
                   <Text style={styles.clubeMeta}>
-                    {t.clubeNome} · {t.cidade}
+                    {tr.clubeNome} · {tr.cidade}
                   </Text>
                   <Text style={styles.clubeMembros}>
-                    {t.dataInicio || 'Datas a definir'} · {t.status}
+                    {tr.dataInicio || 'Datas a definir'} · {tr.status}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -526,15 +576,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  bellDot: {
-    position: 'absolute',
-    top: 10,
-    right: 12,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.accent,
   },
   scroll: { paddingHorizontal: 20, paddingTop: 12 },
   titleRow: {

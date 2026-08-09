@@ -3,9 +3,11 @@ import { useRouter } from 'expo-router';
 import { WizardLayout } from '../../components/wizard/WizardLayout';
 import { RulerPicker, UnitToggle } from '../../components/wizard/RulerPicker';
 import { useWizard } from '../../contexts/WizardContext';
+import { useT } from '../../hooks/useI18n';
 
 export default function WizardAlturaScreen() {
   const router = useRouter();
+  const t = useT();
   const { draft, setDraft } = useWizard();
   const [unit, setUnit] = useState<'left' | 'right'>('left');
   const values = useMemo(
@@ -21,7 +23,7 @@ export default function WizardAlturaScreen() {
   }
 
   return (
-    <WizardLayout title="Qual a sua altura?" onContinue={continuar}>
+    <WizardLayout title={t('wizard.heightTitle')} onContinue={continuar}>
       <UnitToggle left="CM" right="INCH" active={unit} onChange={setUnit} />
       <RulerPicker
         values={values}

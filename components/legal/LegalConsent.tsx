@@ -1,6 +1,7 @@
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { PRIVACY_PAGE_URL, TERMS_PAGE_URL } from '../../constants/legal';
+import { useT } from '../../hooks/useI18n';
 
 type Props = {
   accepted: boolean;
@@ -8,19 +9,21 @@ type Props = {
 };
 
 export function LegalConsent({ accepted, onToggle }: Props) {
+  const t = useT();
+
   return (
     <TouchableOpacity style={styles.row} onPress={onToggle} activeOpacity={0.8}>
       <View style={[styles.box, accepted && styles.boxOn]}>
         {accepted ? <Text style={styles.check}>✓</Text> : null}
       </View>
       <Text style={styles.text}>
-        Li e concordo com os{' '}
+        {t('legal.consentPrefix')}{' '}
         <Text style={styles.link} onPress={() => void Linking.openURL(TERMS_PAGE_URL)}>
-          Termos de Uso
+          {t('legal.termsOfUse')}
         </Text>{' '}
-        e a{' '}
+        {t('legal.consentAnd')}{' '}
         <Text style={styles.link} onPress={() => void Linking.openURL(PRIVACY_PAGE_URL)}>
-          Política de Privacidade
+          {t('legal.privacyPolicy')}
         </Text>
         .
       </Text>

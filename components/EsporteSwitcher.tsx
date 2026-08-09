@@ -2,6 +2,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/colors';
 import { ESPORTES } from '../constants/esportes';
 import { useEsporte } from '../contexts/EsporteContext';
+import { useT } from '../hooks/useI18n';
 
 type Props = {
   /** compact = círculos iguais à Home; chips = com nome */
@@ -10,6 +11,7 @@ type Props = {
 
 export function EsporteSwitcher({ variant = 'circles' }: Props) {
   const { esporteAtivo, setEsporteAtivo, esporteIndex, setEsporteIndex } = useEsporte();
+  const t = useT();
 
   if (variant === 'chips') {
     return (
@@ -23,7 +25,9 @@ export function EsporteSwitcher({ variant = 'circles' }: Props) {
               onPress={() => setEsporteAtivo(e.id)}
             >
               <Text style={styles.chipEmoji}>{e.emoji}</Text>
-              <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{e.nome}</Text>
+              <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>
+                {t(`esporte.${e.id}`)}
+              </Text>
             </TouchableOpacity>
           );
         })}

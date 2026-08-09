@@ -15,11 +15,15 @@ import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { LOGO_ICON, ONBOARDING_SLIDES, type OnboardingSlideConfig } from '../../constants/onboarding';
 import { Radius } from '../../constants/radius';
+import { useT } from '../../hooks/useI18n';
+import { LanguageGate } from '../../components/onboarding/LanguageGate';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const t = useT();
+  const [langReady, setLangReady] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const listRef = useRef<FlatList<OnboardingSlideConfig>>(null);
 
@@ -40,17 +44,21 @@ export default function OnboardingScreen() {
             <View style={styles.overlayBottom} />
           )}
 
-          {!isOverlay && item.linha1 != null && (
+          {!isOverlay && item.line1Key != null && (
             <View style={styles.textBlock}>
-              <Text style={styles.headline}>{item.linha1}</Text>
-              <Text style={styles.headlineAccent}>{item.destaque}</Text>
-              <Text style={styles.headline}>{item.linha2}</Text>
+              <Text style={styles.headline}>{t(item.line1Key)}</Text>
+              <Text style={styles.headlineAccent}>
+                {item.highlightKey ? t(item.highlightKey) : ''}
+              </Text>
+              <Text style={styles.headline}>
+                {item.line2Key ? t(item.line2Key) : ''}
+              </Text>
             </View>
           )}
 
-          {isOverlay && item.textoCenter != null && (
+          {isOverlay && item.centerKey != null && (
             <View style={styles.centerBlock}>
-              <Text style={styles.centerText}>{item.textoCenter}</Text>
+              <Text style={styles.centerText}>{t(item.centerKey)}</Text>
             </View>
           )}
 
@@ -85,15 +93,17 @@ export default function OnboardingScreen() {
                 onPress={() => router.replace('/(auth)/login')}
                 activeOpacity={0.85}
               >
-                <Text style={styles.ctaLabel}>
-                  {item.buttonLabel ?? 'VAMOS COMEÇAR'}
-                </Text>
+                <Text style={styles.ctaLabel}>{t('onboarding.start')}</Text>
               </TouchableOpacity>
             </View>
           )}
         </ImageBackground>
       </View>
     );
+  }
+
+  if (!langReady) {
+    return <LanguageGate onContinue={() => setLangReady(true)} />;
   }
 
   return (

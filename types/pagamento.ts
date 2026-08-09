@@ -15,6 +15,10 @@ export interface RegrasPagamentoBase {
   regras: string;
   permitePix: boolean;
   permiteCartao: boolean;
+  /** Desconto % ao pagar com PIX (0–100). */
+  descontoPixPercent?: number;
+  /** Desconto % ao pagar com cartão (0–100). */
+  descontoCartaoPercent?: number;
 }
 
 export interface RegrasAulas extends RegrasPagamentoBase {
@@ -52,10 +56,16 @@ export interface PagamentoDoc {
   valor: number;
   ciclo: CicloPagamento;
   status: StatusPagamento;
+  /** Meio escolhido no checkout (para auditoria / promo). */
+  meioPagamento?: 'pix' | 'cartao';
+  descontoPercent?: number;
+  valorBase?: number;
   preferenceId?: string;
   paymentId?: string;
   initPoint?: string;
   sandboxInitPoint?: string;
+  stripeSessionId?: string;
+  stripeSubscriptionId?: string;
   vigenteAte?: { seconds: number };
   liberadoPeloAdmin?: boolean;
   criadoEm?: { seconds: number };

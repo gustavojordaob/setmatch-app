@@ -3,29 +3,31 @@ import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { WizardLayout } from '../../components/wizard/WizardLayout';
 import { useWizard } from '../../contexts/WizardContext';
+import { useT } from '../../hooks/useI18n';
 import type { Genero } from '../../types/usuario';
 
 export default function WizardGeneroScreen() {
   const router = useRouter();
+  const t = useT();
   const { draft, setDraft } = useWizard();
   const selecionado = draft.genero;
 
   return (
     <WizardLayout
-      title="Qual o seu gênero?"
+      title={t('wizard.genderTitle')}
       onContinue={() => router.push('/wizard/telefone')}
       continueDisabled={!selecionado}
     >
       <View style={styles.row}>
         <GenderCircle
           symbol="♂"
-          label="Male"
+          label={t('wizard.genderMale')}
           selected={selecionado === 'masculino'}
           onPress={() => setDraft({ genero: 'masculino' as Genero })}
         />
         <GenderCircle
           symbol="♀"
-          label="Female"
+          label={t('wizard.genderFemale')}
           selected={selecionado === 'feminino'}
           onPress={() => setDraft({ genero: 'feminino' as Genero })}
         />

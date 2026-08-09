@@ -16,16 +16,21 @@ import { Colors } from '../../constants/colors';
 import { Radius } from '../../constants/radius';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../hooks/useAuth';
+import { useT } from '../../hooks/useI18n';
 import { useSolicitacoesRecebidas } from '../../hooks/useRankings';
 import { aceitarSolicitacao, recusarSolicitacao } from '../../services/rankings';
 import { listarClubesDoDono, type ClubeCompleto } from '../../services/clubes';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../utils/firebaseConfig';
 import { AccountComplianceLinks } from '../../components/legal/AccountComplianceLinks';
+import { UnreadBadge } from '../../components/ui/UnreadBadge';
+import { useTotalNaoLidas } from '../../hooks/useTotalNaoLidas';
 
 export default function ClubePainelScreen() {
   const router = useRouter();
   const { user, perfil, signOut } = useAuth();
+  const t = useT();
+  const msgsNaoLidas = useTotalNaoLidas();
   const recebidas = useSolicitacoesRecebidas();
   const [clubes, setClubes] = useState<ClubeCompleto[]>([]);
   const [torneiosCount, setTorneiosCount] = useState(0);
@@ -65,10 +70,10 @@ export default function ClubePainelScreen() {
   const clube = clubes[0];
 
   function confirmarLogout() {
-    Alert.alert('Sair da conta', 'Deseja encerrar sua sessão?', [
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(t('perfil.logoutTitle'), t('perfil.logoutConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Sair',
+        text: t('perfil.logout'),
         style: 'destructive',
         onPress: () => {
           void signOut().then(() => router.replace('/onboarding'));
@@ -81,46 +86,68 @@ export default function ClubePainelScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <Text style={styles.title}>
-          {perfil?.role === 'professor' ? 'Painel do professor' : 'Painel do clube'}
+          {perfil?.role === 'professor' ? t('clube.professorPanel') : t('clube.panelTitle')}
         </Text>
-        <TouchableOpacity onPress={confirmarLogout} accessibilityLabel="Sair da conta">
-          <Ionicons name="log-out-outline" size={24} color={Colors.white} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerIcon}
+            onPress={() => router.push('/(tabs)/notificacoes')}
+            accessibilityLabel={t('nav.notifications')}
+          >
+            <Ionicons name="notifications-outline" size={22} color={Colors.white} />
+            <UnreadBadge count={msgsNaoLidas} dotOnly />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={confirmarLogout} accessibilityLabel={t('perfil.logoutTitle')}>
+            <Ionicons name="log-out-outline" size={24} color={Colors.white} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.body}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carregar} tintColor={Colors.accent} />}
       >
-        <Text style={styles.hello}>Olá, {perfil?.nome}</Text>
+        <Text style={styles.hello}>{t('clube.hello', { name: perfil?.nome ?? '' })}</Text>
         {perfil?.setmatchId ? (
-          <Text style={styles.idHint}>Seu ID: {perfil.setmatchId}</Text>
+          <Text style={styles.idHint}>{t('clube.yourId', { id: perfil.setmatchId })}</Text>
         ) : null}
         <Button
-          label="Editar meu perfil"
+          label={t('clube.editMyProfile')}
           variant="outline"
           onPress={() => router.push('/perfil/editar')}
+        />
+        <Action
+          icon="notifications-outline"
+          label={t('notificacoes.title')}
+          badge={msgsNaoLidas}
+          onPress={() => router.push('/(tabs)/notificacoes')}
+        />
+        <Action
+          icon="chatbubbles-outline"
+          label={t('clube.clubMessages')}
+          badge={msgsNaoLidas}
+          onPress={() => router.push('/clube/mensagens')}
         />
 
         {!clube && !loading ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>
-              {perfil?.role === 'professor' ? 'Espaço do professor' : 'Cadastre seu clube'}
+              {perfil?.role === 'professor' ? t('clube.spaceProfessor') : t('clube.registerClub')}
             </Text>
             <Text style={styles.cardSub}>
               {perfil?.role === 'professor'
-                ? 'Publique aulas online sem precisar de clube físico, ou cadastre um local para aulas presenciais.'
-                : 'Nome, endereço completo, esportes e telefone — para jogadores encontrarem você.'}
+                ? t('clube.professorHint')
+                : t('clube.registerClubHint')}
             </Text>
             <Button
-              label="Publicar aulas (online / presencial)"
+              label={t('clube.publishClasses')}
               onPress={() => router.push('/clube/aulas-publicar')}
             />
             {perfil?.role !== 'professor' ? (
-              <Button label="Criar meu clube" onPress={() => router.push('/clube/novo')} />
+              <Button label={t('clube.createMyClub')} onPress={() => router.push('/clube/novo')} />
             ) : (
               <Button
-                label="Cadastrar local presencial (opcional)"
+                label={t('clube.registerLocalOptional')}
                 variant="outline"
                 onPress={() => router.push('/clube/novo')}
               />
@@ -143,8 +170,8 @@ export default function ClubePainelScreen() {
                 <Text style={styles.cardSub}>Tel: {clube.telefone}</Text>
               ) : null}
               <View style={styles.stats}>
-                <Stat n={rankingsCount} label="Rankings" />
-                <Stat n={torneiosCount} label="Torneios" />
+                <Stat n={rankingsCount} label={t('trofeu.rankings')} />
+                <Stat n={torneiosCount} label={t('trofeu.tournaments')} />
                 <Stat n={recebidas.length} label="Solicitações" />
               </View>
               <Button
@@ -157,7 +184,7 @@ export default function ClubePainelScreen() {
             <Text style={styles.section}>Gerenciar</Text>
             <Action
               icon="trophy-outline"
-              label="Criar ranking"
+              label={t('clube.createRanking')}
               onPress={() =>
                 router.push({
                   pathname: '/clube/ranking-novo',
@@ -167,12 +194,12 @@ export default function ClubePainelScreen() {
             />
             <Action
               icon="calendar-outline"
-              label="Meus torneios"
+              label={t('clube.myTournaments')}
               onPress={() => router.push('/clube/torneios')}
             />
             <Action
               icon="add-circle-outline"
-              label="Criar torneio"
+              label={t('clube.createTournament')}
               onPress={() =>
                 router.push({
                   pathname: '/clube/torneio-novo',
@@ -187,7 +214,7 @@ export default function ClubePainelScreen() {
             />
             <Action
               icon="videocam-outline"
-              label="Publicar aulas online / presencial"
+              label={t('clube.publishClasses')}
               onPress={() => router.push('/clube/aulas-publicar')}
             />
             <Action
@@ -197,28 +224,23 @@ export default function ClubePainelScreen() {
             />
             <Action
               icon="people-outline"
-              label="Alunos + desconto"
+              label={t('clube.studentsDiscount')}
               onPress={() => router.push('/clube/alunos')}
             />
             <Action
               icon="cash-outline"
-              label="Financeiro / pagamentos"
+              label={t('clube.financeiro')}
               onPress={() => router.push('/clube/financeiro')}
             />
             <Action
-              icon="chatbubbles-outline"
-              label="Mensagens do clube"
-              onPress={() => router.push('/clube/mensagens')}
-            />
-            <Action
               icon="mail-outline"
-              label="Avisar inscritos do torneio"
+              label={t('clube.notifyTournament')}
               onPress={() => router.push('/clube/torneio-mensagens')}
             />
 
             {recebidas.length > 0 ? (
               <>
-                <Text style={styles.section}>Solicitações de ranking</Text>
+                <Text style={styles.section}>{t('clube.rankingRequests')}</Text>
                 {recebidas.map((s) => (
                   <View key={s.id} style={styles.solRow}>
                     <View style={{ flex: 1 }}>
@@ -263,15 +285,18 @@ function Action({
   icon,
   label,
   onPress,
+  badge = 0,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
+  badge?: number;
 }) {
   return (
     <TouchableOpacity style={styles.action} onPress={onPress}>
       <Ionicons name={icon} size={22} color={Colors.accent} />
       <Text style={styles.actionTxt}>{label}</Text>
+      <UnreadBadge count={badge} />
       <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
     </TouchableOpacity>
   );
@@ -286,7 +311,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
   },
-  title: { color: Colors.accent, fontSize: 24, fontWeight: 'bold' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: { color: Colors.accent, fontSize: 24, fontWeight: 'bold', flex: 1 },
   body: { padding: 20, gap: 12, paddingBottom: 40 },
   hello: { color: Colors.textPrimary, fontSize: 16, marginBottom: 4 },
   idHint: { color: Colors.accent, fontSize: 13, fontWeight: '700', marginBottom: 10 },

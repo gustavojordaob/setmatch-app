@@ -1,18 +1,24 @@
 import { Alert, Linking } from 'react-native';
+import {
+  formatarTelefoneInternacional,
+  soDigitos,
+  telefoneSalvoValido,
+} from './telefoneInternacional';
 
-/** Só dígitos; adiciona 55 (Brasil) se faltar. */
+/** Dígitos com DDI (legado BR sem 55 → adiciona 55). */
 export function normalizarTelefoneBR(telefone: string): string {
-  const digitos = telefone.replace(/\D/g, '');
+  const digitos = soDigitos(telefone);
   if (!digitos) return '';
-  return digitos.startsWith('55') ? digitos : `55${digitos}`;
+  if (digitos.length >= 12) return digitos;
+  if (digitos.length >= 10 && digitos.length <= 11 && !digitos.startsWith('55')) {
+    return `55${digitos}`;
+  }
+  return digitos.startsWith('55') ? digitos : digitos;
 }
 
+/** @deprecated use formatarTelefoneInternacional */
 export function formatarTelefoneExibicao(telefone: string): string {
-  const d = telefone.replace(/\D/g, '').replace(/^55/, '');
-  if (d.length <= 2) return d;
-  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-  if (d.length <= 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
-  return telefone;
+  return formatarTelefoneInternacional(telefone);
 }
 
 export async function abrirWhatsApp(
@@ -20,8 +26,8 @@ export async function abrirWhatsApp(
   mensagem: string
 ): Promise<void> {
   const phone = normalizarTelefoneBR(telefone);
-  if (!phone || phone.length < 12) {
-    Alert.alert('WhatsApp', 'Telefone inválido ou não cadastrado.');
+  if (!phone || !telefoneSalvoValido(phone)) {
+    Alert.alert('WhatsApp', 'Telefone inválido ou sem código do país.');
     return;
   }
   const text = encodeURIComponent(mensagem);
@@ -35,11 +41,10 @@ export async function abrirWhatsApp(
   }
 }
 
-/** Contato Setmatch para solicitar conta admin de clube (não há signup no app). */
+/** @deprecated Preferir rota /(auth)/solicitar-acesso */
 export async function solicitarContaAdminClube(): Promise<void> {
   const msg =
     'Olá Setmatch! Quero solicitar acesso de *admin de clube*.\n\n' +
-    'Nome do clube:\nCidade:\nEsporte (tênis/padel/beach):\nTelefone:';
-  // Canal oficial Setmatch — solicitar conta admin de clube
-  await abrirWhatsApp('19989632897', msg);
+    'Nome do clube:\nCidade:\nEsporte:\nTelefone (com código do país):';
+  await abrirWhatsApp('5519989632897', msg);
 }

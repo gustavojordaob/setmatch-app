@@ -131,8 +131,10 @@ export default function JogadorScreen() {
       const id = await abrirOuCriarConversaAmigo({
         uidA: user.uid,
         nomeA: meuPerfil.nome,
+        fotoA: meuPerfil.fotoUrl,
         uidB: uid,
         nomeB: perfil.nome,
+        fotoB: perfil.fotoUrl,
       });
       router.push(`/chat/${id}`);
     } catch (e: unknown) {

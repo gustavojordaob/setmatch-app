@@ -14,12 +14,13 @@ import { Colors } from '../../constants/colors';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAuth } from '../../hooks/useAuth';
-import { solicitarContaAdminClube } from '../../utils/whatsapp';
+import { useT } from '../../hooks/useI18n';
 import { LegalConsent } from '../../components/legal/LegalConsent';
 
 export default function AdminLoginScreen() {
   const router = useRouter();
   const { signInWithEmail } = useAuth();
+  const t = useT();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,11 +28,11 @@ export default function AdminLoginScreen() {
 
   async function onLogin() {
     if (!aceitouLegal) {
-      Alert.alert('Termos', 'Aceite os Termos de Uso e a Política de Privacidade para continuar.');
+      Alert.alert(t('legal.termsTitle'), t('legal.acceptToContinue'));
       return;
     }
     if (!email.trim() || !senha) {
-      Alert.alert('Admin Clube', 'Preencha e-mail e senha.');
+      Alert.alert(t('auth.adminAlertTitle'), t('auth.adminFillCredentials'));
       return;
     }
     setLoading(true);
@@ -39,7 +40,10 @@ export default function AdminLoginScreen() {
       await signInWithEmail(email, senha);
       router.replace('/');
     } catch (e: unknown) {
-      Alert.alert('Admin Clube', e instanceof Error ? e.message : 'Falha ao entrar.');
+      Alert.alert(
+        t('auth.adminAlertTitle'),
+        e instanceof Error ? e.message : t('auth.loginFailed')
+      );
     } finally {
       setLoading(false);
     }
@@ -52,24 +56,21 @@ export default function AdminLoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={styles.badge}>ADMIN CLUBE</Text>
-          <Text style={styles.title}>Área do dono</Text>
-          <Text style={styles.sub}>
-            Contas de admin são criadas pela equipe Setmatch após solicitação. Se você já recebeu
-            acesso, entre com o e-mail e senha enviados.
-          </Text>
+          <Text style={styles.badge}>{t('auth.adminBadge')}</Text>
+          <Text style={styles.title}>{t('auth.adminTitle')}</Text>
+          <Text style={styles.sub}>{t('auth.adminSubtitle')}</Text>
 
           <Input
-            label="E-mail"
-            placeholder="admin@seuclube.com"
+            label={t('auth.email')}
+            placeholder={t('auth.adminEmailPlaceholder')}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
           />
           <Input
-            label="Senha"
-            placeholder="Sua senha"
+            label={t('auth.password')}
+            placeholder={t('auth.yourPassword')}
             value={senha}
             onChangeText={setSenha}
             showPasswordToggle
@@ -81,23 +82,27 @@ export default function AdminLoginScreen() {
           />
 
           <Button
-            label="Entrar como admin"
+            label={t('auth.enterAsAdmin')}
             onPress={onLogin}
             loading={loading}
             disabled={!aceitouLegal}
           />
 
           <View style={styles.box}>
-            <Text style={styles.boxTitle}>Ainda não tem acesso?</Text>
-            <Text style={styles.boxTxt}>
-              Envie uma solicitação para a Setmatch. Criamos a conta e liberamos o painel do clube
-              (torneios, rankings, aulas).
-            </Text>
-            <Button label="Solicitar acesso admin" onPress={() => void solicitarContaAdminClube()} />
+            <Text style={styles.boxTitle}>{t('auth.adminNoAccessTitle')}</Text>
+            <Text style={styles.boxTxt}>{t('auth.adminNoAccessBody')}</Text>
+            <Button
+              label={t('auth.requestAsProfessor')}
+              onPress={() => router.push('/(auth)/solicitar-acesso?tipo=professor')}
+            />
+            <Button
+              label={t('auth.requestAdminAccess')}
+              onPress={() => router.push('/(auth)/solicitar-acesso?tipo=admin_clube')}
+            />
           </View>
 
           <Text style={styles.back} onPress={() => router.replace('/(auth)/login')}>
-            ← Voltar ao login de jogador
+            {t('auth.backToPlayerLogin')}
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

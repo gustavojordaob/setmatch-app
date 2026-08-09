@@ -32,6 +32,8 @@ export interface Ranking {
     exigeParaEntrar: boolean;
     permitePix: boolean;
     permiteCartao: boolean;
+    descontoPixPercent?: number;
+    descontoCartaoPercent?: number;
   };
   criadoEm?: { seconds: number };
 }

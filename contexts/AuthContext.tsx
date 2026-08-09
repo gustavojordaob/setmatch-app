@@ -275,6 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const saveWizardProfile = useCallback(
     async (draft: WizardDraft) => {
       if (!user) throw new Error('Usuário não autenticado.');
+      const fotoUrl = draft.fotoUrl ?? user.photoURL ?? '';
       const ref = doc(db, 'usuarios', user.uid);
       await updateDoc(ref, {
         idade: draft.idade ?? 0,
@@ -289,14 +290,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         telefone: draft.telefone ?? '',
         esportes: draft.esportes ?? [],
         nivel: draft.nivel ?? 'iniciante',
-        fotoUrl: draft.fotoUrl ?? user.photoURL ?? '',
+        fotoUrl,
         onboardingOk: true,
         ultimoAcesso: serverTimestamp(),
       });
       await garantirSetmatchId(user.uid);
+      if (fotoUrl) {
+        try {
+          const { propagarPerfilPublico } = await import('../services/propagarPerfil');
+          await propagarPerfilPublico({
+            uid: user.uid,
+            fotoUrl,
+            nome: perfil?.nome,
+          });
+        } catch (e) {
+          console.warn('propagarPerfilPublico wizard', e);
+        }
+      }
       await loadPerfil(user.uid, user.email);
     },
-    [loadPerfil, user]
+    [loadPerfil, perfil?.nome, user]
   );
 
   const updatePerfil = useCallback(
@@ -307,9 +320,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...safe,
         ultimoAcesso: serverTimestamp(),
       });
+
+      // Espalha foto/nome em desafios, amizades, posts, conversas, etc.
+      const fotoUrl = typeof safe.fotoUrl === 'string' ? safe.fotoUrl : undefined;
+      const nome = typeof safe.nome === 'string' ? safe.nome : undefined;
+      if (fotoUrl || nome) {
+        const { propagarPerfilPublico } = await import('../services/propagarPerfil');
+        const nextFoto = fotoUrl ?? perfil?.fotoUrl ?? '';
+        if (nextFoto || nome) {
+          try {
+            await propagarPerfilPublico({
+              uid: user.uid,
+              fotoUrl: nextFoto,
+              nome: nome ?? perfil?.nome,
+            });
+          } catch (e) {
+            console.warn('propagarPerfilPublico', e);
+          }
+        }
+      }
+
       await loadPerfil(user.uid, user.email);
     },
-    [loadPerfil, user]
+    [loadPerfil, perfil?.fotoUrl, perfil?.nome, user]
   );
 
   const saveAdminOnboarding = useCallback(

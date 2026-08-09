@@ -15,7 +15,8 @@ import { Colors } from '../../constants/colors';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../hooks/useAuth';
 import { useMeusPagamentos } from '../../hooks/usePagamentos';
-import { iniciarCheckoutMercadoPago } from '../../utils/mercadoPago';
+import { iniciarCheckoutStripe } from '../../utils/stripeCheckout';
+import { pagarComEscolhaDeMeio } from '../../utils/checkoutComMeio';
 import type { PagamentoDoc } from '../../types/pagamento';
 
 export default function MeusPagamentosScreen() {
@@ -33,20 +34,37 @@ export default function MeusPagamentosScreen() {
   async function pagar(p: PagamentoDoc) {
     setPaying(p.id);
     try {
-      const r = await iniciarCheckoutMercadoPago({
-        pagamentoId: p.id,
-        titulo: `${p.tipo} · ${p.clubeNome}`,
-        valor: p.valor,
-        ciclo: p.ciclo,
-        permitePix: true,
-        permiteCartao: true,
-      });
-      if (r === 'cancelado') {
+      const r = p.meioPagamento
+        ? await iniciarCheckoutStripe({
+            pagamentoId: p.id,
+            titulo: `${p.tipo} · ${p.clubeNome}`,
+            valor: p.valor,
+            ciclo: p.ciclo,
+            meio: p.meioPagamento,
+            permitePix: p.meioPagamento === 'pix',
+            permiteCartao: p.meioPagamento === 'cartao',
+            descontoPercent: p.descontoPercent,
+            valorBase: p.valorBase,
+          })
+        : await pagarComEscolhaDeMeio({
+            pagamentoId: p.id,
+            titulo: `${p.tipo} · ${p.clubeNome}`,
+            ciclo: p.ciclo,
+            regras: {
+              valor: p.valorBase ?? p.valor,
+              permitePix: true,
+              permiteCartao: true,
+              ciclo: p.ciclo,
+            },
+          });
+      if (r === 'cancelado' || r === 'abortado') {
         Alert.alert('Pagamento', 'Checkout fechado. Você pode tentar de novo.');
+      } else if (r === 'aprovado') {
+        Alert.alert('Pagamento', 'Pagamento confirmado!');
       } else {
         Alert.alert(
           'Pagamento',
-          'Se pagou com PIX/cartão, o status atualiza em instantes via Mercado Pago.'
+          'Se pagou com PIX/cartão, o status atualiza em instantes via Stripe.'
         );
       }
     } catch (e: unknown) {
@@ -93,7 +111,11 @@ export default function MeusPagamentosScreen() {
                 {item.tipo.toUpperCase()} · {item.clubeNome}
               </Text>
               <Text style={styles.meta}>
-                R$ {item.valor.toFixed(2)} · {item.ciclo} · {item.status}
+                R$ {item.valor.toFixed(2)} ·{' '}
+                {item.ciclo === 'mensal'
+                  ? 'mensal (cartão = recorrente)'
+                  : 'pagamento único'}{' '}
+                · {item.status}
               </Text>
               {item.torneioNome || item.rankingNome || item.aulaTitulo ? (
                 <Text style={styles.meta}>
@@ -102,7 +124,13 @@ export default function MeusPagamentosScreen() {
               ) : null}
               {podePagar(item.status) ? (
                 <Button
-                  label={paying === item.id ? 'Abrindo…' : 'Pagar (PIX / cartão 1x)'}
+                  label={
+                    paying === item.id
+                      ? 'Abrindo…'
+                      : item.ciclo === 'mensal'
+                        ? 'Pagar (cartão recorrente ou PIX)'
+                        : 'Pagar (PIX / cartão)'
+                  }
                   onPress={() => void pagar(item)}
                   loading={paying === item.id}
                   style={{ marginTop: 10 }}

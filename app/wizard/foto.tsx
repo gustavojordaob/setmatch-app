@@ -14,11 +14,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { WizardLayout } from '../../components/wizard/WizardLayout';
 import { useAuth } from '../../hooks/useAuth';
+import { useT } from '../../hooks/useI18n';
 import { useWizard } from '../../contexts/WizardContext';
 import { uploadFotoPerfil } from '../../utils/uploadFoto';
 
 export default function WizardFotoScreen() {
   const router = useRouter();
+  const t = useT();
   const { user, saveWizardProfile } = useAuth();
   const { draft, resetDraft } = useWizard();
   const [previewUri, setPreviewUri] = useState<string | null>(null);
@@ -29,7 +31,7 @@ export default function WizardFotoScreen() {
   async function escolherFoto() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Foto', 'Permita acesso à galeria.');
+      Alert.alert(t('common.permission'), t('wizard.photoPermission'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -73,8 +75,8 @@ export default function WizardFotoScreen() {
       resetDraft();
       router.replace('/(tabs)/home');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Não foi possível concluir.';
-      Alert.alert('Perfil', msg);
+      const msg = e instanceof Error ? e.message : t('common.concludeFailed');
+      Alert.alert(t('common.error'), msg);
     } finally {
       setSalvando(false);
     }
@@ -84,7 +86,7 @@ export default function WizardFotoScreen() {
 
   return (
     <WizardLayout
-      title="Faça o upload da sua foto"
+      title={t('wizard.photoTitle')}
       continueLabel={continueLabel}
       onContinue={avancar}
       continueDisabled={uploading}

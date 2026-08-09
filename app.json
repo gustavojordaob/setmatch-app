@@ -17,6 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.fabricaapps.setmatch",
+      "buildNumber": "2",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -24,9 +25,10 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#255943"
+        "backgroundColor": "#000000"
       },
       "package": "com.fabricaapps.setmatch",
+      "versionCode": 1,
       "softwareKeyboardLayoutMode": "resize",
       "edgeToEdgeEnabled": true,
       "intentFilters": [

@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { useT } from '../../hooks/useI18n';
 import { Button } from '../ui/Button';
 import { ButtonFooter } from '../ui/ButtonFooter';
 
@@ -21,13 +22,14 @@ export function WizardLayout({
   title,
   children,
   onContinue,
-  continueLabel = 'Continuar',
+  continueLabel,
   continueDisabled,
   loading,
   contentStyle,
   showBack = true,
 }: WizardLayoutProps) {
   const router = useRouter();
+  const t = useT();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
@@ -40,11 +42,11 @@ export function WizardLayout({
       <Text style={styles.title}>{title}</Text>
       <View style={[styles.body, contentStyle]}>{children}</View>
 
-      <Text style={styles.infoLink}>Para o que esta informação sera utilizada?</Text>
+      <Text style={styles.infoLink}>{t('wizard.whyInfo')}</Text>
 
       <ButtonFooter>
         <Button
-          label={continueLabel}
+          label={continueLabel ?? t('wizard.continue')}
           variant="primary"
           onPress={onContinue}
           disabled={continueDisabled}

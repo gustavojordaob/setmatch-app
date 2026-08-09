@@ -96,15 +96,20 @@ service cloud.firestore {
 
     match /rankings/{rankingId} {
       allow read: if isAuth();
-      allow create: if isAdminClube()
+      // Admin clube ou professor — dono do ranking
+      allow create: if isAdminOuProfessor()
         && request.auth.uid == request.resource.data.donoUid;
       allow update: if isAuth()
-        && request.auth.uid == resource.data.donoUid;
+        && (
+          request.auth.uid == resource.data.donoUid
+          || request.auth.uid in resource.data.get('membros', [])
+        );
       allow delete: if isAuth()
         && request.auth.uid == resource.data.donoUid;
 
       match /classificacao/{uid} {
         allow read: if isAuth();
+        // Autenticado — placares / sync / admin (evita permission-denied em ranking)
         allow write: if isAuth();
       }
     }
@@ -203,12 +208,29 @@ service cloud.firestore {
         && request.auth.uid == resource.data.donoUid;
     }
 
+    match /solicitacoesAcesso/{id} {
+      // Formulário público (professor / admin_clube) — equipe lê no Console
+      allow create: if request.resource.data.tipo in ['professor', 'admin_clube']
+        && request.resource.data.status == 'pendente'
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() > 1
+        && request.resource.data.email is string
+        && request.resource.data.telefone is string
+        && request.resource.data.telefone.size() >= 10
+        && request.resource.data.telefone.size() <= 20;
+      allow read: if isAuth()
+        && resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
     match /solicitacoes/{solId} {
       allow read: if isAuth();
       allow create: if isAuth()
         && request.auth.uid == request.resource.data.uid;
+      // Dono aceita/rejeita; jogador atualiza foto/nome denormalizados
       allow update: if isAuth()
-        && request.auth.uid == resource.data.donoUid;
+        && (request.auth.uid == resource.data.donoUid
+            || request.auth.uid == resource.data.uid);
       allow delete: if isAuth()
         && (request.auth.uid == resource.data.uid
             || request.auth.uid == resource.data.donoUid);
@@ -230,7 +252,9 @@ service cloud.firestore {
           && request.resource.data.texto is string
           && request.resource.data.texto.size() > 0
           && request.resource.data.texto.size() < 2000;
-        allow update: if false;
+        // Autor pode atualizar foto/nome denormalizados ao trocar perfil
+        allow update: if isAuth()
+          && request.auth.uid == resource.data.autorUid;
         allow delete: if isAuth()
           && (request.auth.uid == resource.data.autorUid
               || request.auth.uid == get(/databases/$(database)/documents/posts/$(postId)).data.autorUid);

@@ -4,9 +4,11 @@ import { useRouter } from 'expo-router';
 import { WizardLayout } from '../../components/wizard/WizardLayout';
 import { Input } from '../../components/ui/Input';
 import { useWizard } from '../../contexts/WizardContext';
+import { useT } from '../../hooks/useI18n';
 
 export default function WizardEnderecoScreen() {
   const router = useRouter();
+  const t = useT();
   const { draft, setDraft } = useWizard();
   const [cidade, setCidade] = useState(draft.cidade ?? '');
   const [bairro, setBairro] = useState(draft.bairro ?? '');
@@ -27,41 +29,41 @@ export default function WizardEnderecoScreen() {
 
   return (
     <WizardLayout
-      title="Onde você joga?"
+      title={t('wizard.addressTitle')}
       onContinue={continuar}
       continueDisabled={!cidade.trim()}
     >
       <View style={styles.form}>
         <Input
-          label="Cidade"
-          placeholder="Ex: São Paulo"
+          label={t('wizard.city')}
+          placeholder={t('wizard.cityPlaceholder')}
           value={cidade}
           onChangeText={setCidade}
         />
         <Input
-          label="Bairro"
-          placeholder="Ex: Pinheiros"
+          label={t('wizard.neighborhood')}
+          placeholder={t('wizard.neighborhoodPlaceholder')}
           value={bairro}
           onChangeText={setBairro}
         />
         <Input
-          label="Estado (UF)"
-          placeholder="SP"
+          label={t('wizard.stateUf')}
+          placeholder={t('wizard.statePlaceholder')}
           value={estado}
           onChangeText={setEstado}
           maxLength={2}
           autoCapitalize="characters"
         />
         <Input
-          label="CEP"
-          placeholder="00000-000"
+          label={t('wizard.zip')}
+          placeholder={t('wizard.zipPlaceholder')}
           value={cep}
           onChangeText={setCep}
           keyboardType="number-pad"
         />
         <Input
-          label="Rua / referência"
-          placeholder="Opcional — perto de qual quadra?"
+          label={t('wizard.street')}
+          placeholder={t('wizard.streetPlaceholder')}
           value={rua}
           onChangeText={setRua}
         />

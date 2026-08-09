@@ -2,6 +2,7 @@ import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../hooks/useAuth';
+import { useT } from '../../hooks/useI18n';
 
 interface AuthSocialRowProps {
   loading?: boolean;
@@ -19,6 +20,7 @@ export function AuthSocialRow({
   onGoogleEnd,
 }: AuthSocialRowProps) {
   const { signInWithGoogle } = useAuth();
+  const t = useT();
 
   async function onGoogle() {
     if (disabled) {
@@ -29,14 +31,14 @@ export function AuthSocialRow({
     try {
       await signInWithGoogle();
     } catch (e: unknown) {
-      Alert.alert('Google', e instanceof Error ? e.message : 'Falha no Google.');
+      Alert.alert('Google', e instanceof Error ? e.message : t('auth.googleFailed'));
     } finally {
       onGoogleEnd?.();
     }
   }
 
   function emBreve(rede: string) {
-    Alert.alert(rede, 'Em breve');
+    Alert.alert(rede, t('auth.comingSoon'));
   }
 
   return (

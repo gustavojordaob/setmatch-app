@@ -20,8 +20,9 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { ButtonFooter } from '../../components/ui/ButtonFooter';
 import { useAuth } from '../../hooks/useAuth';
-import { formatarTelefoneExibicao } from '../../utils/whatsapp';
 import { uploadFotoPerfil } from '../../utils/uploadFoto';
+import { telefoneSalvoValido } from '../../utils/telefoneInternacional';
+import { PhoneInput } from '../../components/ui/PhoneInput';
 
 export default function PerfilEditarScreen() {
   const router = useRouter();
@@ -67,9 +68,8 @@ export default function PerfilEditarScreen() {
   }
 
   async function salvar() {
-    const digits = telefone.replace(/\D/g, '');
-    if (!nome.trim() || digits.length < 10) {
-      Alert.alert('Perfil', 'Nome e celular com DDD são obrigatórios.');
+    if (!nome.trim() || !telefoneSalvoValido(telefone)) {
+      Alert.alert('Perfil', 'Nome e celular com código do país são obrigatórios.');
       return;
     }
     if (uploadingFoto) {
@@ -80,7 +80,7 @@ export default function PerfilEditarScreen() {
     try {
       await updatePerfil({
         nome: nome.trim(),
-        telefone: telefone.trim(),
+        telefone: telefone.replace(/\D/g, ''),
         cidade: cidade.trim(),
         bairro: bairro.trim(),
         estado: estado.trim().toUpperCase(),
@@ -143,11 +143,10 @@ export default function PerfilEditarScreen() {
           </Text>
 
           <Input label="Nome" value={nome} onChangeText={setNome} />
-          <Input
+          <PhoneInput
             label="Celular (WhatsApp)"
             value={telefone}
-            onChangeText={(t) => setTelefone(formatarTelefoneExibicao(t))}
-            keyboardType="phone-pad"
+            onChangeValue={setTelefone}
           />
           <Input label="Cidade" value={cidade} onChangeText={setCidade} />
           <Input label="Bairro" value={bairro} onChangeText={setBairro} />

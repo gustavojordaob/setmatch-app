@@ -16,10 +16,12 @@ import { Input } from '../../components/ui/Input';
 import { AuthSocialRow } from '../../components/auth/AuthSocialRow';
 import { LegalConsent } from '../../components/legal/LegalConsent';
 import { useAuth } from '../../hooks/useAuth';
+import { useT } from '../../hooks/useI18n';
 
 export default function CadastroScreen() {
   const router = useRouter();
   const { signUpWithEmail } = useAuth();
+  const t = useT();
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -29,15 +31,15 @@ export default function CadastroScreen() {
 
   async function onCadastrar() {
     if (!aceitouLegal) {
-      Alert.alert('Termos', 'Aceite os Termos de Uso e a Política de Privacidade para continuar.');
+      Alert.alert(t('legal.termsTitle'), t('legal.acceptToContinue'));
       return;
     }
     if (!nome.trim() || !email.trim() || senha.length < 6) {
-      Alert.alert('Cadastro', 'Preencha nome, e-mail e senha (mín. 6).');
+      Alert.alert(t('auth.createAccountTitle'), t('auth.fillSignup'));
       return;
     }
     if (senha !== confirmar) {
-      Alert.alert('Cadastro', 'As senhas não coincidem.');
+      Alert.alert(t('auth.createAccountTitle'), t('auth.passwordsMismatch'));
       return;
     }
     setLoading(true);
@@ -45,7 +47,10 @@ export default function CadastroScreen() {
       await signUpWithEmail(email, senha, nome.trim());
       router.replace('/');
     } catch (e: unknown) {
-      Alert.alert('Cadastro', e instanceof Error ? e.message : 'Não foi possível criar a conta.');
+      Alert.alert(
+        t('auth.createAccountTitle'),
+        e instanceof Error ? e.message : t('auth.signupFailed')
+      );
     } finally {
       setLoading(false);
     }
@@ -58,32 +63,32 @@ export default function CadastroScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>Criar Conta</Text>
+          <Text style={styles.title}>{t('auth.createAccountTitle')}</Text>
 
           <Input
-            label="Nome Completo"
-            placeholder="Digite o seu nome completo"
+            label={t('auth.fullName')}
+            placeholder={t('auth.fullNamePlaceholder')}
             value={nome}
             onChangeText={setNome}
           />
           <Input
-            label="Email"
-            placeholder="Digite o seu email"
+            label={t('auth.email')}
+            placeholder={t('auth.emailPlaceholder')}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
           />
           <Input
-            label="Senha"
-            placeholder="Digite a sua senha"
+            label={t('auth.password')}
+            placeholder={t('auth.passwordPlaceholder')}
             value={senha}
             onChangeText={setSenha}
             showPasswordToggle
           />
           <Input
-            label="Confirmar Senha"
-            placeholder="Confirme a sua senha"
+            label={t('auth.confirmPassword')}
+            placeholder={t('auth.confirmPasswordPlaceholder')}
             value={confirmar}
             onChangeText={setConfirmar}
             showPasswordToggle
@@ -95,7 +100,7 @@ export default function CadastroScreen() {
           />
 
           <Button
-            label="Criar Conta"
+            label={t('auth.createAccount')}
             onPress={onCadastrar}
             loading={loading}
             disabled={!aceitouLegal}
@@ -103,7 +108,7 @@ export default function CadastroScreen() {
 
           <View style={styles.divider}>
             <View style={styles.line} />
-            <Text style={styles.dividerText}>or</Text>
+            <Text style={styles.dividerText}>{t('common.or')}</Text>
             <View style={styles.line} />
           </View>
 
@@ -111,17 +116,14 @@ export default function CadastroScreen() {
             loading={loading}
             disabled={!aceitouLegal}
             onBlocked={() =>
-              Alert.alert(
-                'Termos',
-                'Aceite os Termos de Uso e a Política de Privacidade para continuar.'
-              )
+              Alert.alert(t('legal.termsTitle'), t('legal.acceptToContinue'))
             }
           />
 
           <View style={styles.footer}>
-            <Text style={styles.footerMuted}>Já tem uma conta? </Text>
+            <Text style={styles.footerMuted}>{t('auth.hasAccount')} </Text>
             <Text style={styles.footerLink} onPress={() => router.back()}>
-              Entrar
+              {t('auth.signIn')}
             </Text>
           </View>
         </ScrollView>

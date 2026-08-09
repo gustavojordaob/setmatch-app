@@ -4,10 +4,11 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { Input } from '../../components/ui/Input';
+import { PhoneInput } from '../../components/ui/PhoneInput';
 import { Button } from '../../components/ui/Button';
 import { ButtonFooter } from '../../components/ui/ButtonFooter';
 import { useAuth } from '../../hooks/useAuth';
-import { formatarTelefoneExibicao } from '../../utils/whatsapp';
+import { telefoneSalvoValido } from '../../utils/telefoneInternacional';
 
 export default function ClubeOnboardingScreen() {
   const router = useRouter();
@@ -19,14 +20,18 @@ export default function ClubeOnboardingScreen() {
   const [loading, setLoading] = useState(false);
 
   async function continuar() {
-    const digits = telefone.replace(/\D/g, '');
-    if (!nome.trim() || !cidade.trim() || digits.length < 10) {
-      Alert.alert('Admin', 'Informe nome, cidade e celular com DDD.');
+    if (!nome.trim() || !cidade.trim() || !telefoneSalvoValido(telefone)) {
+      Alert.alert('Admin', 'Informe nome, cidade e celular com código do país.');
       return;
     }
     setLoading(true);
     try {
-      await saveAdminOnboarding({ nome, cidade, estado, telefone });
+      await saveAdminOnboarding({
+        nome,
+        cidade,
+        estado,
+        telefone: telefone.replace(/\D/g, ''),
+      });
       router.replace('/clube/painel');
     } catch (e: unknown) {
       Alert.alert('Admin', e instanceof Error ? e.message : 'Erro ao salvar.');
@@ -43,12 +48,10 @@ export default function ClubeOnboardingScreen() {
           Complete seus dados de contato. Depois cadastre o clube, rankings e torneios.
         </Text>
         <Input label="Seu nome" value={nome} onChangeText={setNome} />
-        <Input
+        <PhoneInput
           label="Celular (WhatsApp)"
           value={telefone}
-          onChangeText={(t) => setTelefone(formatarTelefoneExibicao(t))}
-          keyboardType="phone-pad"
-          placeholder="(11) 99999-9999"
+          onChangeValue={setTelefone}
         />
         <Input label="Cidade base" value={cidade} onChangeText={setCidade} placeholder="São Paulo" />
         <Input

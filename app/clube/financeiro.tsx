@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -7,24 +8,86 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { Radius } from '../../constants/radius';
 import { useAuth } from '../../hooks/useAuth';
 import { liberarPagamentoAdmin } from '../../services/pagamentos';
 import { usePagamentosDoDono } from '../../hooks/usePagamentos';
+import { listarClubesDoDono, type ClubeCompleto } from '../../services/clubes';
 import { abrirOuCriarConversaAmigo, enviarMensagem } from '../../services/mensagens';
+import {
+  abrirStripeConnectOnboarding,
+  atualizarStripeConnectStatus,
+} from '../../utils/stripeCheckout';
 import type { PagamentoDoc } from '../../types/pagamento';
 
 export default function FinanceiroClubeScreen() {
   const router = useRouter();
   const { user, perfil } = useAuth();
   const { pagamentos, loading } = usePagamentosDoDono(user?.uid);
+  const [clube, setClube] = useState<ClubeCompleto | null>(null);
+  const [stripeBusy, setStripeBusy] = useState(false);
+  const [stripeLabel, setStripeLabel] = useState('Carregando Stripe…');
+
+  const refreshClube = useCallback(async () => {
+    if (!user) return;
+    const list = await listarClubesDoDono(user.uid);
+    const c = list[0] ?? null;
+    setClube(c);
+    if (!c) {
+      setStripeLabel('Crie um clube para conectar recebimentos.');
+      return;
+    }
+    try {
+      const st = await atualizarStripeConnectStatus(c.id);
+      if (!st.connected) {
+        setStripeLabel('Conta Stripe não conectada — toque para conectar.');
+      } else if (st.chargesEnabled) {
+        setStripeLabel('Stripe conectado · pronto para receber');
+      } else if (st.detailsSubmitted) {
+        setStripeLabel('Stripe em análise — aguarde liberação');
+      } else {
+        setStripeLabel('Onboarding incompleto — toque para continuar');
+      }
+      const again = await listarClubesDoDono(user.uid);
+      setClube(again[0] ?? c);
+    } catch {
+      setStripeLabel(
+        c.stripeChargesEnabled
+          ? 'Stripe conectado · pronto para receber'
+          : c.stripeAccountId
+            ? 'Stripe pendente — toque para continuar'
+            : 'Conectar conta Stripe para receber nos pagamentos'
+      );
+    }
+  }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshClube();
+    }, [refreshClube])
+  );
+
+  async function conectarStripe() {
+    if (!clube) {
+      Alert.alert('Stripe', 'Crie um clube antes de conectar a conta.');
+      return;
+    }
+    setStripeBusy(true);
+    try {
+      await abrirStripeConnectOnboarding(clube.id);
+      await refreshClube();
+    } catch (e: unknown) {
+      Alert.alert('Stripe', e instanceof Error ? e.message : 'Não foi possível conectar.');
+    } finally {
+      setStripeBusy(false);
+    }
+  }
 
   async function liberar(p: PagamentoDoc) {
-    Alert.alert('Liberar acesso', `Liberar ${p.nome} sem esperar o Mercado Pago?`, [
+    Alert.alert('Liberar acesso', `Liberar ${p.nome} sem esperar o Stripe?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Liberar',
@@ -38,6 +101,7 @@ export default function FinanceiroClubeScreen() {
     const id = await abrirOuCriarConversaAmigo({
       uidA: user.uid,
       nomeA: perfil.nome,
+      fotoA: perfil.fotoUrl,
       uidB: p.uid,
       nomeB: p.nome,
     });
@@ -60,8 +124,27 @@ export default function FinanceiroClubeScreen() {
         <View style={{ width: 26 }} />
       </View>
       <Text style={styles.sub}>
-        Pagamentos e pedidos de liberação · aulas online, rankings e torneios
+        Pagamentos e pedidos de liberação · aulas, rankings e torneios
       </Text>
+
+      <TouchableOpacity
+        style={styles.stripeCard}
+        onPress={() => void conectarStripe()}
+        disabled={stripeBusy || !clube}
+      >
+        <Ionicons name="card-outline" size={22} color={Colors.textOnAccent} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.stripeTitle}>
+            {stripeBusy ? 'Abrindo Stripe…' : 'Recebimentos Stripe'}
+          </Text>
+          <Text style={styles.stripeSub}>{stripeLabel}</Text>
+        </View>
+        {stripeBusy ? (
+          <ActivityIndicator color={Colors.textOnAccent} />
+        ) : (
+          <Ionicons name="chevron-forward" size={20} color={Colors.textOnAccent} />
+        )}
+      </TouchableOpacity>
 
       {loading ? (
         <ActivityIndicator color={Colors.accent} style={{ marginTop: 24 }} />
@@ -122,6 +205,18 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontSize: 12,
   },
+  stripeCard: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: Colors.accent,
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  stripeTitle: { color: Colors.textOnAccent, fontWeight: 'bold', fontSize: 15 },
+  stripeSub: { color: Colors.textOnAccent, opacity: 0.85, fontSize: 12, marginTop: 2 },
   card: {
     flexDirection: 'row',
     backgroundColor: Colors.surface,

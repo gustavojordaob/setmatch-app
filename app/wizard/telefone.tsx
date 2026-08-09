@@ -2,45 +2,36 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { WizardLayout } from '../../components/wizard/WizardLayout';
-import { Input } from '../../components/ui/Input';
+import { PhoneInput } from '../../components/ui/PhoneInput';
 import { useWizard } from '../../contexts/WizardContext';
 import { Colors } from '../../constants/colors';
-import { formatarTelefoneExibicao } from '../../utils/whatsapp';
+import { useT } from '../../hooks/useI18n';
+import { telefoneSalvoValido } from '../../utils/telefoneInternacional';
 
 export default function WizardTelefoneScreen() {
   const router = useRouter();
+  const t = useT();
   const { draft, setDraft } = useWizard();
   const [telefone, setTelefone] = useState(draft.telefone ?? '');
 
-  function onChange(t: string) {
-    setTelefone(formatarTelefoneExibicao(t));
-  }
-
   function continuar() {
-    const digits = telefone.replace(/\D/g, '');
-    if (digits.length < 10) return;
-    setDraft({ telefone: telefone.trim() });
+    if (!telefoneSalvoValido(telefone)) return;
+    setDraft({ telefone: telefone.replace(/\D/g, '') });
     router.push('/wizard/endereco');
   }
 
-  const digits = telefone.replace(/\D/g, '');
-
   return (
     <WizardLayout
-      title="Qual o seu celular?"
+      title={t('wizard.phoneTitle')}
       onContinue={continuar}
-      continueDisabled={digits.length < 10}
+      continueDisabled={!telefoneSalvoValido(telefone)}
     >
-      <Text style={styles.hint}>
-        Usado para WhatsApp com amigos, clubes e confirmações de torneio.
-      </Text>
+      <Text style={styles.hint}>{t('wizard.phoneHint')}</Text>
       <View style={styles.form}>
-        <Input
-          label="Celular com DDD"
-          placeholder="(11) 99999-9999"
+        <PhoneInput
+          label={t('wizard.phoneLabel')}
           value={telefone}
-          onChangeText={onChange}
-          keyboardType="phone-pad"
+          onChangeValue={setTelefone}
         />
       </View>
     </WizardLayout>

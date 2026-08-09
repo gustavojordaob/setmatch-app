@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, InputColors } from '../constants/colors';
 import { useClube, type ClubeOpcao } from '../contexts/ClubeContext';
 import { useAuth } from '../hooks/useAuth';
+import { useT } from '../hooks/useI18n';
 
 type Props = {
   /** Se true, inclui opção "Todos" */
@@ -34,6 +35,7 @@ export function ClubeSwitcher({ allowTodos = true }: Props) {
   const { clubeAtivoId, setClubeAtivoId, clubesDisponiveis, clubeAtivo } =
     useClube();
   const { perfil } = useAuth();
+  const t = useT();
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState<FiltroClube>('todos');
@@ -64,7 +66,7 @@ export function ClubeSwitcher({ allowTodos = true }: Props) {
 
   const labelSelecionado = clubeAtivo
     ? `${clubeAtivo.vinculo ? '★ ' : ''}${clubeAtivo.nome}`
-    : 'Todos os clubes';
+    : t('clubeSwitcher.allClubs');
 
   function selecionar(id: string | null) {
     setClubeAtivoId(id);
@@ -82,7 +84,7 @@ export function ClubeSwitcher({ allowTodos = true }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>Clube</Text>
+      <Text style={styles.label}>{t('clubeSwitcher.label')}</Text>
       <TouchableOpacity
         style={styles.combo}
         onPress={() => setAberto(true)}
@@ -98,7 +100,7 @@ export function ClubeSwitcher({ allowTodos = true }: Props) {
               {clubeAtivo.cidade}
             </Text>
           ) : (
-            <Text style={styles.comboSub}>Toque para buscar ou filtrar</Text>
+            <Text style={styles.comboSub}>{t('clubeSwitcher.tapToFilter')}</Text>
           )}
         </View>
         <Ionicons name="chevron-down" size={18} color={Colors.textPrimary} />
@@ -113,13 +115,13 @@ export function ClubeSwitcher({ allowTodos = true }: Props) {
         <Pressable style={styles.backdrop} onPress={() => setAberto(false)} />
         <View style={styles.sheet}>
           <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>Selecionar clube</Text>
+          <Text style={styles.sheetTitle}>{t('clubeSwitcher.select')}</Text>
 
           <View style={styles.searchBox}>
             <Ionicons name="search" size={18} color={Colors.textSecondary} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Pesquisar nome ou cidade…"
+              placeholder={t('clubeSwitcher.searchPlaceholder')}
               placeholderTextColor={InputColors.placeholder}
               value={busca}
               onChangeText={setBusca}
@@ -136,13 +138,13 @@ export function ClubeSwitcher({ allowTodos = true }: Props) {
           <View style={styles.filtros}>
             {(
               [
-                { id: 'todos' as const, label: 'Todos' },
+                { id: 'todos' as const, label: t('nav.all') },
                 {
                   id: 'perto' as const,
-                  label: minhaCidade ? `Perto de mim` : 'Perto de mim',
+                  label: t('clubeSwitcher.nearMe'),
                   disabled: !minhaCidade,
                 },
-                { id: 'meus' as const, label: 'Meus clubes' },
+                { id: 'meus' as const, label: t('clubeSwitcher.myClubs') },
               ] as const
             ).map((f) => {
               const on = filtro === f.id;
@@ -190,8 +192,8 @@ export function ClubeSwitcher({ allowTodos = true }: Props) {
                   style={[styles.item, !clubeAtivoId && styles.itemOn]}
                   onPress={() => selecionar(null)}
                 >
-                  <Text style={styles.itemNome}>Todos os clubes</Text>
-                  <Text style={styles.itemSub}>Sem filtro de clube</Text>
+                  <Text style={styles.itemNome}>{t('clubeSwitcher.allClubs')}</Text>
+                  <Text style={styles.itemSub}>{t('clubeSwitcher.noFilter')}</Text>
                 </TouchableOpacity>
               ) : null
             }
@@ -226,7 +228,7 @@ export function ClubeSwitcher({ allowTodos = true }: Props) {
           />
 
           <TouchableOpacity style={styles.fechar} onPress={() => setAberto(false)}>
-            <Text style={styles.fecharTxt}>Fechar</Text>
+            <Text style={styles.fecharTxt}>{t('nav.close')}</Text>
           </TouchableOpacity>
         </View>
       </Modal>

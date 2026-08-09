@@ -2,47 +2,45 @@ import type { ImageSourcePropType } from 'react-native';
 
 export interface OnboardingSlideConfig {
   image: ImageSourcePropType;
-  linha1?: string;
-  destaque?: string;
-  linha2?: string;
+  line1Key?: string;
+  highlightKey?: string;
+  line2Key?: string;
   overlay?: boolean;
-  textoCenter?: string;
+  centerKey?: string;
   showLogo?: boolean;
   showButton?: boolean;
-  buttonLabel?: string;
 }
 
 export const ONBOARDING_SLIDES: OnboardingSlideConfig[] = [
   {
     image: require('../assets/onboarding/Onboarding_1.png'),
-    linha1: 'Comece',
-    destaque: 'a sua jornada',
-    linha2: 'para subir\nde nível',
+    line1Key: 'onboarding.slide1.line1',
+    highlightKey: 'onboarding.slide1.highlight',
+    line2Key: 'onboarding.slide1.line2',
     showLogo: true,
     showButton: false,
   },
   {
     image: require('../assets/onboarding/Onboarding_2.png'),
-    linha1: 'Encontre',
-    destaque: 'oponentes',
-    linha2: 'na sua região',
+    line1Key: 'onboarding.slide2.line1',
+    highlightKey: 'onboarding.slide2.highlight',
+    line2Key: 'onboarding.slide2.line2',
     showLogo: true,
     showButton: false,
   },
   {
     image: require('../assets/onboarding/Onboarding_3.png'),
-    linha1: 'Crie rankings',
-    destaque: 'personalizados',
-    linha2: 'e participe de\ntorneios!',
+    line1Key: 'onboarding.slide3.line1',
+    highlightKey: 'onboarding.slide3.highlight',
+    line2Key: 'onboarding.slide3.line2',
     showLogo: true,
     showButton: false,
   },
   {
     image: require('../assets/onboarding/onborading_4.png'),
     overlay: true,
-    textoCenter: 'Game, Set, Match.',
+    centerKey: 'onboarding.slide4.center',
     showButton: true,
-    buttonLabel: 'VAMOS COMEÇAR',
     showLogo: false,
   },
 ];

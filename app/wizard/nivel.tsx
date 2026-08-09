@@ -5,22 +5,43 @@ import { Radius } from '../../constants/radius';
 import { NIVEIS } from '../../constants/niveis';
 import { WizardLayout } from '../../components/wizard/WizardLayout';
 import { useWizard } from '../../contexts/WizardContext';
+import { useT } from '../../hooks/useI18n';
 import type { NivelAtividade } from '../../types/usuario';
+
+const NIVEL_KEYS: Record<
+  NivelAtividade,
+  { label: string; desc: string }
+> = {
+  iniciante: {
+    label: 'wizard.level.beginner',
+    desc: 'wizard.level.beginnerDesc',
+  },
+  intermediario: {
+    label: 'wizard.level.intermediate',
+    desc: 'wizard.level.intermediateDesc',
+  },
+  avancado: {
+    label: 'wizard.level.advanced',
+    desc: 'wizard.level.advancedDesc',
+  },
+};
 
 export default function WizardNivelScreen() {
   const router = useRouter();
+  const t = useT();
   const { draft, setDraft } = useWizard();
   const selecionado = draft.nivel ?? 'intermediario';
 
   return (
     <WizardLayout
-      title="Qual o seu nível?"
-      continueLabel="Finalizar"
+      title={t('wizard.levelTitle')}
+      continueLabel={t('wizard.finish')}
       onContinue={() => router.push('/wizard/foto')}
     >
       <View style={styles.list}>
         {NIVEIS.map((n) => {
           const on = selecionado === n.id;
+          const keys = NIVEL_KEYS[n.id];
           return (
             <TouchableOpacity
               key={n.id}
@@ -29,8 +50,8 @@ export default function WizardNivelScreen() {
             >
               <View style={[styles.radio, on && styles.radioOn]} />
               <View style={styles.texts}>
-                <Text style={styles.label}>{n.label}</Text>
-                <Text style={styles.desc}>{n.desc}</Text>
+                <Text style={styles.label}>{t(keys.label)}</Text>
+                <Text style={styles.desc}>{t(keys.desc)}</Text>
               </View>
             </TouchableOpacity>
           );

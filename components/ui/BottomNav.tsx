@@ -5,18 +5,20 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Colors } from '../../constants/colors';
 import { Radius } from '../../constants/radius';
 import { TAB_BAR_HEIGHT } from '../../constants/tabBar';
+import { useT } from '../../hooks/useI18n';
+import { useTotalNaoLidas } from '../../hooks/useTotalNaoLidas';
 
 const TAB_CONFIG: {
   name: string;
-  label: string;
+  labelKey: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { name: 'home', label: 'Home', icon: 'home' },
-  { name: 'desafios', label: 'Partidas', icon: 'tennisball' },
-  { name: 'trofeu', label: 'Rankings', icon: 'trophy' },
-  { name: 'aulas', label: 'Aulas', icon: 'school' },
-  { name: 'mensagens', label: 'Chat', icon: 'chatbubbles' },
-  { name: 'perfil', label: 'Perfil', icon: 'person' },
+  { name: 'home', labelKey: 'nav.home', icon: 'home' },
+  { name: 'desafios', labelKey: 'nav.matches', icon: 'tennisball' },
+  { name: 'trofeu', labelKey: 'nav.rankings', icon: 'trophy' },
+  { name: 'aulas', labelKey: 'nav.classes', icon: 'school' },
+  { name: 'mensagens', labelKey: 'nav.chat', icon: 'chatbubbles' },
+  { name: 'perfil', labelKey: 'nav.profile', icon: 'person' },
 ];
 
 /** Padding inferior recomendado para ScrollViews das tabs. */
@@ -27,6 +29,8 @@ export function useTabBarClearance(): number {
 
 export function BottomNav({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const t = useT();
+  const msgsNaoLidas = useTotalNaoLidas();
 
   return (
     <View
@@ -35,11 +39,12 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
     >
       <View style={styles.bar}>
         {state.routes
-          .filter((r) => TAB_CONFIG.some((t) => t.name === r.name))
+          .filter((r) => TAB_CONFIG.some((tab) => tab.name === r.name))
           .map((route) => {
-            const cfg = TAB_CONFIG.find((t) => t.name === route.name)!;
+            const cfg = TAB_CONFIG.find((tab) => tab.name === route.name)!;
             const index = state.routes.findIndex((r) => r.key === route.key);
             const focused = state.index === index;
+            const showMsgBadge = route.name === 'mensagens' && msgsNaoLidas > 0;
             const onPress = () => {
               const ev = navigation.emit({
                 type: 'tabPress',
@@ -54,8 +59,11 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
             if (focused) {
               return (
                 <TouchableOpacity key={route.key} onPress={onPress} style={styles.activePill}>
-                  <Ionicons name={cfg.icon} size={20} color={Colors.textOnAccent} />
-                  <Text style={styles.activeLabel}>{cfg.label}</Text>
+                  <View>
+                    <Ionicons name={cfg.icon} size={20} color={Colors.textOnAccent} />
+                    {showMsgBadge ? <View style={styles.pillDot} /> : null}
+                  </View>
+                  <Text style={styles.activeLabel}>{t(cfg.labelKey)}</Text>
                 </TouchableOpacity>
               );
             }
@@ -67,6 +75,13 @@ export function BottomNav({ state, navigation }: BottomTabBarProps) {
                   size={26}
                   color={Colors.white}
                 />
+                {showMsgBadge ? (
+                  <View style={styles.navBadge}>
+                    <Text style={styles.navBadgeTxt}>
+                      {msgsNaoLidas > 99 ? '99+' : msgsNaoLidas}
+                    </Text>
+                  </View>
+                ) : null}
               </TouchableOpacity>
             );
           })}
@@ -111,5 +126,27 @@ const styles = StyleSheet.create({
     padding: 7,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  navBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 0,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  navBadgeTxt: { color: Colors.white, fontSize: 9, fontWeight: 'bold' },
+  pillDot: {
+    position: 'absolute',
+    top: -2,
+    right: -6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.danger,
   },
 });

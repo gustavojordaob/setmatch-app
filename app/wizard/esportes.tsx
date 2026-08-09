@@ -5,11 +5,13 @@ import { Radius } from '../../constants/radius';
 import { ESPORTES, type EsporteId } from '../../constants/esportes';
 import { WizardLayout } from '../../components/wizard/WizardLayout';
 import { useWizard } from '../../contexts/WizardContext';
+import { useT } from '../../hooks/useI18n';
 
 const ORDER: EsporteId[] = ['tenis', 'beachtennis', 'padel', 'raquetinha'];
 
 export default function WizardEsportesScreen() {
   const router = useRouter();
+  const t = useT();
   const { draft, setDraft } = useWizard();
   const selecionados = draft.esportes ?? [];
 
@@ -22,7 +24,7 @@ export default function WizardEsportesScreen() {
 
   return (
     <WizardLayout
-      title="Qual o seu objetivo?"
+      title={t('wizard.sportsTitle')}
       onContinue={() => router.push('/wizard/nivel')}
       continueDisabled={selecionados.length === 0}
     >
@@ -37,7 +39,9 @@ export default function WizardEsportesScreen() {
               style={[styles.pill, on ? styles.pillOn : styles.pillOff]}
             >
               <Text style={styles.emoji}>{e.emoji}</Text>
-              <Text style={[styles.pillText, on && styles.pillTextOn]}>{e.nome}</Text>
+              <Text style={[styles.pillText, on && styles.pillTextOn]}>
+                {t(`esporte.${id}`)}
+              </Text>
             </TouchableOpacity>
           );
         })}

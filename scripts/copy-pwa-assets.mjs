@@ -10,7 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const DIST = path.join(ROOT, 'dist-web');
 const SOURCE = path.join(ROOT, 'assets', 'icon.png');
-const BG = { r: 37, g: 89, b: 67, alpha: 1 }; // #255943
+const BG = { r: 0, g: 0, b: 0, alpha: 1 }; // preto — alinhado ao logo icon-setmach
 
 async function squareIcon(src, size, logoScale = 0.88) {
   const meta = await sharp(src).metadata();

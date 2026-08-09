@@ -45,6 +45,13 @@ export function useTorneios(esporte: EsporteId) {
                     permiteCartao: Boolean(
                       (raw.pagamento as { permiteCartao?: boolean }).permiteCartao ?? true
                     ),
+                    descontoPixPercent: Number(
+                      (raw.pagamento as { descontoPixPercent?: number }).descontoPixPercent ?? 0
+                    ),
+                    descontoCartaoPercent: Number(
+                      (raw.pagamento as { descontoCartaoPercent?: number }).descontoCartaoPercent ??
+                        0
+                    ),
                   }
                 : undefined,
             };

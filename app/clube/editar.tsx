@@ -7,9 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { db } from '../../utils/firebaseConfig';
 import { Colors } from '../../constants/colors';
 import { Input } from '../../components/ui/Input';
+import { PhoneInput } from '../../components/ui/PhoneInput';
 import { Button } from '../../components/ui/Button';
 import { ButtonFooter } from '../../components/ui/ButtonFooter';
 import { atualizarClube } from '../../services/clubes';
+import { telefoneSalvoValido } from '../../utils/telefoneInternacional';
 
 export default function EditarClubeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -43,6 +45,10 @@ export default function EditarClubeScreen() {
 
   async function salvar() {
     if (!id) return;
+    if (telefone && !telefoneSalvoValido(telefone)) {
+      Alert.alert('Clube', 'Telefone inválido — use código do país + DDD.');
+      return;
+    }
     setLoading(true);
     try {
       await atualizarClube(id, {
@@ -52,7 +58,7 @@ export default function EditarClubeScreen() {
         estado: estado.trim().toUpperCase(),
         cep: cep.trim(),
         endereco: endereco.trim(),
-        telefone: telefone.trim(),
+        telefone: telefone.replace(/\D/g, ''),
         descricao: descricao.trim(),
       });
       router.back();
@@ -79,7 +85,7 @@ export default function EditarClubeScreen() {
         <Input label="Cidade" value={cidade} onChangeText={setCidade} />
         <Input label="UF" value={estado} onChangeText={setEstado} maxLength={2} />
         <Input label="CEP" value={cep} onChangeText={setCep} />
-        <Input label="Telefone" value={telefone} onChangeText={setTelefone} />
+        <PhoneInput label="Telefone (WhatsApp)" value={telefone} onChangeValue={setTelefone} />
         <Input label="Descrição" value={descricao} onChangeText={setDescricao} />
       </ScrollView>
       <ButtonFooter>

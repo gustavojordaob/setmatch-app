@@ -31,6 +31,9 @@ import { EsporteSwitcher } from '../../components/EsporteSwitcher';
 import { ClubeSwitcher } from '../../components/ClubeSwitcher';
 import { alternarCurtida, criarPost } from '../../services/feed';
 import { useDesafios } from '../../hooks/useDesafios';
+import { useT } from '../../hooks/useI18n';
+import { useTotalNaoLidas } from '../../hooks/useTotalNaoLidas';
+import { UnreadBadge } from '../../components/ui/UnreadBadge';
 import { uploadFotoPost } from '../../utils/uploadFoto';
 import { compartilharPostFora } from '../../utils/compartilharPost';
 
@@ -41,9 +44,12 @@ const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
 
 export default function HomeScreen() {
   const router = useRouter();
+  const t = useT();
   const { user, perfil } = useAuth();
+  const msgsNaoLidas = useTotalNaoLidas();
   const { esporteAtivo } = useEsporte();
   const { clubeAtivoId, clubeAtivo } = useClube();
+  const esporteLabel = t(`esporte.${esporteAtivo}`);
   const { amigoUids } = useAmigos();
   const { recebidosPendentes, enviadosPendentes } = useDesafios();
   const [soAmigos, setSoAmigos] = useState(false);
@@ -102,7 +108,7 @@ export default function HomeScreen() {
   async function escolherFoto() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permissão', 'Precisamos acessar suas fotos para publicar.');
+      Alert.alert(t('common.permission'), t('home.permissionPhotos'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -136,7 +142,10 @@ export default function HomeScreen() {
       setTexto('');
       setFotoUri(null);
     } catch (e: unknown) {
-      Alert.alert('Erro', e instanceof Error ? e.message : 'Não foi possível publicar.');
+      Alert.alert(
+        t('common.error'),
+        e instanceof Error ? e.message : t('home.publishFailed')
+      );
     } finally {
       setPublicando(false);
     }
@@ -159,7 +168,7 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/notificacoes')}
             >
               <Ionicons name="notifications-outline" size={22} color={Colors.white} />
-              <View style={styles.bellDot} />
+              <UnreadBadge count={msgsNaoLidas} dotOnly />
             </TouchableOpacity>
           </View>
 
@@ -179,9 +188,9 @@ export default function HomeScreen() {
         >
           <Ionicons name="tennisball-outline" size={22} color={Colors.textOnAccent} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.inviteTitle}>Convidar para jogar</Text>
+            <Text style={styles.inviteTitle}>{t('home.inviteToPlay')}</Text>
             <Text style={styles.inviteSub}>
-              Chame amigos ou jogadores · {ESPORTES.find((e) => e.id === esporteAtivo)?.nome}
+              Chame amigos ou jogadores · {esporteLabel}
               {clubeAtivo ? ` · ${clubeAtivo.nome}` : ''}
             </Text>
           </View>
@@ -194,8 +203,8 @@ export default function HomeScreen() {
         >
           <Ionicons name="navigate-outline" size={22} color={Colors.accent} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.pertoTitle}>Perto de mim</Text>
-            <Text style={styles.pertoSub}>Pessoas e quadras próximas da sua localização</Text>
+            <Text style={styles.pertoTitle}>{t('home.nearMeTitle')}</Text>
+            <Text style={styles.pertoSub}>{t('home.nearMeSubtitle')}</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={Colors.textMutedDark} />
         </TouchableOpacity>
@@ -203,9 +212,9 @@ export default function HomeScreen() {
         {recebidosEsporte.length > 0 || enviadosEsporte.length > 0 ? (
           <View style={styles.convitesBox}>
             <View style={styles.convitesHead}>
-              <Text style={styles.section}>Confrontos</Text>
+              <Text style={styles.section}>{t('home.confrontos')}</Text>
               <TouchableOpacity onPress={() => router.push('/(tabs)/desafios')}>
-                <Text style={styles.amigosLink}>Ver todos</Text>
+                <Text style={styles.amigosLink}>{t('nav.seeAll')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -241,7 +250,7 @@ export default function HomeScreen() {
                   </View>
                   {recebido ? (
                     <View style={styles.novoTag}>
-                      <Text style={styles.novoTagTxt}>RESPONDER</Text>
+                      <Text style={styles.novoTagTxt}>{t('home.respond')}</Text>
                     </View>
                   ) : (
                     <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
@@ -266,7 +275,7 @@ export default function HomeScreen() {
             style={[styles.toggleBtn, aba === 'proximas' && styles.toggleOn]}
           >
             <Text style={[styles.toggleTxt, aba === 'proximas' && styles.toggleTxtOn]}>
-              Próximas partidas
+              {t('home.upcomingMatches')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -279,7 +288,7 @@ export default function HomeScreen() {
             {(soAmigos ? partidasAmigos : partidasRecentes).length === 0 ? (
               <Text style={styles.empty}>
                 {soAmigos
-                  ? 'Seus amigos ainda não registraram jogos neste esporte.'
+                  ? t('home.friendsNoGames')
                   : 'Sem partidas registradas ainda.'}
               </Text>
             ) : (
@@ -324,24 +333,24 @@ export default function HomeScreen() {
             )}
           </>
         ) : (
-          <Text style={styles.empty}>Sem partidas agendadas.</Text>
+          <Text style={styles.empty}>{t('home.noScheduled')}</Text>
         )}
 
         {/* Notícias do mundo do tênis / padel */}
-        <Text style={[styles.section, { marginTop: 28 }]}>Notícias</Text>
+        <Text style={[styles.section, { marginTop: 28 }]}>{t('home.news')}</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.newsRow}
         >
           {(noticiasEsporte.length === 0
-            ? [{ id: 'empty', titulo: `Sem notícias de ${ESPORTES.find((e) => e.id === esporteAtivo)?.nome ?? 'esporte'} no momento.`, fonte: 'Setmatch', categoria: '', esporte: esporteAtivo }]
+            ? [{ id: 'empty', titulo: t('home.noNews', { sport: esporteLabel }), fonte: 'Setmatch', categoria: '', esporte: esporteAtivo }]
             : noticiasEsporte
           ).map((n) => (
             <View key={n.id} style={styles.newsCard}>
               <View style={styles.newsTag}>
                 <Text style={styles.newsTagTxt}>
-                  {n.categoria || ESPORTES.find((e) => e.id === esporteAtivo)?.nome}
+                  {n.categoria || esporteLabel}
                 </Text>
               </View>
               <Text style={styles.newsTitle} numberOfLines={4}>
@@ -358,20 +367,20 @@ export default function HomeScreen() {
           </Text>
           <View style={styles.feedLinks}>
             <TouchableOpacity onPress={() => router.push('/(tabs)/proximos')}>
-              <Text style={styles.amigosLink}>Perto de mim</Text>
+              <Text style={styles.amigosLink}>{t('nav.nearMe')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/buscar')}>
-              <Text style={styles.amigosLink}>Buscar</Text>
+              <Text style={styles.amigosLink}>{t('nav.search')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/(tabs)/amigos')}>
-              <Text style={styles.amigosLink}>Amigos</Text>
+              <Text style={styles.amigosLink}>{t('nav.friends')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {jogosNoFeed.length > 0 ? (
           <>
-            <Text style={styles.feedSub}>Jogos realizados</Text>
+            <Text style={styles.feedSub}>{t('home.feedGames')}</Text>
             {jogosNoFeed.map((p) => {
               const euSouJ1 = user?.uid === p.jogador1;
               const vitoria = soAmigos
@@ -406,13 +415,17 @@ export default function HomeScreen() {
             style={[styles.feedChip, !soAmigos && styles.feedChipOn]}
             onPress={() => setSoAmigos(false)}
           >
-            <Text style={[styles.feedChipTxt, !soAmigos && styles.feedChipTxtOn]}>Todos</Text>
+            <Text style={[styles.feedChipTxt, !soAmigos && styles.feedChipTxtOn]}>
+              {t('home.filterAll')}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.feedChip, soAmigos && styles.feedChipOn]}
             onPress={() => setSoAmigos(true)}
           >
-            <Text style={[styles.feedChipTxt, soAmigos && styles.feedChipTxtOn]}>Amigos</Text>
+            <Text style={[styles.feedChipTxt, soAmigos && styles.feedChipTxtOn]}>
+              {t('home.filterFriends')}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -421,7 +434,7 @@ export default function HomeScreen() {
             <Avatar uri={perfil?.fotoUrl ?? user?.photoURL} nome={nome} size="sm" />
             <TextInput
               style={styles.composerInput}
-              placeholder={`Compartilhe algo de ${ESPORTES.find((e) => e.id === esporteAtivo)?.nome ?? 'esporte'}…`}
+              placeholder={`Compartilhe algo de ${esporteLabel}…`}
               placeholderTextColor={Colors.textMutedDark}
               value={texto}
               onChangeText={setTexto}
@@ -446,7 +459,7 @@ export default function HomeScreen() {
             <View style={styles.fotoPreviewRow}>
               <Image source={{ uri: fotoUri }} style={styles.fotoPreview} />
               <TouchableOpacity onPress={() => setFotoUri(null)}>
-                <Text style={styles.fotoRemover}>Remover foto</Text>
+                <Text style={styles.fotoRemover}>{t('home.removePhoto')}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -456,13 +469,13 @@ export default function HomeScreen() {
           <ActivityIndicator color={Colors.primary} style={{ marginTop: 20 }} />
         ) : posts.length === 0 ? (
           <Text style={styles.feedEmpty}>
-            Nenhum post de {ESPORTES.find((e) => e.id === esporteAtivo)?.nome} ainda. Seja o
-            primeiro!
+            Nenhum post de {esporteLabel} ainda. Seja o primeiro!
           </Text>
         ) : (
           posts.map((p) => {
             const curtido = user ? p.curtidoPor.includes(user.uid) : false;
-            const espMeta = ESPORTES.find((e) => e.id === (p.esporte ?? 'tenis'));
+            const espId = p.esporte ?? 'tenis';
+            const espMeta = ESPORTES.find((e) => e.id === espId);
             return (
               <View key={p.id} style={styles.postCard}>
                 <TouchableOpacity
@@ -475,7 +488,7 @@ export default function HomeScreen() {
                     <Text style={styles.postAutor}>{p.autorNome}</Text>
                     {espMeta ? (
                       <Text style={styles.postEsporte}>
-                        {espMeta.emoji} {espMeta.nome}
+                        {espMeta.emoji} {t(`esporte.${espId}`)}
                       </Text>
                     ) : null}
                   </View>
@@ -521,7 +534,7 @@ export default function HomeScreen() {
                     }
                   >
                     <Ionicons name="share-outline" size={18} color={Colors.textMutedDark} />
-                    <Text style={styles.likeTxt}>Compartilhar</Text>
+                    <Text style={styles.likeTxt}>{t('home.share')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -560,15 +573,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  bellDot: {
-    position: 'absolute',
-    top: 8,
-    right: 10,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.accent,
   },
   sportsRow: { flexDirection: 'row', gap: 12 },
   sportCircle: {

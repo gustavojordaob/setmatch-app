@@ -36,7 +36,7 @@ import {
 } from '../../services/chaveamentoTorneio';
 import { criarRegistroPagamento } from '../../services/pagamentos';
 import { abrirOuCriarConversaClube, enviarMensagem } from '../../services/mensagens';
-import { iniciarCheckoutMercadoPago } from '../../utils/mercadoPago';
+import { pagarComEscolhaDeMeio, resumoPromoCurto } from '../../utils/checkoutComMeio';
 import type { EsporteId } from '../../constants/esportes';
 
 export default function TorneioDetailScreen() {
@@ -93,6 +93,12 @@ export default function TorneioDetailScreen() {
             permitePix: Boolean((raw.pagamento as { permitePix?: boolean }).permitePix ?? true),
             permiteCartao: Boolean(
               (raw.pagamento as { permiteCartao?: boolean }).permiteCartao ?? true
+            ),
+            descontoPixPercent: Number(
+              (raw.pagamento as { descontoPixPercent?: number }).descontoPixPercent ?? 0
+            ),
+            descontoCartaoPercent: Number(
+              (raw.pagamento as { descontoCartaoPercent?: number }).descontoCartaoPercent ?? 0
             ),
           }
         : undefined,
@@ -188,18 +194,28 @@ export default function TorneioDetailScreen() {
         });
         Alert.alert(
           'Inscrição feita',
-          `Pague R$ ${torneio.pagamento.valor.toFixed(2)}.`,
+          [
+            `Pague a partir de R$ ${torneio.pagamento.valor.toFixed(2)}.`,
+            resumoPromoCurto(torneio.pagamento) || '',
+          ]
+            .filter(Boolean)
+            .join('\n'),
           [
             {
               text: 'Pagar agora',
               onPress: () =>
-                void iniciarCheckoutMercadoPago({
+                void pagarComEscolhaDeMeio({
                   pagamentoId,
                   titulo: `Inscrição · ${torneio.nome}`,
-                  valor: torneio.pagamento!.valor,
                   ciclo: 'unico',
-                  permitePix: torneio.pagamento!.permitePix,
-                  permiteCartao: torneio.pagamento!.permiteCartao,
+                  regras: {
+                    valor: torneio.pagamento!.valor,
+                    permitePix: torneio.pagamento!.permitePix,
+                    permiteCartao: torneio.pagamento!.permiteCartao,
+                    descontoPixPercent: torneio.pagamento!.descontoPixPercent,
+                    descontoCartaoPercent: torneio.pagamento!.descontoCartaoPercent,
+                    ciclo: 'unico',
+                  },
                 }),
             },
             { text: 'OK' },
@@ -339,8 +355,11 @@ export default function TorneioDetailScreen() {
         {pag?.ativo ? (
           <View style={styles.payBox}>
             <Text style={styles.payTitle}>
-              Inscrição R$ {pag.valor.toFixed(2)} · PIX ou cartão 1x
+              Inscrição R$ {pag.valor.toFixed(2)} · PIX ou cartão
             </Text>
+            {resumoPromoCurto(pag) ? (
+              <Text style={styles.desc}>{resumoPromoCurto(pag)}</Text>
+            ) : null}
           </View>
         ) : null}
 

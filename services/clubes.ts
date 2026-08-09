@@ -34,7 +34,14 @@ export interface ClubeCompleto {
     regras: string;
     permitePix: boolean;
     permiteCartao: boolean;
+    descontoPixPercent?: number;
+    descontoCartaoPercent?: number;
   };
+  /** Stripe Connect Express */
+  stripeAccountId?: string;
+  stripeChargesEnabled?: boolean;
+  stripePayoutsEnabled?: boolean;
+  stripeDetailsSubmitted?: boolean;
   criadoEm?: { seconds: number };
 }
 
@@ -112,6 +119,8 @@ export async function criarRankingNoClube(input: {
     exigeParaEntrar: boolean;
     permitePix: boolean;
     permiteCartao: boolean;
+    descontoPixPercent?: number;
+    descontoCartaoPercent?: number;
   };
 }): Promise<string> {
   const rankingRef = await addDoc(collection(db, 'rankings'), {
@@ -131,6 +140,8 @@ export async function criarRankingNoClube(input: {
       exigeParaEntrar: false,
       permitePix: true,
       permiteCartao: true,
+      descontoPixPercent: 0,
+      descontoCartaoPercent: 0,
     },
     criadoEm: serverTimestamp(),
   });
@@ -194,8 +205,18 @@ export async function listarClubesDoDono(donoUid: string): Promise<ClubeCompleto
             regras: String((raw.aulas as { regras?: string }).regras ?? ''),
             permitePix: Boolean((raw.aulas as { permitePix?: boolean }).permitePix ?? true),
             permiteCartao: Boolean((raw.aulas as { permiteCartao?: boolean }).permiteCartao ?? true),
+            descontoPixPercent: Number(
+              (raw.aulas as { descontoPixPercent?: number }).descontoPixPercent ?? 0
+            ),
+            descontoCartaoPercent: Number(
+              (raw.aulas as { descontoCartaoPercent?: number }).descontoCartaoPercent ?? 0
+            ),
           }
         : undefined,
+      stripeAccountId: raw.stripeAccountId ? String(raw.stripeAccountId) : undefined,
+      stripeChargesEnabled: Boolean(raw.stripeChargesEnabled),
+      stripePayoutsEnabled: Boolean(raw.stripePayoutsEnabled),
+      stripeDetailsSubmitted: Boolean(raw.stripeDetailsSubmitted),
     };
   });
 }
