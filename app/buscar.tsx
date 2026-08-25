@@ -115,7 +115,7 @@ export default function BuscarJogadoresScreen() {
               <Text style={styles.empty}>Nenhum jogador encontrado.</Text>
             ) : (
               <Text style={styles.empty}>
-                Busca estilo apps de clube: nome, cidade, nível ou ID Setmatch.
+                Busca estilo apps de clube: nome, cidade, nível ou ID Rally Up.
               </Text>
             )
           }

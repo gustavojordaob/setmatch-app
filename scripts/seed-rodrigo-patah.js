@@ -108,10 +108,10 @@ async function main() {
         titulo: 'Voleio — técnica em 5 passos',
         modulo: 'Módulo 2',
         ordem: 4,
-        descricao: 'Exemplo pago: master class de voleio.',
+        descricao: 'Exemplo: técnica de voleio em 5 passos (aula demo pública).',
         videoUrl: 'https://www.youtube.com/watch?v=Jf8hbFah-o0',
-        pago: true,
-        valorOnline: 29.9,
+        pago: false,
+        valorOnline: 0,
       },
     ];
 

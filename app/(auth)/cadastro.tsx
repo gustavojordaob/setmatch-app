@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { AuthSocialRow } from '../../components/auth/AuthSocialRow';
 import { LegalConsent } from '../../components/legal/LegalConsent';
 import { useAuth } from '../../hooks/useAuth';
 import { useT } from '../../hooks/useI18n';
@@ -106,20 +105,6 @@ export default function CadastroScreen() {
             disabled={!aceitouLegal}
           />
 
-          <View style={styles.divider}>
-            <View style={styles.line} />
-            <Text style={styles.dividerText}>{t('common.or')}</Text>
-            <View style={styles.line} />
-          </View>
-
-          <AuthSocialRow
-            loading={loading}
-            disabled={!aceitouLegal}
-            onBlocked={() =>
-              Alert.alert(t('legal.termsTitle'), t('legal.acceptToContinue'))
-            }
-          />
-
           <View style={styles.footer}>
             <Text style={styles.footerMuted}>{t('auth.hasAccount')} </Text>
             <Text style={styles.footerLink} onPress={() => router.back()}>
@@ -143,9 +128,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
   },
-  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 },
-  line: { flex: 1, height: 1, backgroundColor: Colors.white },
-  dividerText: { color: Colors.white, fontWeight: '600' },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 12 },
   footerMuted: { color: Colors.textPrimary },
   footerLink: { color: Colors.accent, fontWeight: 'bold' },

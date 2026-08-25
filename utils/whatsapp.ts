@@ -1,4 +1,4 @@
-import { Alert, Linking } from 'react-native';
+﻿import { Alert, Linking } from 'react-native';
 import {
   formatarTelefoneInternacional,
   soDigitos,
@@ -44,7 +44,7 @@ export async function abrirWhatsApp(
 /** @deprecated Preferir rota /(auth)/solicitar-acesso */
 export async function solicitarContaAdminClube(): Promise<void> {
   const msg =
-    'Olá Setmatch! Quero solicitar acesso de *admin de clube*.\n\n' +
+    'Olá Rally Up! Quero solicitar acesso de *admin de clube*.\n\n' +
     'Nome do clube:\nCidade:\nEsporte:\nTelefone (com código do país):';
   await abrirWhatsApp('5519989632897', msg);
 }

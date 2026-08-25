@@ -30,7 +30,7 @@ import type { ClubeCompleto } from '../../../services/clubes';
 import { abrirWhatsApp } from '../../../utils/whatsapp';
 import { pagarComEscolhaDeMeio, resumoPromoCurto, textoCicloPagamento } from '../../../utils/checkoutComMeio';
 
-/** Aluno NÃO se matricula sozinho — manda mensagem; o clube cadastra pelo Setmatch ID. */
+/** Aluno NÃO se matricula sozinho — manda mensagem; o clube cadastra pelo Rally Up ID. */
 export default function MinhasAulasClubeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -111,7 +111,7 @@ export default function MinhasAulasClubeScreen() {
   }, [id]);
 
   function mensagemInteresse(mod?: ModalidadeAula): string {
-    const sid = perfil?.setmatchId ? `\nMeu Setmatch ID: *${perfil.setmatchId}*` : '';
+    const sid = perfil?.setmatchId ? `\nMeu Rally Up ID: *${perfil.setmatchId}*` : '';
     if (mod) {
       return (
         `Olá! Tenho interesse na aula "${mod.nome}" ` +
@@ -187,7 +187,7 @@ export default function MinhasAulasClubeScreen() {
           <Ionicons name="information-circle" size={22} color={Colors.accent} />
           <Text style={styles.hintTxt}>
             Você não se cadastra sozinho. Envie mensagem (app ou WhatsApp) e o clube te coloca na
-            aula pelo seu Setmatch ID
+            aula pelo seu Rally Up ID
             {perfil?.setmatchId ? ` (${perfil.setmatchId})` : ''}.
           </Text>
         </View>

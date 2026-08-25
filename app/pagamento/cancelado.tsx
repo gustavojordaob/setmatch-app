@@ -14,7 +14,7 @@ export default function PagamentoCanceladoScreen() {
           style={styles.link}
           onPress={() => void Linking.openURL('setmatch://pagamentos')}
         >
-          Abrir Setmatch
+          Abrir Rally Up
         </Text>
       </View>
     </SafeAreaView>

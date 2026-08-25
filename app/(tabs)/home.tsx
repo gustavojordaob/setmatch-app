@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -156,13 +156,18 @@ export default function HomeScreen() {
       <SafeAreaView edges={['top']} style={styles.headerSafe}>
         <View style={styles.header}>
           <View style={styles.headerTop}>
-            <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={styles.headerLeft}
+              onPress={() => router.push('/perfil/editar')}
+              activeOpacity={0.85}
+              accessibilityLabel={t('perfil.edit')}
+            >
               <Avatar uri={perfil?.fotoUrl ?? user?.photoURL} nome={nome} size="md" verified />
               <View>
                 <Text style={styles.nome}>{nome} ✓</Text>
                 <Text style={styles.record}>{record}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.bell}
               onPress={() => router.push('/(tabs)/notificacoes')}
@@ -344,7 +349,7 @@ export default function HomeScreen() {
           contentContainerStyle={styles.newsRow}
         >
           {(noticiasEsporte.length === 0
-            ? [{ id: 'empty', titulo: t('home.noNews', { sport: esporteLabel }), fonte: 'Setmatch', categoria: '', esporte: esporteAtivo }]
+            ? [{ id: 'empty', titulo: t('home.noNews', { sport: esporteLabel }), fonte: 'Rally Up', categoria: '', esporte: esporteAtivo }]
             : noticiasEsporte
           ).map((n) => (
             <View key={n.id} style={styles.newsCard}>

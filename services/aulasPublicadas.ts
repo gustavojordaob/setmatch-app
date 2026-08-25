@@ -5,7 +5,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  limit,
   query,
   serverTimestamp,
   updateDoc,
@@ -36,9 +35,9 @@ export interface AulaPublicada {
   /** Path Storage `aulas/{uid}/...` quando o professor fez upload */
   videoStoragePath?: string;
   duracaoMin?: number;
-  /** online: se true, só libera após pagamento / liberação */
+  /** legado — aulas online no app são sempre gratuitas */
   pago?: boolean;
-  /** Valor unitário da aula online (quando pago) */
+  /** legado — sempre 0 para aula online */
   valorOnline?: number;
   /** presencial */
   cidade?: string;
@@ -167,11 +166,8 @@ export async function criarAulaPublicada(
     videoUrl: input.videoUrl ?? '',
     videoStoragePath: input.videoStoragePath ?? '',
     duracaoMin: input.duracaoMin ?? 0,
-    pago: input.modo === 'online' ? Boolean(input.pago) : false,
-    valorOnline:
-      input.modo === 'online' && input.pago
-        ? Number(input.valorOnline) || 0
-        : 0,
+    pago: false,
+    valorOnline: 0,
     cidade: input.cidade ?? '',
     local: input.local ?? '',
     valorMensal: input.valorMensal ?? 0,
@@ -182,41 +178,14 @@ export async function criarAulaPublicada(
   return ref.id;
 }
 
-/** Grátis, dono, ou pagamento aprovado/liberado com aulaPublicadaId. */
-export async function temAcessoAulaOnline(
-  uid: string | undefined,
-  aula: AulaPublicada
-): Promise<boolean> {
-  if (!aula.pago) return true;
-  if (!uid) return false;
-  if (uid === aula.donoUid) return true;
-
-  const snap = await getDocs(
-    query(collection(db, 'pagamentos'), where('uid', '==', uid), limit(40))
-  );
-  return snap.docs.some((d) => {
-    const raw = d.data();
-    const status = String(raw.status ?? '');
-    if (status !== 'aprovado' && status !== 'liberado_admin') return false;
-    if (String(raw.aulaPublicadaId ?? '') === aula.id) return true;
-    // Compra do curso inteiro do professor (futuro checkout)
-    if (
-      String(raw.tipo ?? '') === 'aula_online' &&
-      String(raw.donoUid ?? '') === aula.donoUid &&
-      !raw.aulaPublicadaId
-    ) {
-      return true;
-    }
-    return false;
-  });
-}
-
 export async function atualizarAulaPublicada(
   id: string,
   data: Partial<Omit<AulaPublicada, 'id' | 'donoUid' | 'criadoEm'>>
 ): Promise<void> {
   await updateDoc(doc(db, 'aulasPublicadas', id), {
     ...data,
+    pago: false,
+    valorOnline: 0,
     atualizadoEm: serverTimestamp(),
   });
 }
@@ -225,84 +194,20 @@ export async function excluirAulaPublicada(id: string): Promise<void> {
   await deleteDoc(doc(db, 'aulasPublicadas', id));
 }
 
-/** Pedido de liberação (sem pagar) — professor libera no financeiro. */
-export async function pedirLiberacaoAulaOnline(input: {
-  aula: AulaPublicada;
-  uid: string;
-  nome: string;
-  setmatchId?: string;
-  telefone?: string;
-}): Promise<{ pagamentoId: string }> {
-  const { aula } = input;
-  const ref = await addDoc(collection(db, 'pagamentos'), {
-    uid: input.uid,
-    setmatchId: input.setmatchId ?? '',
-    nome: input.nome,
-    telefone: input.telefone ?? '',
-    tipo: 'aula_online',
-    clubeId: aula.origemTipo === 'clube' ? aula.origemId : '',
-    clubeNome: aula.origemNome,
-    donoUid: aula.donoUid,
-    aulaPublicadaId: aula.id,
-    aulaTitulo: aula.titulo,
-    valor: aula.valorOnline ?? 0,
-    ciclo: 'unico',
-    status: 'pendente',
-    solicitacaoLiberacao: true,
-    criadoEm: serverTimestamp(),
-    atualizadoEm: serverTimestamp(),
-  });
-
-  await addDoc(collection(db, 'interessesAulas'), {
-    uid: input.uid,
-    nome: input.nome,
-    telefone: input.telefone ?? '',
-    donoUid: aula.donoUid,
-    clubeId: aula.origemTipo === 'clube' ? aula.origemId : '',
-    clubeNome: aula.origemNome,
-    aulaPublicadaId: aula.id,
-    aulaTitulo: aula.titulo,
-    esporte: aula.esporte,
-    mensagem: `Pediu liberação da aula online "${aula.titulo}".`,
-    status: 'pendente',
-    pagamentoId: ref.id,
-    criadoEm: serverTimestamp(),
-  });
-
-  return { pagamentoId: ref.id };
-}
-
-/** Cria registro e devolve id para checkout Mercado Pago. */
-export async function criarPagamentoAulaOnline(input: {
-  aula: AulaPublicada;
-  uid: string;
-  nome: string;
-  setmatchId?: string;
-  telefone?: string;
-}): Promise<string> {
-  const { aula } = input;
-  const valor = Number(aula.valorOnline ?? 0);
-  if (!valor || valor <= 0) {
-    throw new Error('Esta aula ainda não tem valor definido. Peça liberação ao professor.');
-  }
-  const ref = await addDoc(collection(db, 'pagamentos'), {
-    uid: input.uid,
-    setmatchId: input.setmatchId ?? '',
-    nome: input.nome,
-    telefone: input.telefone ?? '',
-    tipo: 'aula_online',
-    clubeId: aula.origemTipo === 'clube' ? aula.origemId : '',
-    clubeNome: aula.origemNome,
-    donoUid: aula.donoUid,
-    aulaPublicadaId: aula.id,
-    aulaTitulo: aula.titulo,
-    valor,
-    ciclo: 'unico',
-    status: 'aguardando_pagamento',
-    criadoEm: serverTimestamp(),
-    atualizadoEm: serverTimestamp(),
-  });
-  return ref.id;
+/** Converte aulas online já publicadas (pago/valor) em conteúdo gratuito. */
+export async function tornarAulasOnlineGratuitas(donoUid: string): Promise<void> {
+  const list = await listarAulasDoDono(donoUid);
+  await Promise.all(
+    list
+      .filter((a) => a.modo === 'online' && (a.pago || (a.valorOnline ?? 0) > 0))
+      .map((a) =>
+        updateDoc(doc(db, 'aulasPublicadas', a.id), {
+          pago: false,
+          valorOnline: 0,
+          atualizadoEm: serverTimestamp(),
+        })
+      )
+  );
 }
 
 function mapAula(id: string, raw: Record<string, unknown>): AulaPublicada {

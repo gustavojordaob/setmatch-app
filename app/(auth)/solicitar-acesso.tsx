@@ -68,7 +68,7 @@ export default function SolicitarAcessoScreen() {
 
       const tipoLabel = tipo === 'professor' ? 'professor' : 'admin de clube';
       const waMsg =
-        `Olá Setmatch! Solicitei acesso de *${tipoLabel}* pelo app.\n\n` +
+        `Olá Rally Up! Solicitei acesso de *${tipoLabel}* pelo app.\n\n` +
         `Nome: ${nome.trim()}\n` +
         `E-mail: ${email.trim()}\n` +
         `WhatsApp: ${formatarTelefoneInternacional(telefone)}\n` +

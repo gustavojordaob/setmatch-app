@@ -124,7 +124,7 @@ export default function FinanceiroClubeScreen() {
         <View style={{ width: 26 }} />
       </View>
       <Text style={styles.sub}>
-        Pagamentos e pedidos de liberação · aulas, rankings e torneios
+        Pagamentos de aulas presenciais, rankings e torneios
       </Text>
 
       <TouchableOpacity

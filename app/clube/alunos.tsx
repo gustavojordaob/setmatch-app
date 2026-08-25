@@ -75,7 +75,7 @@ export default function AlunosClubeScreen() {
   async function adicionar() {
     if (!user || !clubeId) return;
     if (!setmatchId.trim()) {
-      Alert.alert('Aluno', 'Informe o ID Setmatch (ex: SM-JOG001).');
+      Alert.alert('Aluno', 'Informe o ID Rally Up (ex: SM-JOG001).');
       return;
     }
     setBusy(true);
@@ -145,7 +145,7 @@ export default function AlunosClubeScreen() {
         se precisar. Role a tela para ver todos os alunos.
       </Text>
 
-      <Text style={styles.label}>ID Setmatch</Text>
+      <Text style={styles.label}>ID Rally Up</Text>
       <TextInput
         style={styles.input}
         placeholder="SM-XXXXXX"

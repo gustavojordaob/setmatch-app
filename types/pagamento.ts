@@ -1,3 +1,4 @@
+/** `aula_online` é legado — vídeo não é mais cobrado; docs antigos podem ter o tipo. */
 export type TipoPagamento = 'aula' | 'aula_online' | 'ranking' | 'torneio';
 export type CicloPagamento = 'unico' | 'mensal';
 export type StatusPagamento =
@@ -50,7 +51,7 @@ export interface PagamentoDoc {
   rankingNome?: string;
   torneioId?: string;
   torneioNome?: string;
-  /** Aula online publicada (`aulasPublicadas/{id}`) */
+  /** Aula online publicada (`aulasPublicadas/{id}`) — legado; vídeo online não é mais cobrado */
   aulaPublicadaId?: string;
   aulaTitulo?: string;
   valor: number;

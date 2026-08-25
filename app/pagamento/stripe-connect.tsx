@@ -21,7 +21,7 @@ export default function StripeConnectReturnScreen() {
   useEffect(() => {
     async function run() {
       if (!clubeId) {
-        setMsg('Clube não informado. Volte ao painel do Setmatch.');
+        setMsg('Clube não informado. Volte ao painel do Rally Up.');
         return;
       }
       try {
@@ -38,10 +38,10 @@ export default function StripeConnectReturnScreen() {
         } else if (ok === '1') {
           setMsg('Conta Stripe enviada. Volte ao app e atualize o status no Financeiro.');
         } else {
-          setMsg('Pode voltar ao app Setmatch.');
+          setMsg('Pode voltar ao app Rally Up.');
         }
       } catch {
-        setMsg('Pode voltar ao app Setmatch (Financeiro).');
+        setMsg('Pode voltar ao app Rally Up (Financeiro).');
       }
     }
     void run();

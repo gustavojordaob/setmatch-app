@@ -28,7 +28,7 @@ export async function garantirSetmatchId(uid: string, atual?: string): Promise<s
       return candidate;
     }
   }
-  throw new Error('Não foi possível gerar ID Setmatch.');
+  throw new Error('Não foi possível gerar ID Rally Up.');
 }
 
 export async function buscarUsuarioPorSetmatchId(rawId: string) {
@@ -236,7 +236,7 @@ export async function matricularAlunoPorId(input: {
   status?: MatriculaAula['status'];
 }): Promise<MatriculaAula> {
   const user = await buscarUsuarioPorSetmatchId(input.setmatchId);
-  if (!user) throw new Error('ID Setmatch não encontrado.');
+  if (!user) throw new Error('ID Rally Up não encontrado.');
 
   let existentes;
   try {

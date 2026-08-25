@@ -1,9 +1,8 @@
-import { useCallback, useState } from 'react';
+﻿import { useCallback, useState } from 'react';
 import {
   Alert,
   FlatList,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -23,6 +22,7 @@ import {
   criarAulaPublicada,
   excluirAulaPublicada,
   listarAulasDoDono,
+  tornarAulasOnlineGratuitas,
   type AulaPublicada,
   type ModoAula,
 } from '../../services/aulasPublicadas';
@@ -41,8 +41,6 @@ export default function AulasPublicarScreen() {
   const [videoLocalUri, setVideoLocalUri] = useState<string | null>(null);
   const [videoMime, setVideoMime] = useState<string | null>(null);
   const [videoNome, setVideoNome] = useState('');
-  const [pago, setPago] = useState(false);
-  const [valorOnline, setValorOnline] = useState('');
   const [cidade, setCidade] = useState(perfil?.cidade ?? '');
   const [local, setLocal] = useState('');
   const [valor, setValor] = useState('');
@@ -61,6 +59,7 @@ export default function AulasPublicarScreen() {
       setOrigemId(user.uid);
       setOrigemNome(perfil?.nome ?? 'Professor');
     }
+    await tornarAulasOnlineGratuitas(user.uid);
     setLista(await listarAulasDoDono(user.uid));
   }, [user, perfil?.nome]);
 
@@ -73,7 +72,10 @@ export default function AulasPublicarScreen() {
   async function escolherVideo() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Vídeo', 'Permita acesso à galeria para enviar a aula.');
+      Alert.alert(
+        'Vídeo',
+        'O Rally Up usa a galeria para você enviar o vídeo da aula, por exemplo ao publicar uma aula online.'
+      );
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -97,13 +99,6 @@ export default function AulasPublicarScreen() {
     if (modo === 'online' && !videoLocalUri && !videoUrl.trim()) {
       Alert.alert('Aula', 'Envie um vídeo (upload) ou informe uma URL.');
       return;
-    }
-    if (modo === 'online' && pago) {
-      const v = Number(String(valorOnline).replace(',', '.')) || 0;
-      if (v <= 0) {
-        Alert.alert('Aula', 'Informe o valor da aula paga.');
-        return;
-      }
     }
 
     setBusy(true);
@@ -135,11 +130,8 @@ export default function AulasPublicarScreen() {
         ordem: Number(ordem) || 0,
         videoUrl: finalVideoUrl,
         videoStoragePath,
-        pago: modo === 'online' ? pago : false,
-        valorOnline:
-          modo === 'online' && pago
-            ? Number(String(valorOnline).replace(',', '.')) || 0
-            : 0,
+        pago: false,
+        valorOnline: 0,
         cidade: modo === 'presencial' ? cidade : '',
         local: modo === 'presencial' ? local : '',
         valorMensal:
@@ -151,8 +143,6 @@ export default function AulasPublicarScreen() {
       setVideoLocalUri(null);
       setVideoMime(null);
       setVideoNome('');
-      setPago(false);
-      setValorOnline('');
       await carregar();
       Alert.alert('Aula', 'Publicada com sucesso!');
     } catch (e: unknown) {
@@ -227,9 +217,7 @@ export default function AulasPublicarScreen() {
                     {videoNome ? `Selecionado: ${videoNome}` : 'Enviar vídeo (galeria)'}
                   </Text>
                 </TouchableOpacity>
-                <Text style={styles.hint}>
-                  Recomendado para aulas pagas (máx. 200 MB). Upload vai para o Storage Setmatch.
-                </Text>
+                <Text style={styles.hint}>Máx. 200 MB. Upload vai para o Storage Rally Up.</Text>
 
                 <Input
                   title="Ou URL externa (só demo / YouTube)"
@@ -244,30 +232,6 @@ export default function AulasPublicarScreen() {
                   autoCapitalize="none"
                   placeholder="https://..."
                 />
-
-                <View style={styles.switchRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.switchTitle}>Aula paga</Text>
-                    <Text style={styles.hint}>
-                      Se ligado, o aluno só assiste após pagar / liberação.
-                    </Text>
-                  </View>
-                  <Switch
-                    value={pago}
-                    onValueChange={setPago}
-                    trackColor={{ true: Colors.accent, false: Colors.surface }}
-                    thumbColor={Colors.white}
-                  />
-                </View>
-                {pago ? (
-                  <Input
-                    title="Valor desta aula (R$)"
-                    value={valorOnline}
-                    onChangeText={setValorOnline}
-                    keyboardType="decimal-pad"
-                    placeholder="29,90"
-                  />
-                ) : null}
               </>
             ) : (
               <>
@@ -294,29 +258,8 @@ export default function AulasPublicarScreen() {
               <Text style={styles.rowSub}>
                 {item.modo} · {item.modulo || item.cidade || item.esporte}
                 {item.videoStoragePath ? ' · upload' : item.videoUrl ? ' · link' : ''}
-                {item.modo === 'online'
-                  ? item.pago
-                    ? ` · PAGA${item.valorOnline ? ` R$ ${item.valorOnline.toFixed(2)}` : ''}`
-                    : ' · GRÁTIS'
-                  : ''}
               </Text>
             </View>
-            {item.modo === 'online' ? (
-              <TouchableOpacity
-                onPress={() =>
-                  void atualizarAulaPublicada(item.id, {
-                    pago: !item.pago,
-                    valorOnline: !item.pago ? item.valorOnline || 0 : 0,
-                  }).then(carregar)
-                }
-              >
-                <Ionicons
-                  name={item.pago ? 'lock-closed' : 'lock-open'}
-                  size={22}
-                  color={item.pago ? Colors.accent : Colors.textSecondary}
-                />
-              </TouchableOpacity>
-            ) : null}
             <TouchableOpacity
               onPress={() =>
                 void atualizarAulaPublicada(item.id, { ativo: !item.ativo }).then(carregar)
@@ -387,16 +330,6 @@ const styles = StyleSheet.create({
   },
   uploadTxt: { color: Colors.textOnAccent, fontWeight: '800', flex: 1, fontSize: 14 },
   hint: { color: Colors.textSecondary, fontSize: 12, lineHeight: 16 },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 8,
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 14,
-  },
-  switchTitle: { color: Colors.textPrimary, fontWeight: '800', marginBottom: 4 },
   section: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 18, marginTop: 16 },
   empty: { color: Colors.textSecondary, textAlign: 'center', marginTop: 20 },
   row: {

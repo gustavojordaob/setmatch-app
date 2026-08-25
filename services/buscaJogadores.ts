@@ -28,7 +28,7 @@ export async function buscarJogadoresAvancado(filtros: {
   const texto = (filtros.texto ?? '').trim().toLowerCase();
   const max = filtros.max ?? 40;
 
-  // Busca por ID Setmatch exato (padrão mercado: código de atleta)
+  // Busca por ID Rally Up exato (padrão mercado: código de atleta)
   if (/^sm-?[a-z0-9]{4,}$/i.test(texto.replace(/\s/g, ''))) {
     const sid = normalizarSetmatchId(texto);
     const snap = await getDocs(

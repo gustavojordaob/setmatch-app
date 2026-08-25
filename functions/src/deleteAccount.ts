@@ -82,7 +82,7 @@ async function deleteConversasDoUsuario(db: Firestore, uid: string): Promise<voi
 }
 
 /**
- * Remove dados pessoais do Setmatch + Auth user.
+ * Remove dados pessoais do Rally Up + Auth user.
  * Clubes do dono e conteúdo associado são apagados.
  */
 export async function wipeSetmatchUser(uid: string): Promise<void> {

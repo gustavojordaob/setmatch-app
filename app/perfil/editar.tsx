@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import {
   Alert,
   Image,
@@ -42,7 +42,10 @@ export default function PerfilEditarScreen() {
   async function escolherFoto() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Foto', 'Permita acesso à galeria.');
+      Alert.alert(
+        'Foto',
+        'O Rally Up precisa da galeria para você escolher uma foto de perfil, por exemplo nesta tela.'
+      );
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({

@@ -21,16 +21,16 @@ export async function compartilharPostFora(input: {
   autorNome: string;
   texto: string;
 }): Promise<void> {
-  const preview = input.texto.trim().slice(0, 120) || 'Publicação no Setmatch';
+  const preview = input.texto.trim().slice(0, 120) || 'Publicação no Rally Up';
   const store = Platform.OS === 'ios' ? IOS_STORE : ANDROID_STORE;
   const mensagem =
-    `${input.autorNome} no Setmatch:\n"${preview}${input.texto.length > 120 ? '…' : ''}"\n\n` +
-    `Para ver a publicação completa, instale o Setmatch:\n${store}\n\n` +
+    `${input.autorNome} no Rally Up:\n"${preview}${input.texto.length > 120 ? '…' : ''}"\n\n` +
+    `Para ver a publicação completa, instale o Rally Up:\n${store}\n\n` +
     `Depois abra: ${linkExternoPost(input.postId)}`;
 
   await Share.share({
     message: mensagem,
-    title: 'Compartilhar no Setmatch',
+    title: 'Compartilhar no Rally Up',
     url: Platform.OS === 'ios' ? linkExternoPost(input.postId) : undefined,
   });
 }

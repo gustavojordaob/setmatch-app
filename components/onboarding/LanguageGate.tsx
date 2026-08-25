@@ -1,6 +1,7 @@
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { APP_DISPLAY_NAME } from '../../constants/brand';
 import { Colors } from '../../constants/colors';
 import { Radius } from '../../constants/radius';
 import { LOGO_ICON } from '../../constants/onboarding';
@@ -28,7 +29,7 @@ export function LanguageGate({ onContinue }: Props) {
 
       <View style={styles.brand}>
         <Image source={LOGO_ICON} style={styles.logo} resizeMode="contain" />
-        <Text style={styles.brandName}>SETMATCH</Text>
+        <Text style={styles.brandName}>{APP_DISPLAY_NAME.toUpperCase()}</Text>
       </View>
 
       <View style={styles.copy}>

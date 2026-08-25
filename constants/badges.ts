@@ -1,4 +1,4 @@
-export type BadgeDef = {
+﻿export type BadgeDef = {
   id: string;
   nome: string;
   descricao: string;
@@ -47,7 +47,7 @@ export const BADGES: BadgeDef[] = [
   {
     id: 'campeao',
     nome: 'Campeão',
-    descricao: 'Venceu um torneio no Setmatch',
+    descricao: 'Venceu um torneio no Rally Up',
     icon: 'trophy',
   },
   {

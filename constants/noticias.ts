@@ -1,4 +1,4 @@
-export interface Noticia {
+﻿export interface Noticia {
   id: string;
   titulo: string;
   fonte: string;
@@ -47,7 +47,7 @@ export const NOTICIAS: Noticia[] = [
   {
     id: 'n4',
     titulo: 'Raquetinha ganha força em academias e clubes do interior',
-    fonte: 'Setmatch',
+    fonte: 'Rally Up',
     esporte: 'raquetinha',
     categoria: 'Raquetinha',
   },

@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { APP_DISPLAY_NAME } from '../../constants/brand';
 import { Colors } from '../../constants/colors';
 import { LOGO_ICON, ONBOARDING_SLIDES, type OnboardingSlideConfig } from '../../constants/onboarding';
 import { Radius } from '../../constants/radius';
@@ -82,7 +83,7 @@ export default function OnboardingScreen() {
           {item.showLogo && (
             <View style={styles.logoRow}>
               <Image source={LOGO_ICON} style={styles.logoIcon} />
-              <Text style={styles.logoText}>SETMATCH</Text>
+              <Text style={styles.logoText}>{APP_DISPLAY_NAME.toUpperCase()}</Text>
             </View>
           )}
 

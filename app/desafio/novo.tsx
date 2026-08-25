@@ -50,17 +50,18 @@ export default function NovoDesafioScreen() {
   const { clubeAtivo } = useClube();
   const { amigos } = useAmigos();
 
-  const [selecionado, setSelecionado] = useState<AmigoRow | null>(null);
+  const [selecionados, setSelecionados] = useState<AmigoRow[]>([]);
   const [oponente, setOponente] = useState<StatsJogador | null>(null);
   const [confrontos, setConfrontos] = useState<ConfrontoResumo[]>([]);
   const [loadingOpp, setLoadingOpp] = useState(false);
   const [formato, setFormato] = useState<FormatoPartidaId>('melhor_de_3_stb');
-  const [quadra, setQuadra] = useState(clubeAtivo?.nome ? `Quadra · ${clubeAtivo.nome}` : 'A combinar');
+  const [quadra, setQuadra] = useState(
+    clubeAtivo?.nome ? `Quadra · ${clubeAtivo.nome}` : 'A combinar'
+  );
   const [dataSugerida, setDataSugerida] = useState('');
   const [mensagem, setMensagem] = useState('');
   const [busy, setBusy] = useState(false);
   const [passo, setPasso] = useState<'rival' | 'setup'>('rival');
-
   const [fotos, setFotos] = useState<Record<string, string>>({});
 
   const lista: AmigoRow[] = useMemo(
@@ -73,7 +74,13 @@ export default function NovoDesafioScreen() {
     [amigos, fotos]
   );
 
-  // Fotos das amizades costumam vir vazias — busca a real de usuarios/{uid}.
+  const selecionadoIds = useMemo(
+    () => new Set(selecionados.map((s) => s.uid)),
+    [selecionados]
+  );
+
+  const unico = selecionados.length === 1 ? selecionados[0] : null;
+
   useEffect(() => {
     const faltando = amigos.filter((a) => !a.fotoUrl && fotos[a.uid] === undefined);
     if (faltando.length === 0) return;
@@ -110,20 +117,25 @@ export default function NovoDesafioScreen() {
     if (!desafiadoUid) return;
     const naLista = lista.find((a) => a.uid === desafiadoUid);
     if (naLista) {
-      setSelecionado(naLista);
+      setSelecionados((prev) =>
+        prev.some((p) => p.uid === naLista.uid) ? prev : [...prev, naLista]
+      );
       setPasso('setup');
       return;
     }
     void (async () => {
       const s = await buscarStatsJogador(desafiadoUid);
       if (!s) return;
-      setSelecionado({ uid: s.uid, nome: s.nome, fotoUrl: s.fotoUrl });
+      const row = { uid: s.uid, nome: s.nome, fotoUrl: s.fotoUrl };
+      setSelecionados((prev) =>
+        prev.some((p) => p.uid === row.uid) ? prev : [...prev, row]
+      );
       setPasso('setup');
     })();
   }, [desafiadoUid, lista]);
 
   useEffect(() => {
-    if (!selecionado || !user) {
+    if (!unico || !user) {
       setOponente(null);
       setConfrontos([]);
       return;
@@ -133,8 +145,8 @@ export default function NovoDesafioScreen() {
     void (async () => {
       try {
         const [stats, hist] = await Promise.all([
-          buscarStatsJogador(selecionado.uid),
-          buscarConfrontosEntre(user.uid, selecionado.uid, user.uid),
+          buscarStatsJogador(unico.uid),
+          buscarConfrontosEntre(user.uid, unico.uid, user.uid),
         ]);
         if (cancelled) return;
         setOponente(stats);
@@ -146,39 +158,67 @@ export default function NovoDesafioScreen() {
     return () => {
       cancelled = true;
     };
-  }, [selecionado, user]);
+  }, [unico, user]);
 
-  function escolherRival(item: AmigoRow) {
-    setSelecionado(item);
-    setPasso('setup');
+  function toggleRival(item: AmigoRow) {
+    setSelecionados((prev) => {
+      if (prev.some((p) => p.uid === item.uid)) {
+        return prev.filter((p) => p.uid !== item.uid);
+      }
+      return [...prev, item];
+    });
+  }
+
+  function removerSelecionado(uid: string) {
+    setSelecionados((prev) => prev.filter((p) => p.uid !== uid));
   }
 
   async function enviar() {
-    if (!user || !perfil || !selecionado) {
-      Alert.alert('Confronto', 'Escolha um adversário.');
+    if (!user || !perfil || selecionados.length === 0) {
+      Alert.alert('Confronto', 'Escolha pelo menos um adversário.');
       return;
     }
     setBusy(true);
     try {
-      const id = await criarDesafio({
-        desafiante: user.uid,
-        desafianteNome: perfil.nome,
-        desafianteFoto: perfil.fotoUrl,
-        desafiado: selecionado.uid,
-        desafiadoNome: selecionado.nome,
-        desafiadoFoto: oponente?.fotoUrl ?? selecionado.fotoUrl,
-        esporte: esporteAtivo,
-        quadra,
-        clubeId: clubeAtivo?.id,
-        clubeNome: clubeAtivo?.nome,
-        mensagem,
-        formato,
-        dataSugerida,
-      });
-      Alert.alert('Convite enviado!', `Desafio para ${selecionado.nome} está a caminho.`, [
-        { text: 'Ver desafio', onPress: () => router.replace(`/desafio/${id}`) },
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      const ids: string[] = [];
+      for (const rival of selecionados) {
+        let foto = rival.fotoUrl;
+        if (!foto) {
+          const stats = await buscarStatsJogador(rival.uid);
+          foto = stats?.fotoUrl;
+        }
+        const id = await criarDesafio({
+          desafiante: user.uid,
+          desafianteNome: perfil.nome,
+          desafianteFoto: perfil.fotoUrl,
+          desafiado: rival.uid,
+          desafiadoNome: rival.nome,
+          desafiadoFoto: foto,
+          esporte: esporteAtivo,
+          quadra,
+          clubeId: clubeAtivo?.id,
+          clubeNome: clubeAtivo?.nome,
+          mensagem,
+          formato,
+          dataSugerida,
+        });
+        ids.push(id);
+      }
+
+      const n = ids.length;
+      const nomes = selecionados.map((s) => s.nome).join(', ');
+      Alert.alert(
+        n === 1 ? 'Convite enviado!' : `${n} convites enviados!`,
+        n === 1
+          ? `Desafio para ${nomes} está a caminho.`
+          : `Cada um recebe o próprio convite: ${nomes}.`,
+        [
+          ...(n === 1
+            ? [{ text: 'Ver desafio', onPress: () => router.replace(`/desafio/${ids[0]}`) }]
+            : []),
+          { text: 'OK', onPress: () => router.back() },
+        ]
+      );
     } catch (e: unknown) {
       Alert.alert('Confronto', e instanceof Error ? e.message : 'Falha ao enviar');
     } finally {
@@ -201,7 +241,7 @@ export default function NovoDesafioScreen() {
           <Ionicons name="arrow-back" size={26} color={Colors.accent} />
         </TouchableOpacity>
         <Text style={styles.title}>
-          {passo === 'rival' ? 'Escolher rival' : 'Agendar confronto'}
+          {passo === 'rival' ? 'Escolher rivais' : 'Agendar confronto'}
         </Text>
         <View style={{ width: 26 }} />
       </View>
@@ -209,8 +249,14 @@ export default function NovoDesafioScreen() {
       {passo === 'rival' ? (
         <ScrollView contentContainerStyle={styles.body}>
           <Text style={styles.intro}>
-            Quem você quer desafiar? Escolha um amigo ou abra o perfil de um jogador.
+            Marque um ou mais amigos. Cada um recebe o próprio convite da partida (útil em
+            padel, beach ou quando você quer chamar várias pessoas).
           </Text>
+          {selecionados.length > 0 ? (
+            <Text style={styles.selCount}>
+              {selecionados.length} selecionado{selecionados.length > 1 ? 's' : ''}
+            </Text>
+          ) : null}
           {lista.length === 0 ? (
             <View style={styles.emptyBox}>
               <Ionicons name="people-outline" size={40} color={Colors.textSecondary} />
@@ -226,17 +272,39 @@ export default function NovoDesafioScreen() {
               />
             </View>
           ) : (
-            lista.map((item) => (
-              <TouchableOpacity
-                key={item.uid}
-                style={styles.amigoRow}
-                onPress={() => escolherRival(item)}
-              >
-                <Avatar uri={item.fotoUrl} nome={item.nome} size="md" />
-                <Text style={styles.amigoNome}>{item.nome}</Text>
-                <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
-              </TouchableOpacity>
-            ))
+            <>
+              {lista.map((item) => {
+                const on = selecionadoIds.has(item.uid);
+                return (
+                  <TouchableOpacity
+                    key={item.uid}
+                    style={[styles.amigoRow, on && styles.amigoRowOn]}
+                    onPress={() => toggleRival(item)}
+                    activeOpacity={0.85}
+                  >
+                    <Avatar uri={item.fotoUrl} nome={item.nome} size="md" />
+                    <Text style={styles.amigoNome}>{item.nome}</Text>
+                    <Ionicons
+                      name={on ? 'checkbox' : 'square-outline'}
+                      size={24}
+                      color={on ? Colors.accent : Colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+              <Button
+                label={
+                  selecionados.length === 0
+                    ? 'Selecione pelo menos 1'
+                    : selecionados.length === 1
+                      ? 'Continuar'
+                      : `Continuar com ${selecionados.length}`
+                }
+                onPress={() => setPasso('setup')}
+                disabled={selecionados.length === 0}
+                style={{ marginTop: 12, marginBottom: 24 }}
+              />
+            </>
           )}
         </ScrollView>
       ) : (
@@ -246,7 +314,37 @@ export default function NovoDesafioScreen() {
             {clubeAtivo ? ` · ${clubeAtivo.nome}` : ''}
           </Text>
 
-          {perfil && oponente ? (
+          <View style={styles.convidadosBox}>
+            <View style={styles.convidadosHead}>
+              <Text style={styles.sectionTitle}>
+                Convidados ({selecionados.length})
+              </Text>
+              <TouchableOpacity onPress={() => setPasso('rival')}>
+                <Text style={styles.linkAdd}>Alterar</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.chipsConvidados}>
+              {selecionados.map((s) => (
+                <View key={s.uid} style={styles.chipPessoa}>
+                  <Avatar uri={s.fotoUrl} nome={s.nome} size="sm" />
+                  <Text style={styles.chipPessoaNome} numberOfLines={1}>
+                    {s.nome}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      removerSelecionado(s.uid);
+                      if (selecionados.length <= 1) setPasso('rival');
+                    }}
+                    hitSlop={8}
+                  >
+                    <Ionicons name="close-circle" size={18} color={Colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {unico && perfil && oponente ? (
             <VsCard
               nomeA={perfil.nome}
               fotoA={perfil.fotoUrl}
@@ -263,22 +361,28 @@ export default function NovoDesafioScreen() {
                 h2hB: h2h.dele,
               })}
             />
-          ) : (
+          ) : unico && loadingOpp ? (
             <View style={styles.vsCard}>
               <ActivityIndicator color={Colors.accent} />
             </View>
-          )}
+          ) : selecionados.length > 1 ? (
+            <View style={styles.multiHint}>
+              <Ionicons name="people" size={22} color={Colors.accent} />
+              <Text style={styles.multiHintTxt}>
+                Cada convidado recebe um desafio separado com o mesmo local, horário e formato.
+              </Text>
+            </View>
+          ) : null}
 
-          {confrontos.length > 0 ? (
+          {unico && confrontos.length > 0 ? (
             <Text style={styles.h2hNew}>
               H2H histórico: {h2h.meus}–{h2h.dele}
             </Text>
-          ) : (
+          ) : unico ? (
             <Text style={styles.h2hNew}>1º confronto direto</Text>
-          )}
+          ) : null}
 
-          {/* Stats comparison */}
-          {oponente && perfil ? (
+          {unico && oponente && perfil ? (
             <View style={styles.statsCard}>
               <Text style={styles.sectionTitle}>Comparativo</Text>
               <StatBar
@@ -306,33 +410,35 @@ export default function NovoDesafioScreen() {
             </View>
           ) : null}
 
-          {/* Head to head */}
-          <View style={styles.sectionBlock}>
-            <Text style={styles.sectionTitle}>Últimos confrontos</Text>
-            {loadingOpp ? (
-              <ActivityIndicator color={Colors.accent} />
-            ) : confrontos.length === 0 ? (
-              <Text style={styles.muted}>Ainda não jogaram um contra o outro. Hora de começar!</Text>
-            ) : (
-              confrontos.map((c) => (
-                <View key={c.id} style={styles.h2hRow}>
-                  <View
-                    style={[
-                      styles.h2hDot,
-                      { backgroundColor: c.euVenci ? Colors.accent : Colors.danger },
-                    ]}
-                  />
-                  <Text style={styles.h2hPlacar}>{c.placar}</Text>
-                  <Text style={styles.h2hResult}>
-                    {c.euVenci ? 'Você venceu' : 'Rival venceu'}
-                  </Text>
-                  <Text style={styles.h2hData}>{c.dataLabel}</Text>
-                </View>
-              ))
-            )}
-          </View>
+          {unico ? (
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionTitle}>Últimos confrontos</Text>
+              {loadingOpp ? (
+                <ActivityIndicator color={Colors.accent} />
+              ) : confrontos.length === 0 ? (
+                <Text style={styles.muted}>
+                  Ainda não jogaram um contra o outro. Hora de começar!
+                </Text>
+              ) : (
+                confrontos.map((c) => (
+                  <View key={c.id} style={styles.h2hRow}>
+                    <View
+                      style={[
+                        styles.h2hDot,
+                        { backgroundColor: c.euVenci ? Colors.accent : Colors.danger },
+                      ]}
+                    />
+                    <Text style={styles.h2hPlacar}>{c.placar}</Text>
+                    <Text style={styles.h2hResult}>
+                      {c.euVenci ? 'Você venceu' : 'Rival venceu'}
+                    </Text>
+                    <Text style={styles.h2hData}>{c.dataLabel}</Text>
+                  </View>
+                ))
+              )}
+            </View>
+          ) : null}
 
-          {/* Formato */}
           <Text style={styles.sectionTitle}>Como vai ser a partida?</Text>
           <Text style={styles.formatoDesc}>{formatoAtual.desc}</Text>
           <View style={styles.chipsWrap}>
@@ -380,10 +486,14 @@ export default function NovoDesafioScreen() {
           />
 
           <Button
-            label="Enviar desafio"
+            label={
+              selecionados.length > 1
+                ? `Enviar ${selecionados.length} desafios`
+                : 'Enviar desafio'
+            }
             onPress={() => void enviar()}
             loading={busy}
-            disabled={!selecionado}
+            disabled={selecionados.length === 0}
             style={{ marginTop: 20, marginBottom: 24 }}
           />
         </ScrollView>
@@ -426,7 +536,13 @@ const styles = StyleSheet.create({
   },
   title: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 17 },
   body: { padding: 16, paddingBottom: 40 },
-  intro: { color: Colors.textSecondary, marginBottom: 16, lineHeight: 20 },
+  intro: { color: Colors.textSecondary, marginBottom: 12, lineHeight: 20 },
+  selCount: {
+    color: Colors.accent,
+    fontWeight: '700',
+    marginBottom: 12,
+    fontSize: 13,
+  },
   amigoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -435,10 +551,59 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  amigoRowOn: {
+    borderColor: Colors.accent,
+    backgroundColor: 'rgba(199,217,65,0.12)',
   },
   amigoNome: { flex: 1, color: Colors.textPrimary, fontWeight: '700', fontSize: 15 },
   emptyBox: { alignItems: 'center', gap: 14, marginTop: 40, paddingHorizontal: 12 },
   empty: { color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+
+  convidadosBox: {
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 16,
+  },
+  convidadosHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  linkAdd: { color: Colors.accent, fontWeight: '700', fontSize: 13 },
+  chipsConvidados: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chipPessoa: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.surfaceDark,
+    borderRadius: 60,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    maxWidth: '100%',
+  },
+  chipPessoaNome: {
+    color: Colors.textPrimary,
+    fontWeight: '600',
+    fontSize: 13,
+    maxWidth: 120,
+  },
+  multiHint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: Colors.surfaceDark,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(199,217,65,0.35)',
+  },
+  multiHintTxt: { flex: 1, color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
 
   vsCard: {
     borderRadius: 24,
@@ -457,24 +622,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     letterSpacing: 0.5,
   },
-  vsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  playerCol: { flex: 1, alignItems: 'center', gap: 6 },
-  playerName: {
-    color: Colors.textPrimary,
-    fontWeight: '800',
-    fontSize: 15,
-    marginTop: 4,
-  },
-  playerStat: { color: Colors.textSecondary, fontSize: 12 },
-  vsMid: { alignItems: 'center', paddingHorizontal: 8 },
-  vsText: {
-    color: Colors.accent,
-    fontWeight: '900',
-    fontSize: 28,
-    letterSpacing: 2,
-  },
-  h2hScore: { color: Colors.white, fontWeight: 'bold', fontSize: 14, marginTop: 4 },
-  h2hNew: { color: Colors.textSecondary, fontSize: 11, marginTop: 4 },
+  h2hNew: { color: Colors.textSecondary, fontSize: 11, marginTop: 4, marginBottom: 8 },
 
   statsCard: {
     backgroundColor: Colors.surface,

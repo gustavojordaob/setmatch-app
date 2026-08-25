@@ -89,7 +89,7 @@ export default function MeusPagamentosScreen() {
 
       {perfil?.setmatchId ? (
         <View style={styles.idBox}>
-          <Text style={styles.idLabel}>Seu ID Setmatch</Text>
+          <Text style={styles.idLabel}>Seu ID Rally Up</Text>
           <Text style={styles.idValue}>{perfil.setmatchId}</Text>
           <Text style={styles.idHint}>Passe este ID ao clube para virar aluno / ranking.</Text>
         </View>

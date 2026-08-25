@@ -11,14 +11,14 @@ export default function PagamentoSucessoScreen() {
       <View style={styles.box}>
         <Text style={styles.title}>Pagamento recebido</Text>
         <Text style={styles.sub}>
-          Pode voltar ao app Setmatch. O status atualiza em Meus pagamentos.
+          Pode voltar ao app Rally Up. O status atualiza em Meus pagamentos.
         </Text>
         {session_id ? <Text style={styles.meta}>Sessão: {session_id}</Text> : null}
         <Text
           style={styles.link}
           onPress={() => void Linking.openURL('setmatch://pagamentos')}
         >
-          Abrir Setmatch
+          Abrir Rally Up
         </Text>
       </View>
     </SafeAreaView>

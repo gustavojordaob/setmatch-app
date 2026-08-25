@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -141,7 +141,7 @@ export default function PostDetalheScreen() {
         <ActivityIndicator color={Colors.accent} style={{ marginTop: 40 }} />
       ) : !post ? (
         <Text style={styles.empty}>
-          Publicação não encontrada. Instale o Setmatch e faça login para ver conteúdos
+          Publicação não encontrada. Instale o Rally Up e faça login para ver conteúdos
           compartilhados.
         </Text>
       ) : (
@@ -241,7 +241,7 @@ export default function PostDetalheScreen() {
               <Ionicons name="logo-whatsapp" size={20} color={Colors.textOnAccent} />
               <Text style={styles.modalBtnTxt}>Fora do app (precisa instalar)</Text>
             </TouchableOpacity>
-            <Text style={styles.modalSub}>Ou envie para um amigo no Setmatch</Text>
+            <Text style={styles.modalSub}>Ou envie para um amigo no Rally Up</Text>
             {amigos.length === 0 ? (
               <Text style={styles.emptyComent}>Você ainda não tem amigos.</Text>
             ) : (

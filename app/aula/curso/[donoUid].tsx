@@ -13,10 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/colors';
 import { ESPORTES, type EsporteId } from '../../../constants/esportes';
 import { Avatar } from '../../../components/ui/Avatar';
-import { useAuth } from '../../../hooks/useAuth';
 import {
   listarAulasDoProfessor,
-  temAcessoAulaOnline,
   type AulaPublicada,
 } from '../../../services/aulasPublicadas';
 import { doc, getDoc } from 'firebase/firestore';
@@ -28,10 +26,8 @@ export default function CursoProfessorScreen() {
     esporte?: string;
   }>();
   const router = useRouter();
-  const { user } = useAuth();
   const esporte = (esporteParam as EsporteId) || 'tenis';
   const [aulas, setAulas] = useState<AulaPublicada[]>([]);
-  const [acesso, setAcesso] = useState<Record<string, boolean>>({});
   const [fotoUrl, setFotoUrl] = useState<string | undefined>();
   const [nome, setNome] = useState('');
   const [loading, setLoading] = useState(true);
@@ -46,13 +42,6 @@ export default function CursoProfessorScreen() {
       });
       setAulas(list);
       setNome(list[0]?.origemNome ?? 'Instrutor');
-      const map: Record<string, boolean> = {};
-      await Promise.all(
-        list.map(async (a) => {
-          map[a.id] = await temAcessoAulaOnline(user?.uid, a);
-        })
-      );
-      setAcesso(map);
       const uSnap = await getDoc(doc(db, 'usuarios', donoUid));
       if (uSnap.exists()) {
         const raw = uSnap.data();
@@ -62,7 +51,7 @@ export default function CursoProfessorScreen() {
     } finally {
       setLoading(false);
     }
-  }, [donoUid, esporte, user?.uid]);
+  }, [donoUid, esporte]);
 
   useFocusEffect(
     useCallback(() => {
@@ -122,8 +111,6 @@ export default function CursoProfessorScreen() {
               <View key={bloco.modulo} style={styles.bloco}>
                 <Text style={styles.moduloTitulo}>{bloco.modulo}</Text>
                 {bloco.items.map((a) => {
-                  const liberada = acesso[a.id] !== false;
-                  const bloqueada = Boolean(a.pago) && !liberada;
                   return (
                     <TouchableOpacity
                       key={a.id}
@@ -132,34 +119,11 @@ export default function CursoProfessorScreen() {
                         router.push({ pathname: '/aula/[id]', params: { id: a.id } })
                       }
                     >
-                      <View style={[styles.thumb, bloqueada && styles.thumbLocked]}>
-                        <Ionicons
-                          name={bloqueada ? 'lock-closed' : 'play'}
-                          size={20}
-                          color={bloqueada ? Colors.textPrimary : Colors.textOnAccent}
-                        />
+                      <View style={styles.thumb}>
+                        <Ionicons name="play" size={20} color={Colors.textOnAccent} />
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.aulaTitulo}>{a.titulo}</Text>
-                        <View style={styles.badgeRow}>
-                          <View
-                            style={[styles.badge, a.pago ? styles.badgePago : styles.badgeGratis]}
-                          >
-                            <Text
-                              style={[
-                                styles.badgeTxt,
-                                a.pago ? styles.badgeTxtPago : styles.badgeTxtGratis,
-                              ]}
-                            >
-                              {a.pago
-                                ? `Paga${a.valorOnline ? ` · R$ ${a.valorOnline.toFixed(2)}` : ''}`
-                                : 'Grátis'}
-                            </Text>
-                          </View>
-                          {bloqueada ? (
-                            <Text style={styles.lockHint}>Bloqueada</Text>
-                          ) : null}
-                        </View>
                       </View>
                       <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
                     </TouchableOpacity>
@@ -214,15 +178,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingLeft: 2,
   },
-  thumbLocked: { backgroundColor: Colors.surfaceDark, paddingLeft: 0 },
   aulaTitulo: { color: Colors.textPrimary, fontWeight: '700', fontSize: 15 },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  badge: { borderRadius: 60, paddingHorizontal: 8, paddingVertical: 3 },
-  badgeGratis: { backgroundColor: 'rgba(199,217,65,0.2)' },
-  badgePago: { backgroundColor: 'rgba(255,255,255,0.12)' },
-  badgeTxt: { fontSize: 11, fontWeight: '800' },
-  badgeTxtGratis: { color: Colors.accent },
-  badgeTxtPago: { color: Colors.textPrimary },
-  lockHint: { color: Colors.textSecondary, fontSize: 11, fontWeight: '600' },
   empty: { color: Colors.textSecondary, textAlign: 'center', marginTop: 24 },
 });

@@ -307,8 +307,8 @@ export default function JogadorScreen() {
                   void abrirWhatsApp(
                     perfil.telefone,
                     modoAlunoClube
-                      ? `Olá ${perfil.nome}! Aqui é o clube no Setmatch.`
-                      : `Olá ${perfil.nome}! Vi seu perfil no Setmatch. Bora marcar um jogo?`
+                      ? `Olá ${perfil.nome}! Aqui é o clube no Rally Up.`
+                      : `Olá ${perfil.nome}! Vi seu perfil no Rally Up. Bora marcar um jogo?`
                   )
                 }
               />

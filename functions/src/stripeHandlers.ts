@@ -7,7 +7,7 @@ import { syncPagamentoAprovado } from './pagamentosSync';
 
 const stripeSecret = defineString('STRIPE_SECRET_KEY', { default: '' });
 const stripeWebhookSecret = defineString('STRIPE_WEBHOOK_SECRET', { default: '' });
-/** Comissão Setmatch em % (0–100). 0 = sem taxa de plataforma. */
+/** Comissão Rally Up em % (0–100). 0 = sem taxa de plataforma. */
 const feePercent = defineString('STRIPE_PLATFORM_FEE_PERCENT', { default: '0' });
 
 const HOSTING = 'https://setmatch-app-fabrica.web.app';
@@ -516,8 +516,8 @@ export const stripeConnectOnboarding = onRequest(FN_OPTS, async (req, res) => {
           transfers: { requested: true },
         },
         business_profile: {
-          name: String(clube.nome || 'Clube Setmatch').slice(0, 100),
-          product_description: 'Aulas, rankings e torneios via Setmatch',
+          name: String(clube.nome || 'Clube Rally Up').slice(0, 100),
+          product_description: 'Aulas, rankings e torneios via Rally Up',
         },
         metadata: { clubeId: String(clubeId), donoUid: uid },
       });

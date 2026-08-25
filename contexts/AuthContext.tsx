@@ -7,29 +7,21 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { getRedirectUrl, makeRedirectUri } from 'expo-auth-session';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
 import {
-  GoogleAuthProvider,
   User,
   createUserWithEmailAndPassword,
   updateProfile,
   onAuthStateChanged,
   sendPasswordResetEmail,
-  signInWithCredential,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
-import { Alert, Platform } from 'react-native';
 import { auth, db } from '../utils/firebaseConfig';
 import type { EsporteId } from '../constants/esportes';
 import type { WizardDraft } from './WizardContext';
 import type { NivelAtividade, UserRole } from '../types/usuario';
 import { garantirSetmatchId } from '../services/pagamentos';
-
-WebBrowser.maybeCompleteAuthSession();
 
 export interface UsuarioPerfil {
   nome: string;
@@ -61,9 +53,8 @@ interface AuthContextValue {
   perfil: UsuarioPerfil | null;
   onboardingComplete: boolean;
   isAdminClube: boolean;
-  signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  /** Sempre cria como jogador — admin_clube só via Console/equipe Setmatch. */
+  /** Sempre cria como jogador — admin_clube só via Console/equipe Rally Up. */
   signUpWithEmail: (email: string, password: string, nome?: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshPerfil: () => Promise<void>;
@@ -79,18 +70,6 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-function hasGoogleWebClientId() {
-  return !!process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB?.trim();
-}
-
-function googleOAuthRedirectUri(): string {
-  try {
-    return getRedirectUrl();
-  } catch {
-    return makeRedirectUri({ scheme: 'setmatch' });
-  }
-}
 
 function mapPerfil(
   uid: string,
@@ -127,13 +106,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [perfil, setPerfil] = useState<UsuarioPerfil | null>(null);
   const [perfilLoading, setPerfilLoading] = useState(false);
-
-  const redirectUri = googleOAuthRedirectUri();
-
-  const [_request, _response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB ?? '',
-    redirectUri,
-  });
 
   const ensureUsuarioDoc = useCallback(async (u: User) => {
     const ref = doc(db, 'usuarios', u.uid);
@@ -238,27 +210,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const signInWithGoogle = useCallback(async () => {
-    if (!hasGoogleWebClientId()) {
-      Alert.alert(
-        'Google Sign-In',
-        'Defina EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB no .env e cadastre o redirect URI no Google Cloud Console.'
-      );
-      return;
-    }
-    if (Platform.OS === 'web') {
-      Alert.alert('Google Sign-In', 'Use o app iOS/Android.');
-      return;
-    }
-    const result = await promptAsync();
-    if (result.type !== 'success') return;
-    const idToken = result.params.id_token;
-    if (!idToken || typeof idToken !== 'string') {
-      throw new Error('Google Sign-In não retornou id_token.');
-    }
-    await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
-  }, [promptAsync]);
-
   const signOut = useCallback(async () => {
     await firebaseSignOut(auth);
     setPerfil(null);
@@ -348,7 +299,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const saveAdminOnboarding = useCallback(
     async (data: { nome: string; cidade: string; estado?: string; telefone: string }) => {
       if (!user) throw new Error('Usuário não autenticado.');
-      // Não altera role — conta admin já criada pela equipe Setmatch
+      // Não altera role — conta admin já criada pela equipe Rally Up
       await updateDoc(doc(db, 'usuarios', user.uid), {
         nome: data.nome.trim(),
         cidade: data.cidade.trim(),
@@ -369,7 +320,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       perfil,
       onboardingComplete,
       isAdminClube,
-      signInWithGoogle,
       signInWithEmail,
       signUpWithEmail,
       signOut,
@@ -386,7 +336,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       perfil,
       onboardingComplete,
       isAdminClube,
-      signInWithGoogle,
       signInWithEmail,
       signUpWithEmail,
       signOut,

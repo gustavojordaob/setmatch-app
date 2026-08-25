@@ -19,7 +19,7 @@ import {
 } from '../utils/pwaInstall';
 
 /**
- * Landing do link compartilhável — instala o Setmatch como PWA (sem loja).
+ * Landing do link compartilhável — instala o Rally Up como PWA (sem loja).
  * Ex.: https://setmatch-app-fabrica.web.app/baixar
  */
 export default function BaixarPwaScreen() {
@@ -45,7 +45,7 @@ export default function BaixarPwaScreen() {
     try {
       const r = await promptInstallPwa();
       if (r === 'accepted') {
-        setMsg('Pronto! Abra o Setmatch pela tela inicial.');
+        setMsg('Pronto! Abra o Rally Up pela tela inicial.');
         setCanInstall(false);
       } else if (r === 'dismissed') {
         setMsg('Instalação cancelada. Você pode tentar de novo.');
@@ -69,10 +69,10 @@ export default function BaixarPwaScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.brand}>SETMATCH</Text>
+        <Text style={styles.brand}>Rally Up</Text>
         <Text style={styles.title}>Instale o app pelo link</Text>
         <Text style={styles.sub}>
-          Sem App Store e sem Play Store. O Setmatch abre como app na sua tela
+          Sem App Store e sem Play Store. O Rally Up abre como app na sua tela
           inicial — desafios, rankings, aulas e torneios.
         </Text>
 
@@ -81,7 +81,7 @@ export default function BaixarPwaScreen() {
             <Ionicons name="checkmark-circle" size={28} color={Colors.accent} />
             <Text style={styles.okTxt}>Já está instalado neste aparelho.</Text>
             <Button
-              label="Abrir Setmatch"
+              label="Abrir Rally Up"
               onPress={() => router.replace('/')}
               style={{ marginTop: 12, alignSelf: 'stretch' }}
             />
@@ -89,7 +89,7 @@ export default function BaixarPwaScreen() {
         ) : (
           <>
             <Button
-              label={canInstall ? 'Instalar Setmatch' : 'Como instalar'}
+              label={canInstall ? 'Instalar Rally Up' : 'Como instalar'}
               loading={busy}
               onPress={() => void instalar()}
             />

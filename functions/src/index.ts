@@ -107,7 +107,7 @@ export const criarPreferenciaSetmatch = onRequest(
         auto_return: 'approved',
         external_reference: String(pagamentoId),
         notification_url: webhookUrl,
-        statement_descriptor: 'SETMATCH',
+        statement_descriptor: 'RALLYUP',
         payment_methods: {
           excluded_payment_types: excluded,
           installments: 1,
