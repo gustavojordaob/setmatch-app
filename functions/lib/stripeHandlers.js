@@ -12,7 +12,7 @@ const params_1 = require("firebase-functions/params");
 const pagamentosSync_1 = require("./pagamentosSync");
 const stripeSecret = (0, params_1.defineString)('STRIPE_SECRET_KEY', { default: '' });
 const stripeWebhookSecret = (0, params_1.defineString)('STRIPE_WEBHOOK_SECRET', { default: '' });
-/** Comissão Setmatch em % (0–100). 0 = sem taxa de plataforma. */
+/** Comissão Rally Up em % (0–100). 0 = sem taxa de plataforma. */
 const feePercent = (0, params_1.defineString)('STRIPE_PLATFORM_FEE_PERCENT', { default: '0' });
 const HOSTING = 'https://setmatch-app-fabrica.web.app';
 const FN_OPTS = { cors: true, region: 'southamerica-east1' };
@@ -473,8 +473,8 @@ exports.stripeConnectOnboarding = (0, https_1.onRequest)(FN_OPTS, async (req, re
                     transfers: { requested: true },
                 },
                 business_profile: {
-                    name: String(clube.nome || 'Clube Setmatch').slice(0, 100),
-                    product_description: 'Aulas, rankings e torneios via Setmatch',
+                    name: String(clube.nome || 'Clube Rally Up').slice(0, 100),
+                    product_description: 'Aulas, rankings e torneios via Rally Up',
                 },
                 metadata: { clubeId: String(clubeId), donoUid: uid },
             });

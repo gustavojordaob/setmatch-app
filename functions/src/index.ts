@@ -15,6 +15,12 @@ export {
   stripeConnectStatus,
 } from './stripeHandlers';
 
+export {
+  stravaExchangeCode,
+  stravaDisconnect,
+  stravaSyncToday,
+} from './stravaHandlers';
+
 initializeApp();
 setGlobalOptions({ region: 'southamerica-east1' });
 

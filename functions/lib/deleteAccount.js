@@ -75,7 +75,7 @@ async function deleteConversasDoUsuario(db, uid) {
     }
 }
 /**
- * Remove dados pessoais do Setmatch + Auth user.
+ * Remove dados pessoais do Rally Up + Auth user.
  * Clubes do dono e conteúdo associado são apagados.
  */
 async function wipeSetmatchUser(uid) {

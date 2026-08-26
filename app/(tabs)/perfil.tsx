@@ -127,6 +127,11 @@ export default function PerfilScreen() {
 
           <Button label={t('perfil.edit')} onPress={() => router.push('/perfil/editar')} />
           <Button
+            label={t('saude.title')}
+            variant="outline"
+            onPress={() => router.push('/perfil/saude')}
+          />
+          <Button
             label={t('perfil.myStats')}
             variant="outline"
             onPress={() => router.push('/(tabs)/estatisticas')}

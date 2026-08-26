@@ -62,6 +62,11 @@ service cloud.firestore {
               : request.resource.data.role == resource.data.role
           )
         );
+
+      // Tokens Strava — só Admin SDK (Cloud Functions); cliente não lê/escreve
+      match /integracoes/{provider} {
+        allow read, write: if false;
+      }
     }
 
     match /desafios/{desafioId} {

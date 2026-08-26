@@ -21,7 +21,13 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "Rally Up uses your photo library so you can choose a profile picture on Edit Profile, or attach a photo to a post on Home.",
-        "NSPhotoLibraryAddUsageDescription": "Rally Up uses your photo library so you can choose a profile picture on Edit Profile, or attach a photo to a post on Home."
+        "NSPhotoLibraryAddUsageDescription": "Rally Up uses your photo library so you can choose a profile picture on Edit Profile, or attach a photo to a post on Home.",
+        "NSHealthShareUsageDescription": "O Rally Up lê passos, calorias, frequência cardíaca e sono do Apple Health para mostrar seu resumo de atividade no perfil.",
+        "NSHealthUpdateUsageDescription": "O Rally Up não grava dados no Apple Health; esta descrição é exigida pelo HealthKit."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.access": []
       }
     },
     "android": {
@@ -33,6 +39,12 @@
       "versionCode": 4,
       "softwareKeyboardLayoutMode": "resize",
       "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_SLEEP"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -62,6 +74,7 @@
     "plugins": [
       "expo-router",
       "expo-web-browser",
+      "expo-dev-client",
       [
         "expo-image-picker",
         {
@@ -72,6 +85,25 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "O Rally Up usa sua localização para mostrar jogadores e quadras perto de você."
+        }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "O Rally Up lê passos, calorias, frequência cardíaca e sono do Apple Health para mostrar seu resumo de atividade no perfil.",
+          "NSHealthUpdateUsageDescription": "O Rally Up não grava dados no Apple Health; esta descrição é exigida pelo HealthKit.",
+          "background": false
+        }
+      ],
+      "react-native-health-connect",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35
+          }
         }
       ]
     ],

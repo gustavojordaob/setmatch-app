@@ -223,6 +223,32 @@ export const es: TranslationDict = {
   'perfil.friends': 'Amigos',
   'perfil.searchPlayers': 'Buscar jugadores',
   'perfil.myBadges': 'Mis insignias',
+
+  'saude.title': 'Conectar apps de salud',
+  'saude.hero': 'Tu ritmo, en Rally Up',
+  'saude.sub':
+    'Conecta Apple Health, Health Connect o Strava y mira pasos, calorías, ritmo cardíaco y sueño de hoy.',
+  'saude.connectSection': 'Integraciones',
+  'saude.todaySection': 'Obtenido automáticamente hoy',
+  'saude.appleHealth': 'Apple Health',
+  'saude.healthConnect': 'Health Connect',
+  'saude.appleHint': 'Pasos, calorías, sueño y ritmo en el iPhone',
+  'saude.hcHint': 'Datos de Android (reemplaza Google Fit)',
+  'saude.stravaHint': 'Actividades y calorías vía Strava',
+  'saude.steps': 'pasos',
+  'saude.kcal': 'kcal activas',
+  'saude.hr': 'lpm media',
+  'saude.sleep': 'sueño',
+  'saude.privacyNote':
+    'Los datos de salud quedan en tu cuenta Rally Up. Los tokens de Strava solo en el servidor. Puedes desconectar cuando quieras.',
+  'saude.needsDevBuildTitle': 'Se necesita build nativo',
+  'saude.needsDevBuildBody':
+    'Apple Health y Health Connect no funcionan en Expo Go. Crea un development build (EAS) y abre con expo start --dev-client.',
+  'saude.hcMissingTitle': 'Health Connect',
+  'saude.hcMissingBody':
+    'Instala Health Connect en Play Store (Android 13 o anterior) e inténtalo de nuevo.',
+  'saude.syncFailed': 'No se pudo sincronizar ahora.',
+  'saude.webOnly': 'La integración de salud del dispositivo solo en iOS/Android.',
   'perfil.unlockBadges': 'Juega partidos para desbloquear insignias.',
   'perfil.logoutTitle': 'Cerrar sesión',
   'perfil.logoutConfirm': '¿Deseas cerrar tu sesión?',
