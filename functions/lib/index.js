@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.excluirConta = exports.webhookMercadoPagoSetmatch = exports.criarPreferenciaSetmatch = exports.stravaSyncToday = exports.stravaDisconnect = exports.stravaExchangeCode = exports.stripeConnectStatus = exports.stripeConnectOnboarding = exports.webhookStripeSetmatch = exports.confirmarCheckoutStripe = exports.criarCheckoutStripe = void 0;
+exports.excluirConta = exports.webhookMercadoPagoSetmatch = exports.criarPreferenciaSetmatch = exports.atualizarNoticiasManual = exports.atualizarNoticias = exports.stravaSyncToday = exports.stravaDisconnect = exports.stravaExchangeCode = exports.stripeConnectStatus = exports.stripeConnectOnboarding = exports.webhookStripeSetmatch = exports.confirmarCheckoutStripe = exports.criarCheckoutStripe = void 0;
 const app_1 = require("firebase-admin/app");
 const firestore_1 = require("firebase-admin/firestore");
 const auth_1 = require("firebase-admin/auth");
@@ -19,6 +19,9 @@ var stravaHandlers_1 = require("./stravaHandlers");
 Object.defineProperty(exports, "stravaExchangeCode", { enumerable: true, get: function () { return stravaHandlers_1.stravaExchangeCode; } });
 Object.defineProperty(exports, "stravaDisconnect", { enumerable: true, get: function () { return stravaHandlers_1.stravaDisconnect; } });
 Object.defineProperty(exports, "stravaSyncToday", { enumerable: true, get: function () { return stravaHandlers_1.stravaSyncToday; } });
+var noticiasHandlers_1 = require("./noticiasHandlers");
+Object.defineProperty(exports, "atualizarNoticias", { enumerable: true, get: function () { return noticiasHandlers_1.atualizarNoticias; } });
+Object.defineProperty(exports, "atualizarNoticiasManual", { enumerable: true, get: function () { return noticiasHandlers_1.atualizarNoticiasManual; } });
 (0, app_1.initializeApp)();
 (0, v2_1.setGlobalOptions)({ region: 'southamerica-east1' });
 /** Token MP legado — app usa Stripe; mantido por compatibilidade. */

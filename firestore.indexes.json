@@ -114,6 +114,23 @@
         { "fieldPath": "modo", "order": "ASCENDING" },
         { "fieldPath": "ordem", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "noticias",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "esporte", "order": "ASCENDING" },
+        { "fieldPath": "publicadoEm", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "noticias",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "esporte", "order": "ASCENDING" },
+        { "fieldPath": "idioma", "order": "ASCENDING" },
+        { "fieldPath": "publicadoEm", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

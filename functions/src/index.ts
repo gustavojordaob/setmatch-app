@@ -21,6 +21,8 @@ export {
   stravaSyncToday,
 } from './stravaHandlers';
 
+export { atualizarNoticias, atualizarNoticiasManual } from './noticiasHandlers';
+
 initializeApp();
 setGlobalOptions({ region: 'southamerica-east1' });
 

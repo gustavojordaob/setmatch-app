@@ -5,9 +5,12 @@
   /** ID do esporte — filtro estrito na Home */
   esporte: 'tenis' | 'padel' | 'raquetinha' | 'beachtennis';
   categoria: string;
+  url?: string;
 }
 
-/** Notícias curadas por esporte — cada item só aparece no esporte correspondente. */
+/** Notícias curadas por esporte — fallback se Firestore ainda estiver vazio.
+ *  Em produção a Home lê `noticias` (sync automático 2x/dia via Cloud Function).
+ */
 export const NOTICIAS: Noticia[] = [
   {
     id: 'n1',

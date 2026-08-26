@@ -278,6 +278,17 @@ service cloud.firestore {
             || request.auth.uid == resource.data.paraUid);
     }
 
+    // Notícias esportivas — sync automático (Cloud Function); cliente só lê
+    match /noticias/{id} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    match /config/{docId} {
+      allow read: if isAuth() && docId == 'noticiasSync';
+      allow write: if false;
+    }
+
     match /conversas/{conversaId} {
       // get em doc inexistente: resource == null (sem isso, abrir chat novo falha com permission-denied)
       allow get: if isAuth()

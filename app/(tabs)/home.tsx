@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,7 +17,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/colors';
 import { ESPORTES } from '../../constants/esportes';
-import { NOTICIAS } from '../../constants/noticias';
 import { Typography } from '../../constants/typography';
 import { Avatar } from '../../components/ui/Avatar';
 import { RecentMatchCard } from '../../components/home/RecentMatchCard';
@@ -33,6 +33,7 @@ import { alternarCurtida, criarPost } from '../../services/feed';
 import { useDesafios } from '../../hooks/useDesafios';
 import { useT } from '../../hooks/useI18n';
 import { useTotalNaoLidas } from '../../hooks/useTotalNaoLidas';
+import { useNoticias } from '../../hooks/useNoticias';
 import { UnreadBadge } from '../../components/ui/UnreadBadge';
 import { uploadFotoPost } from '../../utils/uploadFoto';
 import { compartilharPostFora } from '../../utils/compartilharPost';
@@ -48,6 +49,7 @@ export default function HomeScreen() {
   const { user, perfil } = useAuth();
   const msgsNaoLidas = useTotalNaoLidas();
   const { esporteAtivo } = useEsporte();
+  const { noticias: noticiasEsporte } = useNoticias(esporteAtivo);
   const { clubeAtivoId, clubeAtivo } = useClube();
   const esporteLabel = t(`esporte.${esporteAtivo}`);
   const { amigoUids } = useAmigos();
@@ -99,11 +101,6 @@ export default function HomeScreen() {
     const fonte = soAmigos ? partidasAmigos : partidasRecentes;
     return fonte.slice(0, 10);
   }, [soAmigos, partidasAmigos, partidasRecentes]);
-
-  const noticiasEsporte = useMemo(
-    () => NOTICIAS.filter((n) => n.esporte === esporteAtivo),
-    [esporteAtivo]
-  );
 
   async function escolherFoto() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -349,10 +346,18 @@ export default function HomeScreen() {
           contentContainerStyle={styles.newsRow}
         >
           {(noticiasEsporte.length === 0
-            ? [{ id: 'empty', titulo: t('home.noNews', { sport: esporteLabel }), fonte: 'Rally Up', categoria: '', esporte: esporteAtivo }]
+            ? [{ id: 'empty', titulo: t('home.noNews', { sport: esporteLabel }), fonte: 'Rally Up', categoria: '', esporte: esporteAtivo as 'tenis' }]
             : noticiasEsporte
           ).map((n) => (
-            <View key={n.id} style={styles.newsCard}>
+            <TouchableOpacity
+              key={n.id}
+              style={styles.newsCard}
+              activeOpacity={n.url ? 0.85 : 1}
+              disabled={!('url' in n && n.url)}
+              onPress={() => {
+                if ('url' in n && n.url) void Linking.openURL(n.url);
+              }}
+            >
               <View style={styles.newsTag}>
                 <Text style={styles.newsTagTxt}>
                   {n.categoria || esporteLabel}
@@ -362,7 +367,7 @@ export default function HomeScreen() {
                 {n.titulo}
               </Text>
               <Text style={styles.newsFonte}>{n.fonte}</Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </ScrollView>
 
