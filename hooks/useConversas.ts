@@ -56,26 +56,30 @@ export function useConversas() {
       collection(db, 'conversas'),
       where('participantes', 'array-contains', user.uid)
     );
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map((d) => {
-        const raw = d.data();
-        return {
-          id: d.id,
-          tipo: (raw.tipo as Conversa['tipo']) ?? 'amigo',
-          participantes: (raw.participantes as string[]) ?? [],
-          nomes: raw.nomes as Record<string, string> | undefined,
-          fotos: raw.fotos as Record<string, string> | undefined,
-          clubeId: raw.clubeId ? String(raw.clubeId) : undefined,
-          clubeNome: raw.clubeNome ? String(raw.clubeNome) : undefined,
-          ultimoTexto: String(raw.ultimoTexto ?? ''),
-          ultimoDeUid: raw.ultimoDeUid ? String(raw.ultimoDeUid) : undefined,
-          naoLidas: (raw.naoLidas as Record<string, number> | undefined) ?? {},
-          atualizadoEm: raw.atualizadoEm as { seconds: number } | undefined,
-        };
-      });
-      list.sort((a, b) => (b.atualizadoEm?.seconds ?? 0) - (a.atualizadoEm?.seconds ?? 0));
-      setConversas(list);
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs.map((d) => {
+          const raw = d.data();
+          return {
+            id: d.id,
+            tipo: (raw.tipo as Conversa['tipo']) ?? 'amigo',
+            participantes: (raw.participantes as string[]) ?? [],
+            nomes: raw.nomes as Record<string, string> | undefined,
+            fotos: raw.fotos as Record<string, string> | undefined,
+            clubeId: raw.clubeId ? String(raw.clubeId) : undefined,
+            clubeNome: raw.clubeNome ? String(raw.clubeNome) : undefined,
+            ultimoTexto: String(raw.ultimoTexto ?? ''),
+            ultimoDeUid: raw.ultimoDeUid ? String(raw.ultimoDeUid) : undefined,
+            naoLidas: (raw.naoLidas as Record<string, number> | undefined) ?? {},
+            atualizadoEm: raw.atualizadoEm as { seconds: number } | undefined,
+          };
+        });
+        list.sort((a, b) => (b.atualizadoEm?.seconds ?? 0) - (a.atualizadoEm?.seconds ?? 0));
+        setConversas(list);
+      },
+      () => setConversas([])
+    );
     return unsub;
   }, [user]);
 

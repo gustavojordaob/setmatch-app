@@ -36,7 +36,7 @@
         "backgroundColor": "#255943"
       },
       "package": "com.fabricaapps.setmatch",
-      "versionCode": 4,
+      "versionCode": 6,
       "softwareKeyboardLayoutMode": "resize",
       "edgeToEdgeEnabled": true,
       "permissions": [
@@ -96,13 +96,15 @@
         }
       ],
       "react-native-health-connect",
+      "./plugins/withHealthConnectMainActivity.js",
       [
         "expo-build-properties",
         {
           "android": {
             "minSdkVersion": 26,
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildArchs": ["arm64-v8a"]
           }
         }
       ]

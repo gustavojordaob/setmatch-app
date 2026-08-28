@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from './useAuth';
 import { useLocale } from './useI18n';
 import {
   listenNoticiasEsporte,
@@ -11,6 +12,7 @@ export function useNoticias(esporte: string): {
   noticias: NoticiaLive[];
   loading: boolean;
 } {
+  const { user } = useAuth();
   const { locale } = useLocale();
   const idioma = localeToIdiomaNoticia(locale);
 
@@ -20,6 +22,11 @@ export function useNoticias(esporte: string): {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user) {
+      setNoticias(noticiasFallback(esporte, idioma));
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const unsub = listenNoticiasEsporte(
       esporte,
@@ -31,7 +38,7 @@ export function useNoticias(esporte: string): {
       () => setLoading(false)
     );
     return unsub;
-  }, [esporte, idioma]);
+  }, [esporte, idioma, user]);
 
   return { noticias, loading };
 }

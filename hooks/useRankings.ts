@@ -52,12 +52,25 @@ export function useRankings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'rankings'), (snap) => {
-      setTodos(snap.docs.map(mapRanking));
+    if (!user) {
+      setTodos([]);
       setLoading(false);
-    });
+      return;
+    }
+    setLoading(true);
+    const unsub = onSnapshot(
+      collection(db, 'rankings'),
+      (snap) => {
+        setTodos(snap.docs.map(mapRanking));
+        setLoading(false);
+      },
+      () => {
+        setTodos([]);
+        setLoading(false);
+      }
+    );
     return unsub;
-  }, []);
+  }, [user]);
 
   const meus = useMemo(
     () => (user ? todos.filter((r) => r.membros.includes(user.uid)) : []),

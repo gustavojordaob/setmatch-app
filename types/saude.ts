@@ -12,6 +12,24 @@ export type SaudeResumo = {
   };
   stravaAthleteId?: string;
   stravaNome?: string;
+  /** Resumo do dia via Strava (treinos — não traz passos/sono do dia a dia). */
+  stravaAtividadesHoje?: number;
+  stravaKmHoje?: number;
+  stravaMinutosHoje?: number;
+  stravaKcalHoje?: number;
+  /** Treinos de hoje (amostra para a UI). */
+  stravaAtividadesLista?: StravaAtividadeResumo[];
+};
+
+export type StravaAtividadeResumo = {
+  id?: string;
+  nome: string;
+  tipo: string;
+  km: number;
+  minutos: number;
+  kcal: number;
+  /** HH:mm local */
+  horario?: string;
 };
 
 export type FonteSaude = 'appleHealth' | 'healthConnect' | 'strava';

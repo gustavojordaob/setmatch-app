@@ -142,6 +142,11 @@ exports.stravaDisconnect = (0, https_1.onRequest)({ cors: true, region: 'southam
             'saude.fontes.strava': false,
             'saude.stravaAthleteId': '',
             'saude.stravaNome': '',
+            'saude.stravaAtividadesHoje': 0,
+            'saude.stravaKmHoje': 0,
+            'saude.stravaMinutosHoje': 0,
+            'saude.stravaKcalHoje': 0,
+            'saude.stravaAtividadesLista': [],
             'saude.atualizadoEm': firestore_1.FieldValue.serverTimestamp(),
         });
         res.json({ ok: true });
@@ -164,6 +169,8 @@ exports.stravaSyncToday = (0, https_1.onRequest)({ cors: true, region: 'southame
             return;
         }
         tokens = await refreshIfNeeded(uid, tokens);
+        // Atividades de hoje (Unix seconds, início do dia no fuso do servidor ≈ UTC;
+        // para BR ainda cobre a manhã/noite do dia civil na maioria dos casos).
         const after = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
         const url = `https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=50`;
         const resp = await fetch(url, {
@@ -176,19 +183,70 @@ exports.stravaSyncToday = (0, https_1.onRequest)({ cors: true, region: 'southame
         }
         const activities = (await resp.json());
         let kcal = 0;
-        for (const a of activities) {
-            if (typeof a.calories === 'number')
+        let metros = 0;
+        let segundos = 0;
+        const stravaAtividadesLista = activities.slice(0, 10).map((a) => {
+            let kcalAtiv = 0;
+            if (typeof a.calories === 'number' && a.calories > 0)
+                kcalAtiv = a.calories;
+            else if (typeof a.kilojoules === 'number' && a.kilojoules > 0) {
+                kcalAtiv = a.kilojoules / 4.184;
+            }
+            if (typeof a.calories === 'number' && a.calories > 0)
                 kcal += a.calories;
-            else if (typeof a.kilojoules === 'number')
+            else if (typeof a.kilojoules === 'number' && a.kilojoules > 0) {
                 kcal += a.kilojoules / 4.184;
-        }
-        const kcalAtivas = Math.round(kcal);
-        await db().doc(`usuarios/${uid}`).update({
-            'saude.kcalAtivas': kcalAtivas,
+            }
+            if (typeof a.distance === 'number')
+                metros += a.distance;
+            if (typeof a.moving_time === 'number')
+                segundos += a.moving_time;
+            let horario;
+            if (a.start_date_local) {
+                const part = a.start_date_local.split('T')[1];
+                horario = part ? part.slice(0, 5) : undefined;
+            }
+            return {
+                id: a.id != null ? String(a.id) : undefined,
+                nome: (a.name || 'Treino').slice(0, 80),
+                tipo: a.sport_type || a.type || 'Workout',
+                km: Math.round(((a.distance || 0) / 1000) * 100) / 100,
+                minutos: Math.round((a.moving_time || 0) / 60),
+                kcal: Math.round(kcalAtiv),
+                horario,
+            };
+        });
+        const stravaKcalHoje = Math.round(kcal);
+        const stravaKmHoje = Math.round((metros / 1000) * 100) / 100;
+        const stravaMinutosHoje = Math.round(segundos / 60);
+        const stravaAtividadesHoje = activities.length;
+        const userRef = db().doc(`usuarios/${uid}`);
+        const snap = await userRef.get();
+        const atualKcal = typeof snap.data()?.saude?.kcalAtivas === 'number'
+            ? snap.data().saude.kcalAtivas
+            : 0;
+        // Não zerar kcal do Health Connect se Strava não tiver calorias hoje.
+        const kcalAtivas = stravaKcalHoje > 0 ? Math.max(atualKcal, stravaKcalHoje) : atualKcal;
+        await userRef.update({
+            'saude.stravaAtividadesHoje': stravaAtividadesHoje,
+            'saude.stravaKmHoje': stravaKmHoje,
+            'saude.stravaMinutosHoje': stravaMinutosHoje,
+            'saude.stravaKcalHoje': stravaKcalHoje,
+            'saude.stravaAtividadesLista': stravaAtividadesLista,
+            ...(stravaKcalHoje > 0 ? { 'saude.kcalAtivas': kcalAtivas } : {}),
             'saude.fontes.strava': true,
             'saude.atualizadoEm': firestore_1.FieldValue.serverTimestamp(),
         });
-        res.json({ ok: true, kcalAtivas, atividades: activities.length });
+        res.json({
+            ok: true,
+            kcalAtivas: stravaKcalHoje > 0 ? kcalAtivas : atualKcal,
+            stravaKcalHoje,
+            stravaAtividadesHoje,
+            stravaKmHoje,
+            stravaMinutosHoje,
+            stravaAtividadesLista,
+            tipos: activities.slice(0, 5).map((a) => a.sport_type || a.type || a.name || '?'),
+        });
     }
     catch (e) {
         const msg = e instanceof Error ? e.message : 'Erro';

@@ -69,28 +69,32 @@ export function useMeusClubes() {
       return;
     }
     const q = query(collection(db, 'matriculas'), where('uid', '==', user.uid));
-    return onSnapshot(q, (snap) => {
-      setMatriculas(
-        snap.docs.map((d) => {
-          const raw = d.data();
-          return {
-            id: d.id,
-            clubeId: String(raw.clubeId ?? ''),
-            clubeNome: String(raw.clubeNome ?? ''),
-            donoUid: raw.donoUid ? String(raw.donoUid) : undefined,
-            status: String(raw.status ?? 'pendente'),
-            modalidadeNome: raw.modalidadeNome
-              ? String(raw.modalidadeNome)
-              : undefined,
-            valorFinal:
-              raw.valorFinal != null ? Number(raw.valorFinal) : undefined,
-            pagamentoId: raw.pagamentoId
-              ? String(raw.pagamentoId)
-              : undefined,
-          };
-        })
-      );
-    });
+    return onSnapshot(
+      q,
+      (snap) => {
+        setMatriculas(
+          snap.docs.map((d) => {
+            const raw = d.data();
+            return {
+              id: d.id,
+              clubeId: String(raw.clubeId ?? ''),
+              clubeNome: String(raw.clubeNome ?? ''),
+              donoUid: raw.donoUid ? String(raw.donoUid) : undefined,
+              status: String(raw.status ?? 'pendente'),
+              modalidadeNome: raw.modalidadeNome
+                ? String(raw.modalidadeNome)
+                : undefined,
+              valorFinal:
+                raw.valorFinal != null ? Number(raw.valorFinal) : undefined,
+              pagamentoId: raw.pagamentoId
+                ? String(raw.pagamentoId)
+                : undefined,
+            };
+          })
+        );
+      },
+      () => setMatriculas([])
+    );
   }, [user]);
 
   useEffect(() => {
@@ -99,14 +103,18 @@ export function useMeusClubes() {
       return;
     }
     const q = query(collection(db, 'pagamentos'), where('uid', '==', user.uid));
-    return onSnapshot(q, (snap) => {
-      const ids = new Set<string>();
-      snap.docs.forEach((d) => {
-        const cid = String(d.data().clubeId ?? '');
-        if (cid) ids.add(cid);
-      });
-      setPagClubeIds([...ids]);
-    });
+    return onSnapshot(
+      q,
+      (snap) => {
+        const ids = new Set<string>();
+        snap.docs.forEach((d) => {
+          const cid = String(d.data().clubeId ?? '');
+          if (cid) ids.add(cid);
+        });
+        setPagClubeIds([...ids]);
+      },
+      () => setPagClubeIds([])
+    );
   }, [user]);
 
   const idsNecessarios = useMemo(() => {

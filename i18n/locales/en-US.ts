@@ -232,9 +232,27 @@ export const enUS: TranslationDict = {
   'saude.todaySection': 'Pulled automatically today',
   'saude.appleHealth': 'Apple Health',
   'saude.healthConnect': 'Health Connect',
-  'saude.appleHint': 'Steps, calories, sleep and heart rate on iPhone',
-  'saude.hcHint': 'Android health data (replaces Google Fit)',
+  'saude.appleHint': 'Steps, calories, sleep and heart rate from iPhone / Apple Watch',
+  'saude.hcHint':
+    'Phone steps and sleep. Your fitness app (Mi Fitness, Samsung Health…) must be linked to Health Connect',
   'saude.stravaHint': 'Activities and calories via Strava',
+  'saude.stravaAtividades': 'workouts today',
+  'saude.stravaToday': 'Strava today',
+  'saude.stravaTodayLine':
+    '{{n}} activit(ies) · {{km}} km · {{min}} min · {{kcal}} kcal (workouts logged on Strava only)',
+  'saude.stravaStatWorkouts': 'workouts',
+  'saude.stravaStatKm': 'km',
+  'saude.stravaStatMin': 'min',
+  'saude.stravaStatKcal': 'kcal',
+  'saude.stravaActivitiesTitle': "Today's workouts",
+  'saude.stravaNoWorkoutsToday':
+    'No workout logged on Strava today. When you log one, it shows here with name, sport and distance.',
+  'saude.stravaActivityMeta': '{{km}} km · {{min}} min · {{kcal}} kcal',
+  'saude.stravaUntitledActivity': 'Untitled activity',
+  'saude.stravaFootnote':
+    'Strava shows workouts (run, ride, tennis…). Daily steps and sleep come from Health Connect above.',
+  'saude.sourcesNote':
+    'Rally Up reads Health Connect — not your watch app directly. If numbers stay as —, link your fitness app to Health Connect (see the tip below).',
   'saude.steps': 'steps',
   'saude.kcal': 'active kcal',
   'saude.hr': 'avg bpm',
@@ -246,7 +264,37 @@ export const enUS: TranslationDict = {
     'Apple Health and Health Connect do not work in Expo Go. Create an EAS development build and open with expo start --dev-client.',
   'saude.hcMissingTitle': 'Health Connect',
   'saude.hcMissingBody':
-    'Install Health Connect from the Play Store (Android 13 or older) and try again.',
+    'Install or update Health Connect from the Play Store and try again. On Android 14+ it is built into the system.',
+  'saude.hcPermissionDeniedBody':
+    'You did not grant access in Health Connect. Open Settings → Apps → Rally Up → Health permissions (or Health Connect → App permissions) and allow steps and calories.',
+  'saude.hcUnavailableBody':
+    'Health Connect is not available on this device or this Rally Up install (Expo Go or incomplete build).',
+  'saude.hcInitFailedBody':
+    'Could not start Health Connect. Check that the Health Connect app is installed or updated from the Play Store, then restart your phone.',
+  'saude.hcNativeSetupTitle': 'Health Connect permissions',
+  'saude.hcNativeLauncherBody':
+    'Rally Up could not open the Android permission screen. Open the Health Connect app → App permissions → Rally Up and allow Steps and Active calories. Then come back and turn the switch on again. If it still fails, reinstall the development build APK (versionCode 6+).',
+  'saude.hcNativeDelegateBody':
+    'The native Health Connect integration did not start correctly. Reinstall the development build APK (reloading via Metro is not enough) and try again.',
+  'saude.hcPermissionRequestFailedBody':
+    'The permission request failed. Open the Health Connect app → App permissions → Rally Up and manually allow steps and active calories.',
+  'saude.ahUnavailableBody':
+    'Apple Health is not available on this iPhone (simulator, age/account restrictions, or Rally Up without a native build).',
+  'saude.ahPermissionDeniedBody':
+    'Access denied in Apple Health. Settings → Health → Data Access & Devices → Rally Up → enable Steps, Active Energy, Heart Rate and Sleep.',
+  'saude.ahPermissionIncompleteBody':
+    'You closed the permission screen without granting access. Toggle the switch again and allow read access in Apple Health.',
+  'saude.ahAuthFailedBody':
+    'Could not request Apple Health access. Force-quit Rally Up, open it again, and try once more.',
+  'saude.errorUnexpectedBody': 'Unexpected sync error: {{detail}}',
+  'saude.statusHintNotConnected':
+    'Turn on Health Connect or Strava above to see today’s numbers.',
+  'saude.statusHintNoDataToday':
+    'Health Connect is on, but there is still no data. Open your fitness app (Mi Fitness, Samsung Health, Google Fit…) and link it to Health Connect. Without that, Rally Up cannot get steps or sleep. Then tap ↻.',
+  'saude.statusHintNoDataTodayIos':
+    'Apple Health is on, but there is still no data for today. Check that your iPhone / Apple Watch is writing steps and sleep in the Health app. Then tap ↻.',
+  'saude.statusHintStravaNoWorkout':
+    'Strava is connected, but no workout today. Steps and sleep come from Health Connect (your fitness app must sync there).',
   'saude.syncFailed': 'Could not sync right now.',
   'saude.webOnly': 'Device health integrations are only on iOS/Android.',
   'perfil.unlockBadges': 'Play matches to unlock badges.',
