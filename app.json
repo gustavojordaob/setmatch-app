@@ -36,7 +36,7 @@
         "backgroundColor": "#255943"
       },
       "package": "com.fabricaapps.setmatch",
-      "versionCode": 6,
+      "versionCode": 10,
       "softwareKeyboardLayoutMode": "resize",
       "edgeToEdgeEnabled": true,
       "permissions": [
@@ -75,6 +75,15 @@
       "expo-router",
       "expo-web-browser",
       "expo-dev-client",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#255943",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 288,
+          "resizeMode": "contain"
+        }
+      ],
       [
         "expo-image-picker",
         {
