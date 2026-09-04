@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "strava": {
+      "command": "npx",
+      "args": ["-y", "@r-huijts/strava-mcp-server"],
+      "envFile": "${userHome}/.cursor/strava-mcp.env"
+    }
+  }
+}

@@ -1,30 +1,51 @@
 {
   "expo": {
-    "name": "Setmatch",
+    "name": "Rally Up",
     "slug": "setmatch-app",
-    "version": "1.0.0",
+    "version": "1.0.3",
     "scheme": "setmatch",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
-    "backgroundColor": "#0F2D1F",
+    "backgroundColor": "#255943",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F2D1F"
+      "backgroundColor": "#255943"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.fabricaapps.setmatch"
+      "bundleIdentifier": "com.fabricaapps.setmatch",
+      "buildNumber": "20",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Rally Up uses your photo library so you can choose a profile picture on Edit Profile, or attach a photo to a post on Home.",
+        "NSPhotoLibraryAddUsageDescription": "Rally Up uses your photo library so you can choose a profile picture on Edit Profile, or attach a photo to a post on Home.",
+        "NSHealthShareUsageDescription": "O Rally Up lê passos, calorias, frequência cardíaca e sono do Apple Health para mostrar seu resumo de atividade no perfil.",
+        "NSHealthUpdateUsageDescription": "O Rally Up não grava dados no Apple Health; esta descrição é exigida pelo HealthKit."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.access": [],
+        "aps-environment": "production"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0F2D1F"
+        "backgroundColor": "#255943"
       },
       "package": "com.fabricaapps.setmatch",
+      "versionCode": 16,
+      "softwareKeyboardLayoutMode": "resize",
       "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_SLEEP"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -41,8 +62,84 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "static",
+      "name": "Rally Up",
+      "shortName": "Rally Up",
+      "description": "Desafios, rankings, aulas e torneios — tênis, padel, raquetinha e beach",
+      "themeColor": "#255943",
+      "backgroundColor": "#255943",
+      "lang": "pt-BR"
     },
-    "plugins": ["expo-router", "expo-web-browser"]
+    "plugins": [
+      "expo-router",
+      "expo-web-browser",
+      "expo-dev-client",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#255943",
+          "defaultChannel": "setmatch-geral"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#255943",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 288,
+          "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Rally Up uses your photo library so you can choose a profile picture on Edit Profile, or attach a photo to a post on Home."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "O Rally Up usa sua localização para mostrar jogadores e quadras perto de você."
+        }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "O Rally Up lê passos, calorias, frequência cardíaca e sono do Apple Health para mostrar seu resumo de atividade no perfil.",
+          "NSHealthUpdateUsageDescription": "O Rally Up não grava dados no Apple Health; esta descrição é exigida pelo HealthKit.",
+          "background": false
+        }
+      ],
+      "react-native-health-connect",
+      "./plugins/withHealthConnectMainActivity.js",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26,
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildArchs": [
+              "arm64-v8a"
+            ]
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "43b2727b-ab89-41a3-ad66-1973318dc57b"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/43b2727b-ab89-41a3-ad66-1973318dc57b"
+    }
   }
 }

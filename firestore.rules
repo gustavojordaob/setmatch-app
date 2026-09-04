@@ -2,25 +2,378 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    function isAdminClube() {
+      return isAuth() && userDoc().role == 'admin_clube';
+    }
+
+    function isProfessor() {
+      return isAuth() && userDoc().role == 'professor';
+    }
+
+    function isAdminOuProfessor() {
+      return isAdminClube() || isProfessor();
+    }
+
+    function isDonoClube(clubeId) {
+      return isAuth()
+        && get(/databases/$(database)/documents/clubes/$(clubeId)).data.donoUid == request.auth.uid;
+    }
+
+    // Bump de V/D/torneios após placar (adversário ou organizador) — só esses campos
+    function onlyStatsBump() {
+      return isAuth()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['vitorias', 'derrotas', 'torneiosVencidos']);
+    }
+
+    // Jogador ao se inscrever só pode incrementar totalInscritos (+1)
+    function onlyTotalInscritosBump() {
+      return isAuth()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['totalInscritos'])
+        && request.resource.data.totalInscritos
+            == resource.data.get('totalInscritos', 0) + 1;
+    }
+
+    // role admin_clube só via Console / Admin SDK (equipe Setmatch)
     match /usuarios/{uid} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow read: if isAuth();
+      allow create: if isSelf(uid)
+        && request.resource.data.get('role', 'jogador') == 'jogador';
+      // Self-update: não pode mudar role; docs antigos sem role tratam como jogador
+      allow update: if onlyStatsBump()
+        || (
+          isSelf(uid)
+          && request.resource.data.get('role', 'jogador')
+            == resource.data.get('role', 'jogador')
+          && request.resource.data.get('role', 'jogador')
+            in ['jogador', 'professor', 'admin_clube']
+        );
+
+      // Tokens Strava — só Admin SDK (Cloud Functions); cliente não lê/escreve
+      match /integracoes/{provider} {
+        allow read, write: if false;
+      }
+
+      // Feed in-app: dono lê/atualiza; qualquer auth pode criar notificação para outro uid
+      match /notificacoes/{notifId} {
+        allow read, update: if isSelf(uid);
+        allow create: if isAuth();
+        allow delete: if isSelf(uid);
+      }
+    }
+
+    // Convites de dupla (torneio / ranking)
+    match /convitesDupla/{conviteId} {
+      allow read: if isAuth()
+        && (request.auth.uid == resource.data.deUid
+            || request.auth.uid == resource.data.paraUid
+            || request.auth.uid == resource.data.get('donoUid', ''));
+      allow create: if isAuth()
+        && request.auth.uid == request.resource.data.deUid;
+      allow update: if isAuth()
+        && (request.auth.uid == resource.data.deUid
+            || request.auth.uid == resource.data.paraUid);
     }
 
     match /desafios/{desafioId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null &&
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() &&
         (request.auth.uid == resource.data.desafiante ||
          request.auth.uid == resource.data.desafiado);
     }
 
     match /partidas/{partidaId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null &&
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() &&
         (request.auth.uid == resource.data.jogador1 ||
          request.auth.uid == resource.data.jogador2);
+    }
+
+    match /clubes/{clubeId} {
+      allow read: if isAuth();
+      allow create: if isAdminOuProfessor()
+        && request.auth.uid == request.resource.data.donoUid;
+      allow update, delete: if isAuth()
+        && request.auth.uid == resource.data.donoUid;
+
+      match /modalidadesAula/{modId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAuth()
+          && request.auth.uid == get(/databases/$(database)/documents/clubes/$(clubeId)).data.donoUid;
+      }
+
+      match /quadras/{quadraId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAuth()
+          && request.auth.uid == get(/databases/$(database)/documents/clubes/$(clubeId)).data.donoUid;
+      }
+
+      match /reservas/{reservaId} {
+        allow read: if isAuth();
+        // Dono bloqueia / cancela; jogador cria reserva de ranking em que participa
+        allow create: if isAuth()
+          && (
+            request.auth.uid == get(/databases/$(database)/documents/clubes/$(clubeId)).data.donoUid
+            || (
+              request.resource.data.tipo == 'ranking'
+              && request.resource.data.status == 'pendente'
+              && (
+                request.auth.uid == request.resource.data.jogador1Uid
+                || request.auth.uid == request.resource.data.jogador2Uid
+                || request.auth.uid == request.resource.data.criadoPorUid
+              )
+            )
+          );
+        allow update: if isAuth()
+          && (
+            request.auth.uid == get(/databases/$(database)/documents/clubes/$(clubeId)).data.donoUid
+            || request.auth.uid == resource.data.criadoPorUid
+            || request.auth.uid == resource.data.get('jogador1Uid', '')
+            || request.auth.uid == resource.data.get('jogador2Uid', '')
+          );
+        allow delete: if isAuth()
+          && request.auth.uid == get(/databases/$(database)/documents/clubes/$(clubeId)).data.donoUid;
+      }
+    }
+
+    match /rankings/{rankingId} {
+      allow read: if isAuth();
+      // Admin clube ou professor — dono do ranking
+      allow create: if isAdminOuProfessor()
+        && request.auth.uid == request.resource.data.donoUid;
+      allow update: if isAuth()
+        && (
+          request.auth.uid == resource.data.donoUid
+          || request.auth.uid in resource.data.get('membros', [])
+          || (
+            // Dono do clube pode só espelhar o logo nos rankings
+            request.auth.uid == get(/databases/$(database)/documents/clubes/$(resource.data.clubeId)).data.donoUid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clubeLogoUrl'])
+          )
+        );
+      allow delete: if isAuth()
+        && request.auth.uid == resource.data.donoUid;
+
+      match /classificacao/{uid} {
+        allow read: if isAuth();
+        // Autenticado — placares / sync / admin (evita permission-denied em ranking)
+        allow write: if isAuth();
+      }
+    }
+
+    match /torneios/{torneioId} {
+      allow read: if isAuth();
+      allow create: if isAdminOuProfessor()
+        && request.auth.uid == request.resource.data.donoUid;
+      allow update: if isAuth()
+        && (
+          request.auth.uid == resource.data.donoUid
+          || onlyTotalInscritosBump()
+        );
+      allow delete: if isAuth()
+        && request.auth.uid == resource.data.donoUid;
+
+      match /inscritos/{uid} {
+        allow read: if isAuth();
+        allow create: if isAuth()
+          && (request.auth.uid == uid
+              || request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid);
+        allow update, delete: if isAuth()
+          && (request.auth.uid == uid
+              || request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid);
+      }
+
+      // Chaveamento vivo — dono gera; jogadores do confronto ou dono registram placar
+      match /confrontos/{confrontoId} {
+        allow read: if isAuth();
+        allow create: if isAuth()
+          && request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid;
+        allow update: if isAuth()
+          && (
+            request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid
+            || request.auth.uid == resource.data.j1Uid
+            || request.auth.uid == resource.data.j2Uid
+            || request.auth.uid == resource.data.get('j1ParceiroUid', '')
+            || request.auth.uid == resource.data.get('j2ParceiroUid', '')
+          );
+        allow delete: if isAuth()
+          && request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid;
+      }
+    }
+
+    // collectionGroup('confrontos') / collectionGroup('inscritos') — Home, desafios, etc.
+    match /{path=**}/confrontos/{confrontoId} {
+      allow read: if isAuth();
+    }
+    match /{path=**}/inscritos/{inscritoId} {
+      allow read: if isAuth();
+    }
+
+    match /interessesAulas/{id} {
+      allow read: if isAuth()
+        && (request.auth.uid == resource.data.uid
+            || request.auth.uid == resource.data.donoUid);
+      allow create: if isAuth()
+        && request.auth.uid == request.resource.data.uid;
+      allow update: if isAuth()
+        && request.auth.uid == resource.data.donoUid;
+    }
+
+    match /pagamentos/{id} {
+      allow read: if isAuth()
+        && (request.auth.uid == resource.data.uid
+            || request.auth.uid == resource.data.donoUid);
+      // Aluno cria a própria cobrança; admin/dono cria ao matricular o aluno
+      allow create: if isAuth()
+        && (
+          request.auth.uid == request.resource.data.uid
+          || request.auth.uid == request.resource.data.donoUid
+        );
+      allow update: if isAuth()
+        && (request.auth.uid == resource.data.donoUid
+            || request.auth.uid == resource.data.uid);
+    }
+
+    // Admin lista por donoUid (+ clubeId). Aluno lista por uid.
+    match /matriculas/{id} {
+      allow read: if isAuth()
+        && (request.auth.uid == resource.data.uid
+            || request.auth.uid == resource.data.donoUid
+            || isDonoClube(resource.data.clubeId));
+      allow create: if isAuth()
+        && (request.auth.uid == request.resource.data.uid
+            || request.auth.uid == request.resource.data.donoUid);
+      allow update: if isAuth()
+        && (request.auth.uid == resource.data.donoUid
+            || request.auth.uid == resource.data.uid
+            || isDonoClube(resource.data.clubeId));
+    }
+
+    match /aulasPublicadas/{id} {
+      allow read: if isAuth();
+      allow create: if isAdminOuProfessor()
+        && request.auth.uid == request.resource.data.donoUid;
+      allow update, delete: if isAuth()
+        && request.auth.uid == resource.data.donoUid;
+    }
+
+    match /quadras/{id} {
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.auth.uid == request.resource.data.donoUid;
+      allow update, delete: if isAuth()
+        && request.auth.uid == resource.data.donoUid;
+    }
+
+    match /solicitacoesAcesso/{id} {
+      // Formulário público (professor / admin_clube) — equipe lê no Console
+      allow create: if request.resource.data.tipo in ['professor', 'admin_clube']
+        && request.resource.data.status == 'pendente'
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() > 1
+        && request.resource.data.email is string
+        && request.resource.data.telefone is string
+        && request.resource.data.telefone.size() >= 10
+        && request.resource.data.telefone.size() <= 20;
+      allow read: if isAuth()
+        && resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /solicitacoes/{solId} {
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.auth.uid == request.resource.data.uid;
+      // Dono aceita/rejeita; jogador atualiza foto/nome denormalizados
+      allow update: if isAuth()
+        && (request.auth.uid == resource.data.donoUid
+            || request.auth.uid == resource.data.uid);
+      allow delete: if isAuth()
+        && (request.auth.uid == resource.data.uid
+            || request.auth.uid == resource.data.donoUid);
+    }
+
+    match /posts/{postId} {
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.auth.uid == request.resource.data.autorUid;
+      allow update: if isAuth();
+      allow delete: if isAuth()
+        && request.auth.uid == resource.data.autorUid;
+
+      // Subcoleção de comentários do feed
+      match /comentarios/{comentarioId} {
+        allow read: if isAuth();
+        allow create: if isAuth()
+          && request.auth.uid == request.resource.data.autorUid
+          && request.resource.data.texto is string
+          && request.resource.data.texto.size() > 0
+          && request.resource.data.texto.size() < 2000;
+        // Autor pode atualizar foto/nome denormalizados ao trocar perfil
+        allow update: if isAuth()
+          && request.auth.uid == resource.data.autorUid;
+        allow delete: if isAuth()
+          && (request.auth.uid == resource.data.autorUid
+              || request.auth.uid == get(/databases/$(database)/documents/posts/$(postId)).data.autorUid);
+      }
+    }
+
+    match /amizades/{id} {
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.auth.uid == request.resource.data.deUid;
+      allow update: if isAuth()
+        && (request.auth.uid == resource.data.paraUid
+            || request.auth.uid == resource.data.deUid);
+      allow delete: if isAuth()
+        && (request.auth.uid == resource.data.deUid
+            || request.auth.uid == resource.data.paraUid);
+    }
+
+    // Notícias esportivas — sync automático (Cloud Function); cliente só lê
+    match /noticias/{id} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    match /config/{docId} {
+      allow read: if isAuth() && docId == 'noticiasSync';
+      allow write: if false;
+    }
+
+    match /conversas/{conversaId} {
+      // get em doc inexistente: resource == null (sem isso, abrir chat novo falha com permission-denied)
+      allow get: if isAuth()
+        && (resource == null || request.auth.uid in resource.data.participantes);
+      allow list: if isAuth()
+        && request.auth.uid in resource.data.participantes;
+      allow create: if isAuth()
+        && request.auth.uid in request.resource.data.participantes;
+      allow update: if isAuth()
+        && request.auth.uid in resource.data.participantes;
+
+      match /mensagens/{msgId} {
+        allow read: if isAuth()
+          && request.auth.uid in get(/databases/$(database)/documents/conversas/$(conversaId)).data.participantes;
+        allow create: if isAuth()
+          && request.auth.uid == request.resource.data.deUid
+          && request.auth.uid in get(/databases/$(database)/documents/conversas/$(conversaId)).data.participantes;
+      }
     }
   }
 }

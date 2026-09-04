@@ -1,5 +1,7 @@
 {
   "projects": {
     "default": "setmatch-app-fabrica"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }

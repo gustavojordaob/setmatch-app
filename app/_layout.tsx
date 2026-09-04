@@ -3,12 +3,19 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { WizardProvider } from '../contexts/WizardContext';
+import { EsporteProvider } from '../contexts/EsporteContext';
+import { ClubeProvider } from '../contexts/ClubeContext';
+import { LocaleProvider } from '../contexts/LocaleContext';
 import { AuthGuard } from '../components/AuthGuard';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 SplashScreen.preventAutoHideAsync();
 
 function RootStack() {
   const { loading } = useAuth();
+  // Só registra push se o binário tiver o módulo nativo (não quebra OTA antigo).
+  usePushNotifications();
 
   useEffect(() => {
     if (!loading) {
@@ -26,8 +33,16 @@ function RootStack() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootStack />
-    </AuthProvider>
+    <LocaleProvider>
+      <AuthProvider>
+        <WizardProvider>
+          <EsporteProvider>
+            <ClubeProvider>
+              <RootStack />
+            </ClubeProvider>
+          </EsporteProvider>
+        </WizardProvider>
+      </AuthProvider>
+    </LocaleProvider>
   );
 }
