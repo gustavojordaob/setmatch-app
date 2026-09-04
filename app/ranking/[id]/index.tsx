@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -21,8 +21,10 @@ import { useClassificacao } from '../../../hooks/useRankings';
 import {
   labelFormatoRanking,
   labelModeloRanking,
+  normalizarNiveisConfig,
   normalizarRegrasJogo,
   type Ranking,
+  type RankingNiveisConfig,
   type RankingRegrasJogo,
 } from '../../../types/ranking';
 import type { EsporteId } from '../../../constants/esportes';
@@ -33,6 +35,7 @@ export default function RankingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const [ranking, setRanking] = useState<Ranking | null>(null);
+  const [nivelAtivo, setNivelAtivo] = useState<string | null>(null);
   const { rows, loading } = useClassificacao(id ?? null);
 
   useEffect(() => {
@@ -41,6 +44,9 @@ export default function RankingDetailScreen() {
       const snap = await getDoc(doc(db, 'rankings', id));
       if (snap.exists()) {
         const raw = snap.data();
+        const niveis = raw.niveis
+          ? normalizarNiveisConfig(raw.niveis as RankingNiveisConfig)
+          : undefined;
         setRanking({
           id: snap.id,
           nome: String(raw.nome ?? ''),
@@ -53,6 +59,7 @@ export default function RankingDetailScreen() {
           membros: (raw.membros as string[]) ?? [],
           totalMembros: Number(raw.totalMembros ?? 0),
           regrasJogo: raw.regrasJogo as RankingRegrasJogo | undefined,
+          niveis,
           pagamento: raw.pagamento
             ? {
                 ativo: Boolean((raw.pagamento as { ativo?: boolean }).ativo),
@@ -80,13 +87,23 @@ export default function RankingDetailScreen() {
               }
             : undefined,
         });
+        if (niveis?.ativo && niveis.niveis[0]) {
+          setNivelAtivo(niveis.niveis[0].id);
+        }
       }
     })();
   }, [id]);
 
   const regras = normalizarRegrasJogo(ranking?.regrasJogo);
+  const niveisCfg = ranking?.niveis;
+  const niveisOn = Boolean(niveisCfg?.ativo && (niveisCfg?.niveis.length ?? 0) >= 2);
   const souMembro = !!(user && ranking?.membros.includes(user.uid));
   const souDono = !!(user && ranking && user.uid === ranking.donoUid);
+
+  const rowsVisiveis = useMemo(() => {
+    if (!niveisOn || !nivelAtivo) return rows;
+    return rows.filter((r) => (r.nivelId || '') === nivelAtivo);
+  }, [rows, niveisOn, nivelAtivo]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -104,10 +121,7 @@ export default function RankingDetailScreen() {
         {ranking ? (
           <View style={styles.clubeBox}>
             {ranking.clubeLogoUrl ? (
-              <Image
-                source={{ uri: ranking.clubeLogoUrl }}
-                style={styles.clubeLogo}
-              />
+              <Image source={{ uri: ranking.clubeLogoUrl }} style={styles.clubeLogo} />
             ) : (
               <Ionicons name="trophy" size={28} color={Colors.accent} />
             )}
@@ -122,6 +136,11 @@ export default function RankingDetailScreen() {
                 · {regras.jogosPorMes} jogos/mês · limpa {regras.ptsJogoCompleto} pts · jogar +
                 {regras.ptsParticipacao}
                 {'\n'}Sem jogo no mês civil → pontos zerados.
+                {niveisOn
+                  ? `\nNíveis: ${niveisCfg!.niveis.map((n) => n.nome).join(' · ')}${
+                      niveisCfg!.autoAtivo ? ` · auto dia ${niveisCfg!.autoDiaMes}` : ''
+                    }`
+                  : ''}
               </Text>
               {ranking.pagamento?.ativo ? (
                 <Text style={styles.payMeta}>
@@ -150,15 +169,48 @@ export default function RankingDetailScreen() {
         ) : null}
 
         {souDono && id ? (
-          <TouchableOpacity
-            style={styles.ctaGhost}
-            onPress={() =>
-              router.push({ pathname: '/clube/ranking-regras', params: { rankingId: id } })
-            }
+          <>
+            <TouchableOpacity
+              style={styles.ctaGhost}
+              onPress={() =>
+                router.push({ pathname: '/clube/ranking-regras', params: { rankingId: id } })
+              }
+            >
+              <Ionicons name="settings-outline" size={20} color={Colors.accent} />
+              <Text style={styles.ctaGhostTxt}>Editar regras do ranking</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.ctaGhost}
+              onPress={() =>
+                router.push({ pathname: '/clube/ranking-niveis', params: { rankingId: id } })
+              }
+            >
+              <Ionicons name="layers-outline" size={20} color={Colors.accent} />
+              <Text style={styles.ctaGhostTxt}>Níveis · sobe / desce</Text>
+            </TouchableOpacity>
+          </>
+        ) : null}
+
+        {niveisOn ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.chipsScroll}
+            contentContainerStyle={styles.chipsRow}
           >
-            <Ionicons name="settings-outline" size={20} color={Colors.accent} />
-            <Text style={styles.ctaGhostTxt}>Editar regras do ranking</Text>
-          </TouchableOpacity>
+            {niveisCfg!.niveis.map((n) => {
+              const on = nivelAtivo === n.id;
+              return (
+                <TouchableOpacity
+                  key={n.id}
+                  style={[styles.chip, on && styles.chipOn]}
+                  onPress={() => setNivelAtivo(n.id)}
+                >
+                  <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{n.nome}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         ) : null}
 
         <View style={styles.tableHead}>
@@ -170,10 +222,10 @@ export default function RankingDetailScreen() {
 
         {loading ? (
           <ActivityIndicator color={Colors.accent} style={{ marginTop: 24 }} />
-        ) : rows.length === 0 ? (
-          <Text style={styles.empty}>Nenhum jogador no ranking ainda.</Text>
+        ) : rowsVisiveis.length === 0 ? (
+          <Text style={styles.empty}>Nenhum jogador neste nível ainda.</Text>
         ) : (
-          rows.map((r, i) => (
+          rowsVisiveis.map((r, i) => (
             <TouchableOpacity
               key={r.uid}
               style={styles.row}
@@ -259,9 +311,21 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
     paddingVertical: 12,
     paddingHorizontal: 18,
-    marginBottom: 16,
+    marginBottom: 10,
   },
   ctaGhostTxt: { color: Colors.accent, fontWeight: '700', fontSize: 14 },
+  chipsScroll: { marginBottom: 12, marginTop: 4 },
+  chipsRow: { gap: 8, paddingRight: 8 },
+  chip: {
+    borderWidth: 1.5,
+    borderColor: Colors.accent,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  chipOn: { backgroundColor: Colors.accent },
+  chipTxt: { color: Colors.accent, fontWeight: '800' },
+  chipTxtOn: { color: Colors.textOnAccent },
   tableHead: {
     flexDirection: 'row',
     alignItems: 'center',

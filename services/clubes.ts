@@ -204,6 +204,15 @@ export async function criarRankingNoClube(input: {
   return rankingRef.id;
 }
 
+/** @deprecated use services/rankingNiveis — reexport para imports antigos */
+export {
+  salvarNiveisRanking,
+  moverJogadorNivel,
+  aplicarMovimentacaoRanking,
+  previewMovimentacaoRanking,
+  colocarUsuarioNoNivel,
+} from './rankingNiveis';
+
 export async function criarTorneio(input: {
   clubeId: string;
   nome: string;

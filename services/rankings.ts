@@ -139,8 +139,13 @@ export async function solicitarEntrada(input: SolicitarInput): Promise<void> {
   });
 }
 
-/** Dono aceita solicitação: adiciona o jogador aos membros + cria a classificação. */
-export async function aceitarSolicitacao(sol: Solicitacao): Promise<void> {
+/** Dono aceita solicitação: adiciona o jogador aos membros + cria a classificação.
+ * `nivelId` opcional — se o ranking tiver níveis, coloca direto nessa categoria.
+ */
+export async function aceitarSolicitacao(
+  sol: Solicitacao,
+  opts?: { nivelId?: string }
+): Promise<void> {
   await updateDoc(doc(db, 'solicitacoes', sol.id), { status: 'aceito' });
 
   await updateDoc(doc(db, 'rankings', sol.rankingId), {
@@ -163,6 +168,20 @@ export async function aceitarSolicitacao(sol: Solicitacao): Promise<void> {
   const parceiroUid = String(solData.parceiroUid || '');
   const parceiroNome = String(solData.parceiroNome || '');
 
+  const { normalizarNiveisConfig } = await import('../types/ranking');
+  const { nivelIdEntradaPadrao } = await import('./rankingNiveis');
+  const cfg = normalizarNiveisConfig(
+    r.niveis as import('../types/ranking').RankingNiveisConfig | undefined
+  );
+  let nivelId: string | undefined;
+  if (cfg.ativo) {
+    if (opts?.nivelId && cfg.niveis.some((n) => n.id === opts.nivelId)) {
+      nivelId = opts.nivelId;
+    } else {
+      nivelId = nivelIdEntradaPadrao(cfg);
+    }
+  }
+
   const classRef = doc(db, 'rankings', sol.rankingId, 'classificacao', sol.uid);
   const existe = await getDoc(classRef);
   if (!existe.exists()) {
@@ -174,6 +193,7 @@ export async function aceitarSolicitacao(sol: Solicitacao): Promise<void> {
       vitorias: 0,
       derrotas: 0,
       pagamentoOk: !precisaPagar,
+      ...(nivelId ? { nivelId } : {}),
       parceiroUid: parceiroUid || undefined,
       parceiroNome: parceiroNome || undefined,
       parceiroAceito: composicao === 'dupla' ? Boolean(parceiroUid) : undefined,
@@ -194,6 +214,7 @@ export async function aceitarSolicitacao(sol: Solicitacao): Promise<void> {
         vitorias: 0,
         derrotas: 0,
         pagamentoOk: !precisaPagar,
+        ...(nivelId ? { nivelId } : {}),
         parceiroUid: sol.uid,
         parceiroNome: sol.nome,
         parceiroAceito: true,
@@ -274,22 +295,33 @@ export type AdversarioSugerido = Classificacao & {
   direcao: 'acima' | 'abaixo';
 };
 
-/** Sugere adversários pela posição na tabela (acima/abaixo configuráveis). */
+/** Sugere adversários pela posição na tabela (acima/abaixo configuráveis).
+ * Se `mesmoNivelOnly`, filtra pela categoria do jogador (ranking multi-nível).
+ */
 export function sugerirAdversariosRanking(
   rowsOrdenadosPorPts: Classificacao[],
   meuUid: string,
-  regras?: RankingRegrasJogo | null
+  regras?: RankingRegrasJogo | null,
+  opts?: { mesmoNivelOnly?: boolean }
 ): AdversarioSugerido[] {
   const r = { ...REGRAS_JOGO_PADRAO, ...regras };
-  const idx = rowsOrdenadosPorPts.findIndex((x) => x.uid === meuUid);
+  let tabela = rowsOrdenadosPorPts;
+  if (opts?.mesmoNivelOnly) {
+    const eu = rowsOrdenadosPorPts.find((x) => x.uid === meuUid);
+    const meuNivel = eu?.nivelId;
+    if (meuNivel) {
+      tabela = rowsOrdenadosPorPts.filter((x) => (x.nivelId || '') === meuNivel);
+    }
+  }
+  const idx = tabela.findIndex((x) => x.uid === meuUid);
   if (idx < 0) return [];
   const out: AdversarioSugerido[] = [];
   for (let i = 1; i <= r.enfrentaAcima; i++) {
-    const row = rowsOrdenadosPorPts[idx - i];
+    const row = tabela[idx - i];
     if (row) out.push({ ...row, posicao: idx - i + 1, direcao: 'acima' });
   }
   for (let i = 1; i <= r.enfrentaAbaixo; i++) {
-    const row = rowsOrdenadosPorPts[idx + i];
+    const row = tabela[idx + i];
     if (row) out.push({ ...row, posicao: idx + i + 1, direcao: 'abaixo' });
   }
   return out;

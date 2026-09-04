@@ -24,6 +24,7 @@ import {
   DEFINICOES_CHAVE,
   ESTRUTURAS_MATA,
   FORMATOS_CHAVES,
+  formatoPartidaPadraoPorEsporte,
   formatosPartidaPorEsporte,
   previewEstruturaTorneio,
   type DefinicaoChaveId,
@@ -293,6 +294,7 @@ export default function TorneioNovoScreen() {
               onPress={() => {
                 setEsporte(e.id);
                 setComposicao(composicaoPadraoPorEsporte(e.id));
+                setFormatoPartida(formatoPartidaPadraoPorEsporte(e.id));
               }}
             />
           ))}
@@ -300,7 +302,7 @@ export default function TorneioNovoScreen() {
 
         <Text style={styles.label}>Composição</Text>
         <Text style={[styles.label, { marginTop: -4, opacity: 0.75, fontSize: 12 }]}>
-          Beach, padel e raquetinha sugerem duplas. Cada atleta paga a própria inscrição.
+          Beach, padel, pickleball e raquetinha sugerem duplas. Cada atleta paga a própria inscrição.
         </Text>
         <View style={styles.chips}>
           {(['simples', 'dupla'] as ComposicaoId[]).map((c) => (

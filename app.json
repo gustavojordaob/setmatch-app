@@ -2,7 +2,7 @@
   "expo": {
     "name": "Rally Up",
     "slug": "setmatch-app",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "scheme": "setmatch",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.fabricaapps.setmatch",
-      "buildNumber": "13",
+      "buildNumber": "20",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "Rally Up uses your photo library so you can choose a profile picture on Edit Profile, or attach a photo to a post on Home.",
@@ -27,7 +27,8 @@
       },
       "entitlements": {
         "com.apple.developer.healthkit": true,
-        "com.apple.developer.healthkit.access": []
+        "com.apple.developer.healthkit.access": [],
+        "aps-environment": "production"
       }
     },
     "android": {
@@ -36,7 +37,7 @@
         "backgroundColor": "#255943"
       },
       "package": "com.fabricaapps.setmatch",
-      "versionCode": 12,
+      "versionCode": 16,
       "softwareKeyboardLayoutMode": "resize",
       "edgeToEdgeEnabled": true,
       "permissions": [

@@ -1,127 +1,47 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, type ImageSourcePropType, StyleSheet } from 'react-native';
+import { Colors } from '../constants/colors';
 import type { EsporteId } from '../constants/esportes';
+
+const ICONS: Record<EsporteId, ImageSourcePropType> = {
+  tenis: require('../assets/esportes/tenis.png'),
+  raquetinha: require('../assets/esportes/raquetinha.png'),
+  padel: require('../assets/esportes/padel.png'),
+  pickleball: require('../assets/esportes/pickleball.png'),
+  beachtennis: require('../assets/esportes/beachtennis.png'),
+};
 
 type Props = {
   id: EsporteId;
   size?: number;
-  /** Compat — ícones coloridos não dependem da cor do tema */
+  /** Cor do ícone (tint). Default: branco. */
   color?: string;
+  /**
+   * Mantido por compatibilidade com callers antigos (silhuetas View).
+   * Ignorado nos PNGs oficiais.
+   */
+  cutoutColor?: string;
 };
 
 /**
- * Ícones coloridos por esporte:
- * - Tênis / Beach: emoji (desenhos coloridos nativos)
- * - Padel / Raquetinha: ilustração colorida (não há emoji correto)
+ * Ícones oficiais das modalidades (outline branco + tintColor).
+ * Usado na Home, wizard de cadastro e criação de clube.
  */
-export function EsporteIcon({ id, size = 28 }: Props) {
-  if (id === 'tenis') {
-    return (
-      <View style={[styles.box, { width: size, height: size }]}>
-        <Text style={{ fontSize: size * 0.92, lineHeight: size }}>{'🎾'}</Text>
-      </View>
-    );
-  }
-
-  if (id === 'beachtennis') {
-    return (
-      <View style={[styles.box, { width: size, height: size }]}>
-        <Text style={{ fontSize: size * 0.78, lineHeight: size * 0.9 }}>{'🎾'}</Text>
-        <Text
-          style={{
-            position: 'absolute',
-            right: -2,
-            bottom: -2,
-            fontSize: size * 0.42,
-          }}
-        >
-          {'🏖️'}
-        </Text>
-      </View>
-    );
-  }
-
-  if (id === 'padel') {
-    const headW = size * 0.62;
-    const headH = size * 0.72;
-    const hole = Math.max(3, size * 0.1);
-    return (
-      <View style={[styles.box, { width: size, height: size }]}>
-        <View
-          style={{
-            width: headW,
-            height: headH,
-            borderRadius: headW * 0.35,
-            backgroundColor: '#4FC3F7',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: hole * 0.35,
-            borderWidth: 2,
-            borderColor: '#0288D1',
-          }}
-        >
-          <View style={{ flexDirection: 'row', gap: hole * 0.4 }}>
-            <View style={[styles.hole, { width: hole, height: hole, borderRadius: hole / 2 }]} />
-            <View style={[styles.hole, { width: hole, height: hole, borderRadius: hole / 2 }]} />
-          </View>
-          <View style={{ flexDirection: 'row', gap: hole * 0.4 }}>
-            <View style={[styles.hole, { width: hole, height: hole, borderRadius: hole / 2 }]} />
-            <View style={[styles.hole, { width: hole, height: hole, borderRadius: hole / 2 }]} />
-          </View>
-        </View>
-        <View
-          style={{
-            width: size * 0.16,
-            height: size * 0.28,
-            marginTop: -2,
-            borderRadius: 4,
-            backgroundColor: '#FF8A65',
-          }}
-        />
-      </View>
-    );
-  }
-
-  // raquetinha
-  const head = size * 0.58;
+export function EsporteIcon({
+  id,
+  size = 28,
+  color = Colors.white,
+}: Props) {
+  const source = ICONS[id] ?? ICONS.tenis;
   return (
-    <View style={[styles.box, { width: size, height: size }]}>
-      <View
-        style={{
-          width: head,
-          height: head * 1.1,
-          borderRadius: head * 0.45,
-          borderWidth: Math.max(3, size * 0.1),
-          borderColor: '#AB47BC',
-          backgroundColor: '#E1BEE7',
-        }}
-      />
-      <View
-        style={{
-          width: size * 0.14,
-          height: size * 0.32,
-          marginTop: -2,
-          borderRadius: 3,
-          backgroundColor: '#FFD54F',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          right: size * 0.05,
-          top: size * 0.08,
-          width: size * 0.22,
-          height: size * 0.22,
-          borderRadius: size * 0.11,
-          backgroundColor: '#FF7043',
-          borderWidth: 1,
-          borderColor: '#E64A19',
-        }}
-      />
-    </View>
+    <Image
+      source={source}
+      style={[styles.icon, { width: size, height: size, tintColor: color }]}
+      resizeMode="contain"
+      accessibilityIgnoresInvertColors
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  box: { alignItems: 'center', justifyContent: 'center' },
-  hole: { backgroundColor: 'rgba(255,255,255,0.9)' },
+  icon: {},
 });

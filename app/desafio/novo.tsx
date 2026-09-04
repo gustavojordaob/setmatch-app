@@ -22,6 +22,7 @@ import { useClube } from '../../contexts/ClubeContext';
 import { ESPORTES } from '../../constants/esportes';
 import {
   FORMATOS_PARTIDA,
+  formatosDesafioPorEsporte,
   type FormatoPartidaId,
 } from '../../constants/formatosPartida';
 import {
@@ -32,6 +33,7 @@ import {
   type StatsJogador,
 } from '../../services/desafios';
 import { VsCard } from '../../components/jogador/VsCard';
+import { BuscarQuadraModal } from '../../components/quadras/BuscarQuadraModal';
 import { calcularProbabilidadeVitoria } from '../../utils/probabilidade';
 
 type AmigoRow = { uid: string; nome: string; fotoUrl?: string };
@@ -55,6 +57,7 @@ export default function NovoDesafioScreen() {
   const [confrontos, setConfrontos] = useState<ConfrontoResumo[]>([]);
   const [loadingOpp, setLoadingOpp] = useState(false);
   const [formato, setFormato] = useState<FormatoPartidaId>('melhor_de_3_stb');
+  const [pickerQuadra, setPickerQuadra] = useState(false);
   const [quadra, setQuadra] = useState(
     clubeAtivo?.nome ? `Quadra · ${clubeAtivo.nome}` : 'A combinar'
   );
@@ -105,7 +108,22 @@ export default function NovoDesafioScreen() {
   }, [amigos, fotos]);
 
   const esporteMeta = ESPORTES.find((e) => e.id === esporteAtivo);
-  const formatoAtual = FORMATOS_PARTIDA.find((f) => f.id === formato)!;
+  const formatosDisponiveis = useMemo(
+    () => formatosDesafioPorEsporte(esporteAtivo),
+    [esporteAtivo]
+  );
+  const formatoAtual =
+    formatosDisponiveis.find((f) => f.id === formato) ??
+    formatosDisponiveis[0] ??
+    FORMATOS_PARTIDA[0];
+
+  useEffect(() => {
+    if (!formatosDisponiveis.some((f) => f.id === formato)) {
+      setFormato(
+        esporteAtivo === 'pickleball' ? 'melhor_de_3_games_11' : 'melhor_de_3_stb'
+      );
+    }
+  }, [esporteAtivo, formato, formatosDisponiveis]);
 
   const h2h = useMemo(() => {
     const meus = confrontos.filter((c) => c.euVenci).length;
@@ -250,7 +268,7 @@ export default function NovoDesafioScreen() {
         <ScrollView contentContainerStyle={styles.body}>
           <Text style={styles.intro}>
             Marque um ou mais amigos. Cada um recebe o próprio convite da partida (útil em
-            padel, beach ou quando você quer chamar várias pessoas).
+            padel, beach, pickleball ou quando você quer chamar várias pessoas).
           </Text>
           {selecionados.length > 0 ? (
             <Text style={styles.selCount}>
@@ -442,7 +460,7 @@ export default function NovoDesafioScreen() {
           <Text style={styles.sectionTitle}>Como vai ser a partida?</Text>
           <Text style={styles.formatoDesc}>{formatoAtual.desc}</Text>
           <View style={styles.chipsWrap}>
-            {FORMATOS_PARTIDA.map((f) => {
+            {formatosDisponiveis.map((f) => {
               const on = formato === f.id;
               return (
                 <TouchableOpacity
@@ -465,6 +483,13 @@ export default function NovoDesafioScreen() {
             placeholder="Ex: Quadra 2 · Winner"
             placeholderTextColor={Colors.textSecondary}
           />
+          <TouchableOpacity
+            style={styles.buscaQuadraBtn}
+            onPress={() => setPickerQuadra(true)}
+          >
+            <Ionicons name="navigate-outline" size={18} color={Colors.accent} />
+            <Text style={styles.buscaQuadraTxt}>Buscar perto de mim (Maps)</Text>
+          </TouchableOpacity>
 
           <Text style={styles.fieldLabel}>Quando? (opcional)</Text>
           <TextInput
@@ -498,6 +523,15 @@ export default function NovoDesafioScreen() {
           />
         </ScrollView>
       )}
+
+      <BuscarQuadraModal
+        visible={pickerQuadra}
+        onClose={() => setPickerQuadra(false)}
+        onSelect={(q) => {
+          const local = [q.nome, q.endereco || q.cidade].filter(Boolean).join(' · ');
+          setQuadra(local);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -701,6 +735,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 8,
     marginBottom: 8,
+  },
+  buscaQuadraBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  buscaQuadraTxt: {
+    color: Colors.accent,
+    fontWeight: '700',
+    fontSize: 14,
   },
   input: {
     backgroundColor: Colors.surface,

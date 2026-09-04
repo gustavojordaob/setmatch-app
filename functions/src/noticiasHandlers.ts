@@ -3,7 +3,12 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 
-type EsporteNoticia = 'tenis' | 'padel' | 'raquetinha' | 'beachtennis';
+type EsporteNoticia =
+  | 'tenis'
+  | 'padel'
+  | 'raquetinha'
+  | 'beachtennis'
+  | 'pickleball';
 type IdiomaNoticia = 'pt' | 'en' | 'es';
 
 type ItemRss = {
@@ -15,12 +20,19 @@ type ItemRss = {
 
 const IDIOMAS: IdiomaNoticia[] = ['pt', 'en', 'es'];
 
-const ESPORTES: EsporteNoticia[] = ['tenis', 'padel', 'beachtennis', 'raquetinha'];
+const ESPORTES: EsporteNoticia[] = [
+  'tenis',
+  'padel',
+  'beachtennis',
+  'pickleball',
+  'raquetinha',
+];
 
 const LIMITES: Record<EsporteNoticia, number> = {
   tenis: 6,
   padel: 6,
   beachtennis: 6,
+  pickleball: 5,
   raquetinha: 4,
 };
 
@@ -41,6 +53,11 @@ const QUERIES: Record<EsporteNoticia, Record<IdiomaNoticia, string>> = {
     en: '"beach tennis" OR beachtennis',
     es: '"beach tennis" OR beachtennis OR "tenis de playa"',
   },
+  pickleball: {
+    pt: 'pickleball OR "pickle ball"',
+    en: 'pickleball OR "pickle ball" OR PPA OR MLP',
+    es: 'pickleball OR "pickle ball"',
+  },
   raquetinha: {
     pt: 'raquetinha OR racquetball',
     en: 'racquetball OR squash',
@@ -52,6 +69,7 @@ const CATEGORIAS: Record<EsporteNoticia, Record<IdiomaNoticia, string>> = {
   tenis: { pt: 'Tênis', en: 'Tennis', es: 'Tenis' },
   padel: { pt: 'Padel', en: 'Padel', es: 'Padel' },
   beachtennis: { pt: 'Beach Tennis', en: 'Beach Tennis', es: 'Beach Tennis' },
+  pickleball: { pt: 'Pickleball', en: 'Pickleball', es: 'Pickleball' },
   raquetinha: { pt: 'Raquetinha', en: 'Racquetball', es: 'Racquetball' },
 };
 
@@ -81,6 +99,7 @@ function feedsExtras(esporte: EsporteNoticia, idioma: IdiomaNoticia): string[] {
       tenis: 'tennis',
       padel: 'padel',
       beachtennis: 'beachtennis',
+      pickleball: 'pickleball',
       raquetinha: 'racquetball',
     };
     const reddit = sub[esporte];

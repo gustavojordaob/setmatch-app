@@ -8,7 +8,14 @@ import {
 } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
 import { useAuth } from './useAuth';
-import type { Classificacao, Ranking, RankingRegrasJogo, Solicitacao } from '../types/ranking';
+import type {
+  Classificacao,
+  Ranking,
+  RankingNiveisConfig,
+  RankingRegrasJogo,
+  Solicitacao,
+} from '../types/ranking';
+import { normalizarNiveisConfig } from '../types/ranking';
 import type { EsporteId } from '../constants/esportes';
 
 function mapRanking(d: { id: string; data: () => Record<string, unknown> }): Ranking {
@@ -27,6 +34,9 @@ function mapRanking(d: { id: string; data: () => Record<string, unknown> }): Ran
     membros: (raw.membros as string[]) ?? [],
     totalMembros: Number(raw.totalMembros ?? 0),
     regrasJogo: raw.regrasJogo as RankingRegrasJogo | undefined,
+    niveis: raw.niveis
+      ? normalizarNiveisConfig(raw.niveis as RankingNiveisConfig)
+      : undefined,
     pagamento: raw.pagamento
       ? {
           ativo: Boolean((raw.pagamento as { ativo?: boolean }).ativo),

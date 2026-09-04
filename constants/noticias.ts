@@ -3,7 +3,7 @@
   titulo: string;
   fonte: string;
   /** ID do esporte — filtro estrito na Home */
-  esporte: 'tenis' | 'padel' | 'raquetinha' | 'beachtennis';
+  esporte: 'tenis' | 'padel' | 'raquetinha' | 'beachtennis' | 'pickleball';
   categoria: string;
   url?: string;
 }
@@ -46,6 +46,13 @@ export const NOTICIAS: Noticia[] = [
     fonte: 'ITF',
     esporte: 'beachtennis',
     categoria: 'Beach Tennis',
+  },
+  {
+    id: 'n3b',
+    titulo: 'Pickleball explode no Brasil: clubes adaptam quadras e circuitos locais',
+    fonte: 'Rally Up',
+    esporte: 'pickleball',
+    categoria: 'Pickleball',
   },
   {
     id: 'n4',

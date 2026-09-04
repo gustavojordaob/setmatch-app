@@ -14,6 +14,7 @@ SplashScreen.preventAutoHideAsync();
 
 function RootStack() {
   const { loading } = useAuth();
+  // Só registra push se o binário tiver o módulo nativo (não quebra OTA antigo).
   usePushNotifications();
 
   useEffect(() => {

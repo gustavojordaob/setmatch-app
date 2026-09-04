@@ -28,6 +28,7 @@ import { abrirWhatsApp } from '../../../utils/whatsapp';
 import {
   labelFormatoRanking,
   labelModeloRanking,
+  normalizarNiveisConfig,
   normalizarRegrasJogo,
   type Ranking,
   type RankingRegrasJogo,
@@ -65,18 +66,24 @@ export default function RankingConfrontosScreen() {
 
   const sugeridos = useMemo(() => {
     if (!user) return [] as AdversarioSugerido[];
+    const niveisOn = Boolean(ranking?.niveis?.ativo);
     if (regras.modelo === 'todos_contra_todos') {
-      return rows
-        .filter((r) => r.uid !== user.uid)
-        .slice(0, 12)
-        .map((r, i) => ({
-          ...r,
-          posicao: i + 1,
-          direcao: 'abaixo' as const,
-        }));
+      const base = niveisOn
+        ? rows.filter((r) => {
+            const eu = rows.find((x) => x.uid === user.uid);
+            return r.uid !== user.uid && (r.nivelId || '') === (eu?.nivelId || '');
+          })
+        : rows.filter((r) => r.uid !== user.uid);
+      return base.slice(0, 12).map((r, i) => ({
+        ...r,
+        posicao: i + 1,
+        direcao: 'abaixo' as const,
+      }));
     }
-    return sugerirAdversariosRanking(rows, user.uid, regras);
-  }, [rows, user, regras]);
+    return sugerirAdversariosRanking(rows, user.uid, regras, {
+      mesmoNivelOnly: niveisOn,
+    });
+  }, [rows, user, regras, ranking?.niveis?.ativo]);
 
   const meus = useMemo(() => {
     if (!user) return [];
@@ -104,6 +111,9 @@ export default function RankingConfrontosScreen() {
         membros: (raw.membros as string[]) ?? [],
         totalMembros: Number(raw.totalMembros ?? 0),
         regrasJogo: raw.regrasJogo as RankingRegrasJogo | undefined,
+        niveis: raw.niveis
+          ? normalizarNiveisConfig(raw.niveis as import('../../../types/ranking').RankingNiveisConfig)
+          : undefined,
       });
     }
     const q = query(collection(db, 'desafios'), where('rankingId', '==', id));

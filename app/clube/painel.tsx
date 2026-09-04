@@ -20,11 +20,16 @@ import { useT } from '../../hooks/useI18n';
 import { useSolicitacoesRecebidas } from '../../hooks/useRankings';
 import { aceitarSolicitacao, recusarSolicitacao } from '../../services/rankings';
 import { listarClubesDoDono, type ClubeCompleto } from '../../services/clubes';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../utils/firebaseConfig';
 import { AccountComplianceLinks } from '../../components/legal/AccountComplianceLinks';
 import { UnreadBadge } from '../../components/ui/UnreadBadge';
 import { useTotalNaoLidas } from '../../hooks/useTotalNaoLidas';
+import {
+  normalizarNiveisConfig,
+  type RankingNiveisConfig,
+  type Solicitacao,
+} from '../../types/ranking';
 
 export default function ClubePainelScreen() {
   const router = useRouter();
@@ -80,6 +85,38 @@ export default function ClubePainelScreen() {
         },
       },
     ]);
+  }
+
+  async function aceitarComNivel(s: Solicitacao) {
+    try {
+      const snap = await getDoc(doc(db, 'rankings', s.rankingId));
+      const cfg = normalizarNiveisConfig(
+        snap.exists()
+          ? (snap.data()?.niveis as RankingNiveisConfig | undefined)
+          : undefined
+      );
+      if (!cfg.ativo || cfg.niveis.length < 2) {
+        await aceitarSolicitacao(s);
+        return;
+      }
+      Alert.alert(
+        'Escolher nível',
+        `Em qual nível colocar ${s.nome}?`,
+        [
+          ...cfg.niveis.map((n) => ({
+            text: n.nome,
+            onPress: () => {
+              void aceitarSolicitacao(s, { nivelId: n.id }).catch((e: unknown) =>
+                Alert.alert('Erro', e instanceof Error ? e.message : 'Falha')
+              );
+            },
+          })),
+          { text: t('common.cancel'), style: 'cancel' as const },
+        ]
+      );
+    } catch (e: unknown) {
+      Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao aceitar');
+    }
   }
 
   return (
@@ -259,7 +296,7 @@ export default function ClubePainelScreen() {
                     </View>
                     <TouchableOpacity
                       style={styles.ok}
-                      onPress={() => void aceitarSolicitacao(s)}
+                      onPress={() => void aceitarComNivel(s)}
                     >
                       <Ionicons name="checkmark" size={18} color={Colors.textOnAccent} />
                     </TouchableOpacity>

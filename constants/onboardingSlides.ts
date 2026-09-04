@@ -8,7 +8,7 @@ export const ONBOARDING_SLIDES: OnboardingSlideData[] = [
   {
     emoji: '🎾',
     title: 'Desafie quem joga no seu nível',
-    subtitle: 'Encontre adversários de tênis, padel, raquetinha e beachtênis perto de você.',
+    subtitle: 'Encontre adversários de tênis, padel, pickleball, raquetinha e beach perto de você.',
   },
   {
     emoji: '📊',

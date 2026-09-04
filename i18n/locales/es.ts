@@ -154,6 +154,7 @@ export const es: TranslationDict = {
   'wizard.genderTitle': '¿Cuál es tu género?',
   'wizard.genderMale': 'Masculino',
   'wizard.genderFemale': 'Femenino',
+  'wizard.genderPreferNot': 'Prefiero no decir',
   'wizard.weightTitle': '¿Cuál es tu peso?',
   'wizard.heightTitle': '¿Cuál es tu altura?',
   'wizard.sportsTitle': '¿Qué deportes practicas?',
@@ -198,6 +199,9 @@ export const es: TranslationDict = {
   'esporte.beachtennis': 'Beach tennis',
   'esporte.beachtennisDesc':
     'Tenis en arena, en dobles — raqueta sólida y pelota sin presión.',
+  'esporte.pickleball': 'Pickleball',
+  'esporte.pickleballDesc':
+    'Cancha más pequeña, pala sólida y pelota perforada — suele jugarse en dobles (game a 11).',
 
   'home.inviteToPlay': 'Invitar a jugar',
   'home.nearMeTitle': 'Cerca de mí',

@@ -1,18 +1,34 @@
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
 
 const CHANNEL_ID = 'setmatch-geral';
 
-/** Expo Go não entrega push remoto (SDK 53+); só registra em build nativo. */
+/**
+ * Só true se o **binário nativo** já inclui expo-notifications.
+ * Builds antigos (só OTA) não têm o módulo → NÃO importar o pacote (crash iOS).
+ */
+export function pushNativoDisponivel(): boolean {
+  if (Platform.OS === 'web') return false;
+  if (Constants.appOwnership === 'expo') return false;
+  const n = NativeModules as Record<string, unknown>;
+  return Boolean(
+    n.ExpoPushTokenManager ||
+      n.ExpoNotifications ||
+      n.ExpoNotificationPresenter ||
+      n.ExpoNotificationsEmitter ||
+      n.Notifications
+  );
+}
+
+/** @deprecated use pushNativoDisponivel */
 export function pushDisponivelNoRuntime(): boolean {
-  return Constants.appOwnership !== 'expo';
+  return pushNativoDisponivel();
 }
 
 export async function registrarPushToken(uid: string): Promise<string | null> {
-  if (!uid || !pushDisponivelNoRuntime()) return null;
-  if (Platform.OS === 'web') return null;
+  if (!uid || !pushNativoDisponivel()) return null;
 
   try {
     const Notifications = await import('expo-notifications');
@@ -76,21 +92,18 @@ export async function registrarPushToken(uid: string): Promise<string | null> {
 
 export type PushListenerCleanup = () => void;
 
-/** Navega quando o usuário toca na notificação (data.rota). */
 export async function anexarListenersPush(opts: {
   onAbrirRota: (rota: string) => void;
 }): Promise<PushListenerCleanup> {
-  if (!pushDisponivelNoRuntime()) return () => undefined;
+  if (!pushNativoDisponivel()) return () => undefined;
 
   try {
     const Notifications = await import('expo-notifications');
     const received = Notifications.addNotificationReceivedListener(() => {
-      /* feed in-app já cobre; banner nativo é do SO */
+      /* in-app feed cobre */
     });
     const response = Notifications.addNotificationResponseReceivedListener((resp) => {
-      const data = resp.notification.request.content.data as {
-        rota?: string;
-      };
+      const data = resp.notification.request.content.data as { rota?: string };
       if (data?.rota && typeof data.rota === 'string') {
         opts.onAbrirRota(data.rota);
       }

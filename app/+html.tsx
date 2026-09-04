@@ -25,7 +25,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="mobile-web-app-capable" content="yes" />
         <meta
           name="description"
-          content="Desafie jogadores, rankings de clube, aulas e torneios — tênis, padel, raquetinha e beach."
+          content="Desafie jogadores, rankings de clube, aulas e torneios — tênis, padel, pickleball, raquetinha e beach."
         />
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />

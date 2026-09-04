@@ -7,11 +7,18 @@ const firestore_1 = require("firebase-admin/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const IDIOMAS = ['pt', 'en', 'es'];
-const ESPORTES = ['tenis', 'padel', 'beachtennis', 'raquetinha'];
+const ESPORTES = [
+    'tenis',
+    'padel',
+    'beachtennis',
+    'pickleball',
+    'raquetinha',
+];
 const LIMITES = {
     tenis: 6,
     padel: 6,
     beachtennis: 6,
+    pickleball: 5,
     raquetinha: 4,
 };
 /** Termos de busca Google News por esporte e idioma */
@@ -31,6 +38,11 @@ const QUERIES = {
         en: '"beach tennis" OR beachtennis',
         es: '"beach tennis" OR beachtennis OR "tenis de playa"',
     },
+    pickleball: {
+        pt: 'pickleball OR "pickle ball"',
+        en: 'pickleball OR "pickle ball" OR PPA OR MLP',
+        es: 'pickleball OR "pickle ball"',
+    },
     raquetinha: {
         pt: 'raquetinha OR racquetball',
         en: 'racquetball OR squash',
@@ -41,6 +53,7 @@ const CATEGORIAS = {
     tenis: { pt: 'Tênis', en: 'Tennis', es: 'Tenis' },
     padel: { pt: 'Padel', en: 'Padel', es: 'Padel' },
     beachtennis: { pt: 'Beach Tennis', en: 'Beach Tennis', es: 'Beach Tennis' },
+    pickleball: { pt: 'Pickleball', en: 'Pickleball', es: 'Pickleball' },
     raquetinha: { pt: 'Raquetinha', en: 'Racquetball', es: 'Racquetball' },
 };
 const GOOGLE_NEWS = {
@@ -64,6 +77,7 @@ function feedsExtras(esporte, idioma) {
             tenis: 'tennis',
             padel: 'padel',
             beachtennis: 'beachtennis',
+            pickleball: 'pickleball',
             raquetinha: 'racquetball',
         };
         const reddit = sub[esporte];

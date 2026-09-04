@@ -24,6 +24,8 @@ export {
 export { atualizarNoticias, atualizarNoticiasManual } from './noticiasHandlers';
 export { expirarPreReservasRanking } from './expirarReservas';
 export { enviarPushAoCriarNotificacao } from './pushNotificacoes';
+export { aplicarMovimentacaoRankingsMensal } from './aplicarMovimentacaoRankings';
+export { buscarQuadrasMaps } from './buscarQuadrasMaps';
 
 initializeApp();
 setGlobalOptions({ region: 'southamerica-east1' });

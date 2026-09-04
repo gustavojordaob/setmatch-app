@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
+import { Radius } from '../../constants/radius';
 import { WizardLayout } from '../../components/wizard/WizardLayout';
 import { useWizard } from '../../contexts/WizardContext';
 import { useT } from '../../hooks/useI18n';
@@ -32,6 +33,23 @@ export default function WizardGeneroScreen() {
           onPress={() => setDraft({ genero: 'feminino' as Genero })}
         />
       </View>
+
+      <TouchableOpacity
+        style={[
+          styles.skipBtn,
+          selecionado === 'prefiro_nao_dizer' && styles.skipBtnOn,
+        ]}
+        onPress={() => setDraft({ genero: 'prefiro_nao_dizer' as Genero })}
+      >
+        <Text
+          style={[
+            styles.skipTxt,
+            selecionado === 'prefiro_nao_dizer' && styles.skipTxtOn,
+          ]}
+        >
+          {t('wizard.genderPreferNot')}
+        </Text>
+      </TouchableOpacity>
     </WizardLayout>
   );
 }
@@ -78,4 +96,26 @@ const styles = StyleSheet.create({
   symbol: { fontSize: 48, color: Colors.white },
   symbolOn: { color: Colors.accent },
   label: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 16 },
+  skipBtn: {
+    alignSelf: 'center',
+    marginTop: 36,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: Radius.pill,
+    borderWidth: 1.5,
+    borderColor: Colors.white,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  skipBtnOn: {
+    borderColor: Colors.accent,
+    backgroundColor: Colors.accent,
+  },
+  skipTxt: {
+    color: Colors.textPrimary,
+    fontWeight: '700',
+    fontSize: 15,
+    textAlign: 'center',
+  },
+  skipTxtOn: { color: Colors.textOnAccent },
 });

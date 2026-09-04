@@ -5,6 +5,7 @@ import {
   getDocs,
   query,
   where,
+  type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
 import type { ConfrontoStatus } from './chaveamentoTorneio';
@@ -110,22 +111,36 @@ export async function listarProximosConfrontosTorneio(
 ): Promise<ConfrontoTorneioUsuario[]> {
   if (!uid) return [];
   const col = collectionGroup(db, 'confrontos');
-  const [a, b] = await Promise.all([
-    getDocs(query(col, where('j1Uid', '==', uid))),
-    getDocs(query(col, where('j2Uid', '==', uid))),
+
+  async function safeQuery(field: string) {
+    try {
+      return await getDocs(query(col, where(field, '==', uid)));
+    } catch (e) {
+      console.warn(`[confrontosTorneio] query ${field}`, e);
+      return null;
+    }
+  }
+
+  const [a, b, c, d] = await Promise.all([
+    safeQuery('j1Uid'),
+    safeQuery('j2Uid'),
+    safeQuery('j1ParceiroUid'),
+    safeQuery('j2ParceiroUid'),
   ]);
 
-  const map = new Map<string, (typeof a.docs)[0]>();
-  [...a.docs, ...b.docs].forEach((d) => {
-    if (!envolveUid(d.data(), uid)) return;
-    const st = String(d.data().status ?? '');
-    if (st !== 'pronto' && st !== 'aguardando') return;
-    if (!d.data().j1Uid || !d.data().j2Uid) {
-      // bye / slot vazio — só mostra se pronto com adversário
-      if (st !== 'pronto') return;
+  const map = new Map<string, QueryDocumentSnapshot>();
+  for (const snap of [a, b, c, d]) {
+    if (!snap) continue;
+    for (const docSnap of snap.docs) {
+      if (!envolveUid(docSnap.data(), uid)) continue;
+      const st = String(docSnap.data().status ?? '');
+      if (st !== 'pronto' && st !== 'aguardando') continue;
+      if (!docSnap.data().j1Uid || !docSnap.data().j2Uid) {
+        if (st !== 'pronto') continue;
+      }
+      map.set(docSnap.ref.path, docSnap);
     }
-    map.set(d.ref.path, d);
-  });
+  }
 
   const lista = await enriquecerTorneioNome([...map.values()]);
   return lista.sort((x, y) => {

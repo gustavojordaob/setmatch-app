@@ -55,7 +55,8 @@ export type FormatoPartidaTorneioId =
   | 'um_set_de_6'
   | 'dois_sets_de_6'
   | 'game_8'
-  | 'melhor_de_5_stb';
+  | 'melhor_de_5_stb'
+  | 'game_15';
 
 export interface FormatoPartidaTorneio {
   id: FormatoPartidaTorneioId;
@@ -69,6 +70,21 @@ export const FORMATOS_PARTIDA_TORNEIO: FormatoPartidaTorneio[] = [
   { id: 'um_set_de_6', label: '1 Set de 6', esportes: 'todos' },
   { id: 'dois_sets_de_6', label: '2 Sets de 6', esportes: 'todos' },
   { id: 'game_8', label: 'Game até 8', esportes: ['tenis', 'beachtennis', 'raquetinha'] },
+  {
+    id: 'game_11',
+    label: 'Game até 11 (diferença 2)',
+    esportes: ['pickleball'],
+  },
+  {
+    id: 'melhor_de_3_games_11',
+    label: 'Melhor de 3 · games até 11',
+    esportes: ['pickleball'],
+  },
+  {
+    id: 'game_15',
+    label: 'Game até 15',
+    esportes: ['pickleball'],
+  },
   { id: 'melhor_de_3', label: 'Melhor de 3 sets', esportes: 'todos' },
   {
     id: 'melhor_de_3_stb',
@@ -86,6 +102,16 @@ export function formatosPartidaPorEsporte(esporte: EsporteId): FormatoPartidaTor
   return FORMATOS_PARTIDA_TORNEIO.filter(
     (f) => f.esportes === 'todos' || f.esportes.includes(esporte)
   );
+}
+
+/** Sugestão ao admin ao trocar o esporte no torneio/ranking. */
+export function formatoPartidaPadraoPorEsporte(
+  esporte: EsporteId
+): FormatoPartidaTorneioId {
+  if (esporte === 'pickleball') return 'melhor_de_3_games_11';
+  if (esporte === 'tenis') return 'melhor_de_3_stb';
+  if (esporte === 'padel' || esporte === 'beachtennis') return 'dois_sets_de_6';
+  return 'tres_sets_de_3';
 }
 
 export interface GruposConfig {

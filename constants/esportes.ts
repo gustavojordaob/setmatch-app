@@ -1,6 +1,11 @@
 import { Colors } from './colors';
 
-export type EsporteId = 'tenis' | 'padel' | 'raquetinha' | 'beachtennis';
+export type EsporteId =
+  | 'tenis'
+  | 'padel'
+  | 'raquetinha'
+  | 'beachtennis'
+  | 'pickleball';
 
 export interface Esporte {
   id: EsporteId;
@@ -10,17 +15,20 @@ export interface Esporte {
   cor: string;
 }
 
+/** Ordem alinhada ao Figma da Home (+ Beach no final). */
 export const ESPORTES: Esporte[] = [
   { id: 'tenis', nome: 'Tênis', emoji: '🎾', cor: Colors.accent },
-  { id: 'padel', nome: 'Padel', emoji: '🟩', cor: Colors.accent },
-  { id: 'raquetinha', nome: 'Raquetinha', emoji: '🟣', cor: Colors.accent },
+  { id: 'raquetinha', nome: 'Raquetinha', emoji: '🏸', cor: Colors.accent },
+  { id: 'padel', nome: 'Padel', emoji: '🏓', cor: Colors.accent },
+  { id: 'pickleball', nome: 'Pickleball', emoji: '🟡', cor: Colors.accent },
   { id: 'beachtennis', nome: 'Beach tênis', emoji: '🏖️', cor: Colors.accent },
 ];
 
-/** Ordem de exibição no cadastro / switcher */
+/** Ordem no cadastro (wizard) — inclui Pickleball. */
 export const ESPORTES_ORDEM: EsporteId[] = [
   'tenis',
-  'beachtennis',
-  'padel',
   'raquetinha',
+  'padel',
+  'pickleball',
+  'beachtennis',
 ];

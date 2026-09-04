@@ -1,4 +1,4 @@
-import type { EsporteId } from '../constants/esportes';
+import type { EsporteId } from './esportes';
 
 /** Formato de confronto amistoso / desafio. */
 export type FormatoPartidaId =
@@ -7,7 +7,9 @@ export type FormatoPartidaId =
   | 'melhor_de_5'
   | 'dois_sets'
   | 'pro_set'
-  | 'so_tiebreak';
+  | 'so_tiebreak'
+  | 'game_11'
+  | 'melhor_de_3_games_11';
 
 export interface FormatoPartida {
   id: FormatoPartidaId;
@@ -74,6 +76,24 @@ export const FORMATOS_PARTIDA: FormatoPartida[] = [
     temSuperTiebreak: true,
     tiebreakAte: 10,
   },
+  {
+    id: 'game_11',
+    label: 'Game até 11 (diferença 2)',
+    short: 'G11',
+    desc: 'Padrão pickleball: um game até 11 pontos, vence com diferença de 2.',
+    setsParaVencer: 1,
+    temSuperTiebreak: false,
+    tiebreakAte: 11,
+  },
+  {
+    id: 'melhor_de_3_games_11',
+    label: 'Melhor de 3 · games até 11',
+    short: 'Md3·11',
+    desc: 'Pickleball clássico: melhor de 3 games, cada um até 11 (diferença 2).',
+    setsParaVencer: 2,
+    temSuperTiebreak: false,
+    tiebreakAte: 11,
+  },
 ];
 
 export function formatoPorId(id?: string | null): FormatoPartida {
@@ -82,4 +102,16 @@ export function formatoPorId(id?: string | null): FormatoPartida {
 
 export function labelFormato(id?: string | null): string {
   return formatoPorId(id).label;
+}
+
+/** Formatos sugeridos no desafio amistoso por esporte. */
+export function formatosDesafioPorEsporte(esporte: EsporteId): FormatoPartida[] {
+  if (esporte === 'pickleball') {
+    return FORMATOS_PARTIDA.filter((f) =>
+      ['game_11', 'melhor_de_3_games_11', 'melhor_de_3', 'so_tiebreak'].includes(f.id)
+    );
+  }
+  return FORMATOS_PARTIDA.filter(
+    (f) => f.id !== 'game_11' && f.id !== 'melhor_de_3_games_11'
+  );
 }

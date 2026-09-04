@@ -216,6 +216,14 @@ service cloud.firestore {
       }
     }
 
+    // collectionGroup('confrontos') / collectionGroup('inscritos') — Home, desafios, etc.
+    match /{path=**}/confrontos/{confrontoId} {
+      allow read: if isAuth();
+    }
+    match /{path=**}/inscritos/{inscritoId} {
+      allow read: if isAuth();
+    }
+
     match /interessesAulas/{id} {
       allow read: if isAuth()
         && (request.auth.uid == resource.data.uid

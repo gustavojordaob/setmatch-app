@@ -36,6 +36,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { criarRankingNoClube } from '../../services/clubes';
 import { REGRAS_JOGO_PADRAO } from '../../types/ranking';
+import { formatoPartidaPadraoPorEsporte } from '../../constants/chaveamentosTorneio';
 
 export default function RankingNovoAdminScreen() {
   const { clubeId } = useLocalSearchParams<{ clubeId: string }>();
@@ -72,6 +73,10 @@ export default function RankingNovoAdminScreen() {
         if (esp) {
           setEsporte(esp);
           setComposicao(composicaoPadraoPorEsporte(esp));
+          setRegrasForm((prev) => ({
+            ...prev,
+            formato: formatoPartidaPadraoPorEsporte(esp),
+          }));
         }
       }
     })();
@@ -165,6 +170,10 @@ export default function RankingNovoAdminScreen() {
                   onPress={() => {
                     setEsporte(e.id);
                     setComposicao(composicaoPadraoPorEsporte(e.id));
+                    setRegrasForm((prev) => ({
+                      ...prev,
+                      formato: formatoPartidaPadraoPorEsporte(e.id),
+                    }));
                   }}
                 >
                   <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{e.nome}</Text>
@@ -175,7 +184,7 @@ export default function RankingNovoAdminScreen() {
 
           <Text style={styles.label}>Composição</Text>
           <Text style={[styles.meta, { marginBottom: 8 }]}>
-            Em duplas, cada jogador paga a própria taxa ao entrar.
+            Pickleball, padel e beach sugerem duplas. Em duplas, cada jogador paga a própria taxa.
           </Text>
           <View style={styles.chips}>
             {(['simples', 'dupla'] as ComposicaoId[]).map((c) => {

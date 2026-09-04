@@ -9,10 +9,13 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { db } from '../utils/firebaseConfig';
+import { auth, db } from '../utils/firebaseConfig';
+import { getBuscarQuadrasMapsUrl } from '../utils/config';
 import { distanciaKm } from '../utils/geo';
 
 export const RAIO_PADRAO_KM = 25;
+/** Distância para considerar Places duplicado de um clube conveniado. */
+const DEDUP_CLUBE_KM = 0.12;
 
 export interface Coords {
   lat: number;
@@ -71,7 +74,72 @@ export interface QuadraProxima {
   estado?: string;
   endereco?: string;
   distanciaKm: number;
-  tipo: 'clube' | 'quadra';
+  tipo: 'clube' | 'quadra' | 'maps';
+  /** 'rally' = clube/quadra no app; 'maps' = Google Places */
+  fonte: 'rally' | 'maps';
+  lat?: number;
+  lng?: number;
+  placeId?: string;
+  mapsUrl?: string;
+  rating?: number;
+}
+
+type MapsPlaceDto = {
+  id: string;
+  placeId: string;
+  nome: string;
+  endereco?: string;
+  lat: number;
+  lng: number;
+  distanciaKm: number;
+  rating?: number;
+  mapsUrl: string;
+};
+
+/** Google Places via Cloud Function (qualquer quadra perto, não só conveniadas). */
+export async function buscarQuadrasNoMaps(opts: {
+  lat: number;
+  lng: number;
+  raioKm?: number;
+  query?: string;
+}): Promise<QuadraProxima[]> {
+  const user = auth.currentUser;
+  if (!user) return [];
+  const token = await user.getIdToken();
+  const res = await fetch(getBuscarQuadrasMapsUrl(), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      lat: opts.lat,
+      lng: opts.lng,
+      raioKm: opts.raioKm ?? RAIO_PADRAO_KM,
+      query: opts.query?.trim() || undefined,
+    }),
+  });
+  const json = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    lugares?: MapsPlaceDto[];
+    error?: string;
+  };
+  if (!res.ok) {
+    throw new Error(json.error || `Maps HTTP ${res.status}`);
+  }
+  return (json.lugares || []).map((p) => ({
+    id: p.id,
+    nome: p.nome,
+    endereco: p.endereco,
+    distanciaKm: p.distanciaKm,
+    tipo: 'maps' as const,
+    fonte: 'maps' as const,
+    lat: p.lat,
+    lng: p.lng,
+    placeId: p.placeId,
+    mapsUrl: p.mapsUrl,
+    rating: p.rating,
+  }));
 }
 
 /** Candidatos por estado (ou todos se vazio), filtrados por Haversine. */
@@ -126,6 +194,10 @@ export async function listarQuadrasProximas(opts: {
   lng: number;
   estado?: string;
   raioKm?: number;
+  /** Busca textual no Google Places (ex.: "padel", "Winner"). */
+  queryMaps?: string;
+  /** Se false, só clubes/quadras do app. Default true. */
+  incluirMaps?: boolean;
 }): Promise<QuadraProxima[]> {
   const raio = opts.raioKm ?? RAIO_PADRAO_KM;
   const out: QuadraProxima[] = [];
@@ -149,6 +221,9 @@ export async function listarQuadrasProximas(opts: {
       endereco: raw.endereco ? String(raw.endereco) : undefined,
       distanciaKm: km,
       tipo: 'clube',
+      fonte: 'rally',
+      lat,
+      lng,
     });
   }
 
@@ -171,10 +246,37 @@ export async function listarQuadrasProximas(opts: {
         endereco: raw.endereco ? String(raw.endereco) : undefined,
         distanciaKm: km,
         tipo: 'quadra',
+        fonte: 'rally',
+        lat,
+        lng,
       });
     }
   } catch {
     // coleção pode estar vazia / sem índice
+  }
+
+  if (opts.incluirMaps !== false) {
+    try {
+      const maps = await buscarQuadrasNoMaps({
+        lat: opts.lat,
+        lng: opts.lng,
+        raioKm: raio,
+        query: opts.queryMaps,
+      });
+      const rallyComCoord = out.filter(
+        (q) => Number.isFinite(q.lat) && Number.isFinite(q.lng)
+      );
+      for (const m of maps) {
+        const dup = rallyComCoord.some(
+          (r) =>
+            distanciaKm(r.lat!, r.lng!, m.lat!, m.lng!) < DEDUP_CLUBE_KM
+        );
+        if (dup) continue;
+        out.push(m);
+      }
+    } catch (e) {
+      console.warn('[listarQuadrasProximas] Maps:', e);
+    }
   }
 
   return out.sort((a, b) => a.distanciaKm - b.distanciaKm);

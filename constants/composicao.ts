@@ -4,6 +4,7 @@ import type { EsporteId } from './esportes';
 export type ComposicaoId = 'simples' | 'dupla';
 
 export function composicaoPadraoPorEsporte(esporte: EsporteId): ComposicaoId {
+  // Tênis costuma simples; padel, beach, pickleball e raquetinha → duplas
   if (esporte === 'tenis') return 'simples';
   return 'dupla';
 }
