@@ -4,6 +4,7 @@ import {
   Alert,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -14,8 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Button } from '../../components/ui/Button';
-import { Avatar } from '../../components/ui/Avatar';
+import { DualAvatar } from '../../components/ui/DualAvatar';
 import { useAuth } from '../../hooks/useAuth';
+import { labelDupla } from '../../utils/duplaDisplay';
 import {
   atualizarStatusDesafio,
   buscarDesafio,
@@ -29,9 +31,15 @@ type DesafioDoc = {
   desafiante: string;
   desafianteNome?: string;
   desafianteFoto?: string;
+  desafianteParceiroUid?: string;
+  desafianteParceiroNome?: string;
+  desafianteParceiroFoto?: string;
   desafiado: string;
   desafiadoNome?: string;
   desafiadoFoto?: string;
+  desafiadoParceiroUid?: string;
+  desafiadoParceiroNome?: string;
+  desafiadoParceiroFoto?: string;
   esporte: string;
   quadra: string;
   status: string;
@@ -40,6 +48,8 @@ type DesafioDoc = {
   dataSugerida?: string;
   clubeId?: string;
   clubeNome?: string;
+  rankingId?: string;
+  rankingNome?: string;
 };
 
 export default function DesafioDetalheScreen() {
@@ -51,6 +61,7 @@ export default function DesafioDetalheScreen() {
   const [busy, setBusy] = useState(false);
   const [s1, setS1] = useState('6');
   const [s2, setS2] = useState('4');
+  const [publicarFeed, setPublicarFeed] = useState(true);
 
   const carregar = useCallback(async () => {
     if (!id) return;
@@ -63,9 +74,27 @@ export default function DesafioDetalheScreen() {
         desafiante: String(r.desafiante ?? ''),
         desafianteNome: r.desafianteNome ? String(r.desafianteNome) : undefined,
         desafianteFoto: r.desafianteFoto ? String(r.desafianteFoto) : undefined,
+        desafianteParceiroUid: r.desafianteParceiroUid
+          ? String(r.desafianteParceiroUid)
+          : undefined,
+        desafianteParceiroNome: r.desafianteParceiroNome
+          ? String(r.desafianteParceiroNome)
+          : undefined,
+        desafianteParceiroFoto: r.desafianteParceiroFoto
+          ? String(r.desafianteParceiroFoto)
+          : undefined,
         desafiado: String(r.desafiado ?? ''),
         desafiadoNome: r.desafiadoNome ? String(r.desafiadoNome) : undefined,
         desafiadoFoto: r.desafiadoFoto ? String(r.desafiadoFoto) : undefined,
+        desafiadoParceiroUid: r.desafiadoParceiroUid
+          ? String(r.desafiadoParceiroUid)
+          : undefined,
+        desafiadoParceiroNome: r.desafiadoParceiroNome
+          ? String(r.desafiadoParceiroNome)
+          : undefined,
+        desafiadoParceiroFoto: r.desafiadoParceiroFoto
+          ? String(r.desafiadoParceiroFoto)
+          : undefined,
         esporte: String(r.esporte ?? 'tenis'),
         quadra: String(r.quadra ?? ''),
         status: String(r.status ?? 'pendente'),
@@ -74,6 +103,8 @@ export default function DesafioDetalheScreen() {
         dataSugerida: r.dataSugerida ? String(r.dataSugerida) : undefined,
         clubeId: r.clubeId ? String(r.clubeId) : undefined,
         clubeNome: r.clubeNome ? String(r.clubeNome) : undefined,
+        rankingId: r.rankingId ? String(r.rankingId) : undefined,
+        rankingNome: r.rankingNome ? String(r.rankingNome) : undefined,
       });
     } else setD(null);
     setLoading(false);
@@ -113,8 +144,16 @@ export default function DesafioDetalheScreen() {
         desafioId: d.id,
         jogador1: d.desafiante,
         jogador1Nome: d.desafianteNome ?? 'Jogador 1',
+        jogador1Foto: d.desafianteFoto,
+        jogador1ParceiroUid: d.desafianteParceiroUid,
+        jogador1ParceiroNome: d.desafianteParceiroNome,
+        jogador1ParceiroFoto: d.desafianteParceiroFoto,
         jogador2: d.desafiado,
         jogador2Nome: d.desafiadoNome ?? 'Jogador 2',
+        jogador2Foto: d.desafiadoFoto,
+        jogador2ParceiroUid: d.desafiadoParceiroUid,
+        jogador2ParceiroNome: d.desafiadoParceiroNome,
+        jogador2ParceiroFoto: d.desafiadoParceiroFoto,
         sets: [{ j1, j2 }],
         vencedor,
         esporte: (d.esporte as EsporteId) || 'tenis',
@@ -122,8 +161,27 @@ export default function DesafioDetalheScreen() {
         clubeId: d.clubeId,
         clubeNome: d.clubeNome,
         formato: d.formato as FormatoPartidaId | undefined,
+        rankingId: d.rankingId || undefined,
+        publicarNoFeed: publicarFeed,
       });
-      Alert.alert('Partida', 'Resultado registrado e publicado no feed.');
+      const msgs = [
+        'Resultado registrado.',
+        publicarFeed ? 'Publicado no feed.' : 'Sem post no feed.',
+        d.rankingId ? 'Pontos do ranking atualizados.' : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+      if (d.rankingId) {
+        Alert.alert('Partida', msgs, [
+          { text: 'OK', style: 'cancel' },
+          {
+            text: 'Ver confrontos',
+            onPress: () => router.push(`/ranking/${d.rankingId}/confrontos`),
+          },
+        ]);
+      } else {
+        Alert.alert('Partida', msgs);
+      }
       await carregar();
     } catch (e: unknown) {
       Alert.alert('Partida', e instanceof Error ? e.message : 'Erro');
@@ -176,16 +234,28 @@ export default function DesafioDetalheScreen() {
           </Text>
           <View style={styles.vsRow}>
             <View style={styles.playerCol}>
-              <Avatar uri={d.desafianteFoto} nome={d.desafianteNome} size="lg" />
+              <DualAvatar
+                nomeA={d.desafianteNome ?? 'Jogador'}
+                fotoA={d.desafianteFoto}
+                nomeB={d.desafianteParceiroNome}
+                fotoB={d.desafianteParceiroFoto}
+                size="lg"
+              />
               <Text style={styles.playerName} numberOfLines={2}>
-                {d.desafianteNome ?? 'Jogador'}
+                {labelDupla(d.desafianteNome ?? 'Jogador', d.desafianteParceiroNome)}
               </Text>
             </View>
             <Text style={styles.vsText}>VS</Text>
             <View style={styles.playerCol}>
-              <Avatar uri={d.desafiadoFoto} nome={d.desafiadoNome} size="lg" />
+              <DualAvatar
+                nomeA={d.desafiadoNome ?? 'Jogador'}
+                fotoA={d.desafiadoFoto}
+                nomeB={d.desafiadoParceiroNome}
+                fotoB={d.desafiadoParceiroFoto}
+                size="lg"
+              />
               <Text style={styles.playerName} numberOfLines={2}>
-                {d.desafiadoNome ?? 'Jogador'}
+                {labelDupla(d.desafiadoNome ?? 'Jogador', d.desafiadoParceiroNome)}
               </Text>
             </View>
           </View>
@@ -203,6 +273,9 @@ export default function DesafioDetalheScreen() {
             value={statusLabel[d.status] ?? d.status}
             accent
           />
+          {d.rankingNome ? (
+            <InfoRow icon="podium-outline" label="Ranking" value={d.rankingNome} accent />
+          ) : null}
           {d.mensagem ? (
             <Text style={styles.msg}>“{d.mensagem}”</Text>
           ) : null}
@@ -228,8 +301,11 @@ export default function DesafioDetalheScreen() {
             </Text>
             <View style={styles.placarRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.placarNome} numberOfLines={1}>
-                  {d.desafianteNome?.split(' ')[0]}
+                <Text style={styles.placarNome} numberOfLines={2}>
+                  {labelDupla(
+                    d.desafianteNome ?? 'J1',
+                    d.desafianteParceiroNome
+                  )}
                 </Text>
                 <TextInput
                   style={styles.placarInput}
@@ -240,8 +316,8 @@ export default function DesafioDetalheScreen() {
               </View>
               <Text style={styles.vsSmall}>×</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.placarNome} numberOfLines={1}>
-                  {d.desafiadoNome?.split(' ')[0]}
+                <Text style={styles.placarNome} numberOfLines={2}>
+                  {labelDupla(d.desafiadoNome ?? 'J2', d.desafiadoParceiroNome)}
                 </Text>
                 <TextInput
                   style={styles.placarInput}
@@ -251,12 +327,22 @@ export default function DesafioDetalheScreen() {
                 />
               </View>
             </View>
+            <View style={styles.feedRow}>
+              <Text style={styles.feedLabel}>Publicar no meu feed</Text>
+              <Switch
+                value={publicarFeed}
+                onValueChange={setPublicarFeed}
+                trackColor={{ true: Colors.accent }}
+              />
+            </View>
             <Button label="Salvar resultado" onPress={() => void registrar()} loading={busy} />
           </View>
         ) : null}
 
         {d.status === 'finalizado' ? (
-          <Text style={styles.done}>Partida finalizada — veja no feed.</Text>
+          <Text style={styles.done}>
+            Partida finalizada{d.rankingId ? ' · pontos do ranking aplicados' : ''}.
+          </Text>
         ) : null}
       </ScrollView>
     </SafeAreaView>
@@ -345,6 +431,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   vsSmall: { color: Colors.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 14 },
+  feedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  feedLabel: { color: Colors.textPrimary, fontWeight: '600', flex: 1, marginRight: 12 },
   done: { color: Colors.accent, textAlign: 'center', fontWeight: '700' },
   empty: { color: Colors.textSecondary, textAlign: 'center', marginTop: 40 },
 });

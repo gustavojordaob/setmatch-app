@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,12 +8,65 @@ import { Radius } from '../../constants/radius';
 import { RecentMatchCard } from '../../components/home/RecentMatchCard';
 import { useAuth } from '../../hooks/useAuth';
 import { formatDataPartida, usePartidas } from '../../hooks/usePartidas';
+import { useDesafios } from '../../hooks/useDesafios';
+import { useConfrontosTorneio } from '../../hooks/useConfrontosTorneio';
 import { useT } from '../../hooks/useI18n';
 
 type AbaCal = 'proximas' | 'historico';
 
 import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
 const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
+
+function ProximosCalendario() {
+  const router = useRouter();
+  const t = useT();
+  const { user } = useAuth();
+  const { agendados } = useDesafios();
+  const { proximos, loading } = useConfrontosTorneio();
+
+  if (loading) {
+    return <ActivityIndicator color={Colors.accent} style={{ marginTop: 24 }} />;
+  }
+  if (agendados.length === 0 && proximos.length === 0) {
+    return <Text style={styles.empty}>{t('home.noUpcoming')}</Text>;
+  }
+  return (
+    <View style={{ gap: 10 }}>
+      {proximos.map((c) => (
+        <TouchableOpacity
+          key={`${c.torneioId}-${c.id}`}
+          style={styles.proxCard}
+          onPress={() => router.push(c.rota as never)}
+        >
+          <Text style={styles.proxTitle} numberOfLines={2}>
+            🏆 {c.j1Nome} vs {c.j2Nome}
+          </Text>
+          <Text style={styles.proxSub}>
+            {c.torneioNome}
+            {c.dataHoraInicio ? ` · ${c.dataHoraInicio}` : ''}
+          </Text>
+        </TouchableOpacity>
+      ))}
+      {agendados.map((d) => {
+        const outro =
+          d.desafiante === user?.uid ? d.desafiadoNome : d.desafianteNome;
+        return (
+          <TouchableOpacity
+            key={d.id}
+            style={styles.proxCard}
+            onPress={() => router.push(`/desafio/${d.id}`)}
+          >
+            <Text style={styles.proxTitle}>vs {outro}</Text>
+            <Text style={styles.proxSub}>
+              Desafio · {d.quadra}
+              {d.dataSugerida ? ` · ${d.dataSugerida}` : ''}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
 
 export default function EstatisticasScreen() {
   const router = useRouter();
@@ -91,11 +144,17 @@ export default function EstatisticasScreen() {
                         vitoria={vitoria}
                         jogador1={{
                           nome: p.jogador1Nome ?? (p.jogador1 === user?.uid ? meuNome : 'Jogador'),
+                          foto: p.jogador1Foto,
+                          parceiroNome: p.jogador1ParceiroNome,
+                          parceiroFoto: p.jogador1ParceiroFoto,
                           sets: p.sets.map((s) => s.j1),
                           winner: p.vencedor === p.jogador1,
                         }}
                         jogador2={{
                           nome: p.jogador2Nome ?? (p.jogador2 === user?.uid ? meuNome : 'Adversário'),
+                          foto: p.jogador2Foto,
+                          parceiroNome: p.jogador2ParceiroNome,
+                          parceiroFoto: p.jogador2ParceiroFoto,
                           sets: p.sets.map((s) => s.j2),
                           winner: p.vencedor === p.jogador2,
                         }}
@@ -107,7 +166,7 @@ export default function EstatisticasScreen() {
               ))
             )
           ) : (
-            <Text style={styles.empty}>{t('home.noUpcoming')}</Text>
+            <ProximosCalendario />
           )}
         </ScrollView>
       </SafeAreaView>
@@ -185,4 +244,12 @@ const styles = StyleSheet.create({
     marginTop: 40,
     fontSize: 15,
   },
+  proxCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 14,
+    gap: 4,
+  },
+  proxTitle: { color: Colors.textPrimary, fontWeight: '800', fontSize: 14 },
+  proxSub: { color: Colors.textSecondary, fontSize: 12 },
 });

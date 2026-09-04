@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,17 +12,26 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { doc, getDoc } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
-import { db } from '../../utils/firebaseConfig';
-import { Colors } from '../../constants/colors';
-import { Avatar } from '../../components/ui/Avatar';
-import { useClassificacao } from '../../hooks/useRankings';
-import type { Ranking } from '../../types/ranking';
-import type { EsporteId } from '../../constants/esportes';
-import { resumoPromoCurto, textoCicloPagamento } from '../../utils/checkoutComMeio';
+import { db } from '../../../utils/firebaseConfig';
+import { Colors } from '../../../constants/colors';
+import { Radius } from '../../../constants/radius';
+import { Avatar } from '../../../components/ui/Avatar';
+import { useAuth } from '../../../hooks/useAuth';
+import { useClassificacao } from '../../../hooks/useRankings';
+import {
+  labelFormatoRanking,
+  labelModeloRanking,
+  normalizarRegrasJogo,
+  type Ranking,
+  type RankingRegrasJogo,
+} from '../../../types/ranking';
+import type { EsporteId } from '../../../constants/esportes';
+import { resumoPromoCurto, textoCicloPagamento } from '../../../utils/checkoutComMeio';
 
 export default function RankingDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuth();
   const [ranking, setRanking] = useState<Ranking | null>(null);
   const { rows, loading } = useClassificacao(id ?? null);
 
@@ -36,11 +46,13 @@ export default function RankingDetailScreen() {
           nome: String(raw.nome ?? ''),
           clubeId: String(raw.clubeId ?? ''),
           clubeNome: String(raw.clubeNome ?? ''),
+          clubeLogoUrl: raw.clubeLogoUrl ? String(raw.clubeLogoUrl) : undefined,
           cidade: String(raw.cidade ?? ''),
           esporte: (raw.esporte as EsporteId) ?? 'tenis',
           donoUid: String(raw.donoUid ?? ''),
           membros: (raw.membros as string[]) ?? [],
           totalMembros: Number(raw.totalMembros ?? 0),
+          regrasJogo: raw.regrasJogo as RankingRegrasJogo | undefined,
           pagamento: raw.pagamento
             ? {
                 ativo: Boolean((raw.pagamento as { ativo?: boolean }).ativo),
@@ -62,7 +74,8 @@ export default function RankingDetailScreen() {
                   (raw.pagamento as { descontoPixPercent?: number }).descontoPixPercent ?? 0
                 ),
                 descontoCartaoPercent: Number(
-                  (raw.pagamento as { descontoCartaoPercent?: number }).descontoCartaoPercent ?? 0
+                  (raw.pagamento as { descontoCartaoPercent?: number }).descontoCartaoPercent ??
+                    0
                 ),
               }
             : undefined,
@@ -70,6 +83,10 @@ export default function RankingDetailScreen() {
       }
     })();
   }, [id]);
+
+  const regras = normalizarRegrasJogo(ranking?.regrasJogo);
+  const souMembro = !!(user && ranking?.membros.includes(user.uid));
+  const souDono = !!(user && ranking && user.uid === ranking.donoUid);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -86,11 +103,25 @@ export default function RankingDetailScreen() {
       <ScrollView contentContainerStyle={styles.body}>
         {ranking ? (
           <View style={styles.clubeBox}>
-            <Ionicons name="trophy" size={28} color={Colors.accent} />
+            {ranking.clubeLogoUrl ? (
+              <Image
+                source={{ uri: ranking.clubeLogoUrl }}
+                style={styles.clubeLogo}
+              />
+            ) : (
+              <Ionicons name="trophy" size={28} color={Colors.accent} />
+            )}
             <View style={{ flex: 1 }}>
+              <Text style={styles.rankingNome}>{ranking.nome}</Text>
               <Text style={styles.clubeNome}>{ranking.clubeNome}</Text>
               <Text style={styles.clubeMeta}>
                 {ranking.cidade} · {ranking.totalMembros} jogadores
+              </Text>
+              <Text style={styles.rulesMeta}>
+                {labelModeloRanking(regras.modelo)} · {labelFormatoRanking(regras.formatoPartidaId)}{' '}
+                · {regras.jogosPorMes} jogos/mês · limpa {regras.ptsJogoCompleto} pts · jogar +
+                {regras.ptsParticipacao}
+                {'\n'}Sem jogo no mês civil → pontos zerados.
               </Text>
               {ranking.pagamento?.ativo ? (
                 <Text style={styles.payMeta}>
@@ -105,6 +136,29 @@ export default function RankingDetailScreen() {
               ) : null}
             </View>
           </View>
+        ) : null}
+
+        {souMembro && id ? (
+          <TouchableOpacity
+            style={styles.cta}
+            onPress={() => router.push(`/ranking/${id}/confrontos`)}
+          >
+            <Ionicons name="people-outline" size={22} color={Colors.textOnAccent} />
+            <Text style={styles.ctaTxt}>Meus confrontos</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textOnAccent} />
+          </TouchableOpacity>
+        ) : null}
+
+        {souDono && id ? (
+          <TouchableOpacity
+            style={styles.ctaGhost}
+            onPress={() =>
+              router.push({ pathname: '/clube/ranking-regras', params: { rankingId: id } })
+            }
+          >
+            <Ionicons name="settings-outline" size={20} color={Colors.accent} />
+            <Text style={styles.ctaGhostTxt}>Editar regras do ranking</Text>
+          </TouchableOpacity>
         ) : null}
 
         <View style={styles.tableHead}>
@@ -154,7 +208,13 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
-  headerTitle: { flex: 1, textAlign: 'center', color: Colors.textPrimary, fontSize: 18, fontWeight: 'bold' },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    color: Colors.textPrimary,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
   body: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 },
   clubeBox: {
     flexDirection: 'row',
@@ -164,11 +224,44 @@ const styles = StyleSheet.create({
     borderColor: Colors.accent,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 20,
+    marginBottom: 12,
   },
-  clubeNome: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 16 },
+  clubeLogo: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.white,
+    backgroundColor: Colors.surfaceDark,
+  },
+  rankingNome: { color: Colors.accent, fontWeight: '800', fontSize: 18 },
+  clubeNome: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 15, marginTop: 2 },
   clubeMeta: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
+  rulesMeta: { color: Colors.accent, fontSize: 12, marginTop: 6, lineHeight: 16 },
   payMeta: { color: Colors.accent, fontSize: 12, marginTop: 6, lineHeight: 16 },
+  cta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.accent,
+    borderRadius: Radius.pill,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    marginBottom: 10,
+  },
+  ctaTxt: { flex: 1, color: Colors.textOnAccent, fontWeight: '800', fontSize: 15 },
+  ctaGhost: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: Colors.accent,
+    borderRadius: Radius.pill,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    marginBottom: 16,
+  },
+  ctaGhostTxt: { color: Colors.accent, fontWeight: '700', fontSize: 14 },
   tableHead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -177,9 +270,27 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.2)',
   },
   thPos: { width: 24, color: Colors.textSecondary, fontSize: 12, fontWeight: 'bold' },
-  thNome: { flex: 1, color: Colors.textSecondary, fontSize: 12, fontWeight: 'bold', marginLeft: 8 },
-  thStat: { width: 48, color: Colors.textSecondary, fontSize: 12, fontWeight: 'bold', textAlign: 'center' },
-  thPts: { width: 44, color: Colors.textSecondary, fontSize: 12, fontWeight: 'bold', textAlign: 'right' },
+  thNome: {
+    flex: 1,
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  thStat: {
+    width: 48,
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  thPts: {
+    width: 44,
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'right',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -191,6 +302,12 @@ const styles = StyleSheet.create({
   nomeWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 8 },
   nome: { flex: 1, color: Colors.textPrimary, fontWeight: '600', fontSize: 14 },
   stat: { width: 48, color: Colors.textSecondary, fontSize: 13, textAlign: 'center' },
-  pts: { width: 44, color: Colors.textPrimary, fontWeight: 'bold', fontSize: 14, textAlign: 'right' },
+  pts: {
+    width: 44,
+    color: Colors.textPrimary,
+    fontWeight: 'bold',
+    fontSize: 14,
+    textAlign: 'right',
+  },
   empty: { color: Colors.textSecondary, textAlign: 'center', marginTop: 24 },
 });

@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,6 +27,7 @@ import {
   recusarSolicitacao,
   solicitarEntrada,
 } from '../../services/rankings';
+import { buscarUsuarioPorEmailOuId } from '../../services/duplas';
 import { abrirOuCriarConversaClube, enviarMensagem } from '../../services/mensagens';
 import { registrarInteresseAulas } from '../../services/torneios';
 import { criarRegistroPagamento, solicitarAulas } from '../../services/pagamentos';
@@ -44,6 +47,9 @@ import { UnreadBadge } from '../../components/ui/UnreadBadge';
 
 import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
 const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
+/** Preview na aba Clubes — lista completa em /rankings */
+const PREVIEW_MEUS = 3;
+const PREVIEW_PROXIMOS = 3;
 type Aba = 'rankings' | 'torneios';
 
 export default function TrofeuScreen() {
@@ -60,6 +66,8 @@ export default function TrofeuScreen() {
   const [busca, setBusca] = useState('');
   const [enviando, setEnviando] = useState<string | null>(null);
   const [aba, setAba] = useState<Aba>('rankings');
+  const [rankingDupla, setRankingDupla] = useState<Ranking | null>(null);
+  const [parceiroBusca, setParceiroBusca] = useState('');
 
   const esporteNome = t(`esporte.${esporteAtivo}`);
   const minhaCidade = (perfil?.cidade ?? '').toLowerCase();
@@ -113,10 +121,26 @@ export default function TrofeuScreen() {
     });
   }, [torneios, busca, minhaCidade, clubeAtivoId]);
 
-  async function handleSolicitar(r: Ranking) {
+  async function handleSolicitar(r: Ranking, buscaParceiro?: string) {
     if (!user || !perfil) return;
+    if (r.composicao === 'dupla' && !buscaParceiro?.trim()) {
+      setRankingDupla(r);
+      setParceiroBusca('');
+      return;
+    }
     setEnviando(r.id);
     try {
+      let parceiroUid: string | undefined;
+      let parceiroNome: string | undefined;
+      if (r.composicao === 'dupla' && buscaParceiro) {
+        const p = await buscarUsuarioPorEmailOuId(buscaParceiro);
+        if (!p) {
+          Alert.alert('Dupla', 'Parceiro não encontrado. Use e-mail ou ID (SM-…).');
+          return;
+        }
+        parceiroUid = p.uid;
+        parceiroNome = p.nome;
+      }
       await solicitarEntrada({
         rankingId: r.id,
         rankingNome: r.nome,
@@ -126,7 +150,11 @@ export default function TrofeuScreen() {
         uid: user.uid,
         nome: perfil.nome,
         fotoUrl: perfil.fotoUrl,
+        parceiroUid,
+        parceiroNome,
+        parceiroBusca: buscaParceiro,
       });
+      setRankingDupla(null);
       const conversaId = await abrirOuCriarConversaClube({
         uid: user.uid,
         nome: perfil.nome,
@@ -415,12 +443,13 @@ export default function TrofeuScreen() {
                   {meusEsporte.length > 0 ? (
                     <>
                       <Text style={styles.section}>Meus rankings · {esporteNome}</Text>
-                      {meusEsporte.map((r) => (
+                      {meusEsporte.slice(0, PREVIEW_MEUS).map((r) => (
                         <View key={r.id} style={{ marginBottom: 8 }}>
                           <RankingConnectedCard
                             ranking={r}
                             pinned
                             onVerMais={() => router.push(`/ranking/${r.id}`)}
+                            onConfrontos={() => router.push(`/ranking/${r.id}/confrontos`)}
                           />
                           <TouchableOpacity
                             style={styles.verClubeLink}
@@ -430,6 +459,19 @@ export default function TrofeuScreen() {
                           </TouchableOpacity>
                         </View>
                       ))}
+                      {meusEsporte.length > PREVIEW_MEUS ? (
+                        <TouchableOpacity
+                          style={styles.verTodosBtn}
+                          onPress={() => router.push('/rankings?secao=meus')}
+                        >
+                          <Text style={styles.verTodosTxt}>
+                            {t('trofeu.seeAllMyRankings', {
+                              count: meusEsporte.length,
+                            })}
+                          </Text>
+                          <Ionicons name="chevron-forward" size={18} color={Colors.textOnAccent} />
+                        </TouchableOpacity>
+                      ) : null}
                     </>
                   ) : null}
 
@@ -439,51 +481,84 @@ export default function TrofeuScreen() {
                   {proximosFiltrados.length === 0 ? (
                     <Text style={styles.empty}>{t('trofeu.noActiveRanking')}</Text>
                   ) : (
-                    proximosFiltrados.map((r) => {
-                      const status = statusPorRanking.get(r.id);
-                      return (
-                        <View key={r.id} style={styles.clubeCard}>
-                          <TouchableOpacity
-                            style={styles.clubeInfo}
-                            onPress={() => router.push(`/ranking/${r.id}`)}
-                          >
-                            <Text style={styles.clubeNome}>{r.nome}</Text>
-                            <Text style={styles.clubeMeta}>
-                              {r.clubeNome} · {r.cidade}
-                            </Text>
-                            <Text style={styles.clubeMembros}>
-                              {r.totalMembros}{' '}
-                              {r.totalMembros === 1 ? 'jogador' : 'jogadores'}
-                            </Text>
-                          </TouchableOpacity>
-                          <View style={styles.actionsCol}>
+                    <>
+                      {proximosFiltrados.slice(0, PREVIEW_PROXIMOS).map((r) => {
+                        const status = statusPorRanking.get(r.id);
+                        return (
+                          <View key={r.id} style={styles.clubeCard}>
                             <TouchableOpacity
-                              style={[
-                                styles.solicitarBtn,
-                                status === 'pendente' && styles.pendenteBtn,
-                              ]}
-                              disabled={status === 'pendente' || enviando === r.id}
-                              onPress={() => void handleSolicitar(r)}
+                              style={styles.clubeInfo}
+                              onPress={() => router.push(`/ranking/${r.id}`)}
                             >
-                              {enviando === r.id ? (
-                                <ActivityIndicator color={Colors.textOnAccent} size="small" />
-                              ) : (
-                                <Text style={styles.solicitarTxt}>
-                                  {status === 'pendente' ? 'Pendente' : 'Solicitar'}
-                                </Text>
-                              )}
+                              <View style={styles.clubeTituloRow}>
+                                {r.clubeLogoUrl ? (
+                                  <Image
+                                    source={{ uri: r.clubeLogoUrl }}
+                                    style={styles.clubeLogo}
+                                  />
+                                ) : (
+                                  <View style={styles.clubeLogoFallback}>
+                                    <Text style={styles.clubeLogoFallbackTxt}>
+                                      {r.clubeNome.charAt(0).toUpperCase()}
+                                    </Text>
+                                  </View>
+                                )}
+                                <View style={{ flex: 1, minWidth: 0 }}>
+                                  <Text style={styles.clubeNome} numberOfLines={2}>
+                                    {r.nome}
+                                  </Text>
+                                  <Text style={styles.clubeMeta} numberOfLines={1}>
+                                    {r.clubeNome} · {r.cidade}
+                                  </Text>
+                                </View>
+                              </View>
+                              <Text style={styles.clubeMembros}>
+                                {r.totalMembros}{' '}
+                                {r.totalMembros === 1 ? 'jogador' : 'jogadores'}
+                              </Text>
                             </TouchableOpacity>
-                            <TouchableOpacity
-                              style={styles.msgClube}
-                              onPress={() => void handleAulas(r)}
-                              disabled={enviando === `aula-${r.id}`}
-                            >
-                              <Text style={styles.msgClubeTxt}>{t('aulas.wantClasses')}</Text>
-                            </TouchableOpacity>
+                            <View style={styles.actionsCol}>
+                              <TouchableOpacity
+                                style={[
+                                  styles.solicitarBtn,
+                                  status === 'pendente' && styles.pendenteBtn,
+                                ]}
+                                disabled={status === 'pendente' || enviando === r.id}
+                                onPress={() => void handleSolicitar(r)}
+                              >
+                                {enviando === r.id ? (
+                                  <ActivityIndicator color={Colors.textOnAccent} size="small" />
+                                ) : (
+                                  <Text style={styles.solicitarTxt}>
+                                    {status === 'pendente' ? 'Pendente' : 'Solicitar'}
+                                  </Text>
+                                )}
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={styles.msgClube}
+                                onPress={() => void handleAulas(r)}
+                                disabled={enviando === `aula-${r.id}`}
+                              >
+                                <Text style={styles.msgClubeTxt}>{t('aulas.wantClasses')}</Text>
+                              </TouchableOpacity>
+                            </View>
                           </View>
-                        </View>
-                      );
-                    })
+                        );
+                      })}
+                      {proximosFiltrados.length > PREVIEW_PROXIMOS ? (
+                        <TouchableOpacity
+                          style={styles.verTodosOutline}
+                          onPress={() => router.push('/rankings?secao=explorar')}
+                        >
+                          <Text style={styles.verTodosOutlineTxt}>
+                            {t('trofeu.seeMoreRankings', {
+                              count: proximosFiltrados.length - PREVIEW_PROXIMOS,
+                            })}
+                          </Text>
+                          <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
+                        </TouchableOpacity>
+                      ) : null}
+                    </>
                   )}
                 </>
               )}
@@ -503,10 +578,31 @@ export default function TrofeuScreen() {
                   style={styles.torneioCard}
                   onPress={() => router.push(`/torneio/${tr.id}`)}
                 >
-                  <Text style={styles.clubeNome}>{tr.nome}</Text>
-                  <Text style={styles.clubeMeta}>
-                    {tr.clubeNome} · {tr.cidade}
-                  </Text>
+                  {tr.bannerUrl ? (
+                    <Image source={{ uri: tr.bannerUrl }} style={styles.torneioBanner} />
+                  ) : null}
+                  <View style={styles.clubeTituloRow}>
+                    {tr.logoUrl || tr.clubeLogoUrl ? (
+                      <Image
+                        source={{ uri: tr.logoUrl || tr.clubeLogoUrl }}
+                        style={styles.clubeLogo}
+                      />
+                    ) : (
+                      <View style={styles.clubeLogoFallback}>
+                        <Text style={styles.clubeLogoFallbackTxt}>
+                          {tr.clubeNome.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.clubeNome} numberOfLines={2}>
+                        {tr.nome}
+                      </Text>
+                      <Text style={styles.clubeMeta} numberOfLines={1}>
+                        {tr.clubeNome} · {tr.cidade}
+                      </Text>
+                    </View>
+                  </View>
                   <Text style={styles.clubeMembros}>
                     {tr.dataInicio || 'Datas a definir'} · {tr.status}
                   </Text>
@@ -516,6 +612,41 @@ export default function TrofeuScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
+
+      <Modal visible={!!rankingDupla} transparent animationType="fade">
+        <View style={styles.modalBg}>
+          <View style={styles.modalBox}>
+            <Text style={styles.solTitle}>Dupla para {rankingDupla?.nome}</Text>
+            <Text style={styles.esporteHint2}>
+              Informe e-mail ou ID Rally Up do parceiro. Cada um paga a própria taxa.
+            </Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="parceiro@email.com ou SM-…"
+              placeholderTextColor={Colors.textSecondary}
+              value={parceiroBusca}
+              onChangeText={setParceiroBusca}
+              autoCapitalize="none"
+            />
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+              <TouchableOpacity
+                style={[styles.solicitarBtn, { flex: 1 }]}
+                onPress={() => {
+                  if (rankingDupla) void handleSolicitar(rankingDupla, parceiroBusca);
+                }}
+              >
+                <Text style={styles.solicitarTxt}>Convidar e solicitar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.msgClube, { flex: 1 }]}
+                onPress={() => setRankingDupla(null)}
+              >
+                <Text style={styles.msgClubeTxt}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -605,6 +736,33 @@ const styles = StyleSheet.create({
   meusClubesTxt: { color: Colors.textOnAccent, fontWeight: '700', fontSize: 13, flex: 1 },
   verClubeLink: { paddingVertical: 8, paddingHorizontal: 4 },
   verClubeTxt: { color: Colors.accent, fontSize: 12, fontWeight: '600' },
+  verTodosBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.accent,
+    borderRadius: Radius.pill,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  verTodosTxt: { color: Colors.textOnAccent, fontWeight: '700', fontSize: 13 },
+  verTodosOutline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: Colors.accent,
+    borderRadius: Radius.pill,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  verTodosOutlineTxt: { color: Colors.accent, fontWeight: '700', fontSize: 13 },
   tabs: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   tab: {
     flex: 1,
@@ -648,9 +806,45 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     marginBottom: 10,
-    gap: 4,
+    gap: 8,
+    overflow: 'hidden',
   },
-  clubeInfo: { flex: 1, gap: 2 },
+  torneioBanner: {
+    width: '100%',
+    height: 96,
+    borderRadius: 12,
+    marginBottom: 4,
+    backgroundColor: Colors.surfaceDark,
+  },
+  clubeInfo: { flex: 1, gap: 6 },
+  clubeTituloRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  clubeLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.white,
+    backgroundColor: Colors.surfaceDark,
+  },
+  clubeLogoFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+  },
+  clubeLogoFallbackTxt: {
+    color: Colors.white,
+    fontWeight: '800',
+    fontSize: 18,
+  },
   clubeNome: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 16 },
   clubeMeta: { color: Colors.textSecondary, fontSize: 13 },
   clubeMembros: { color: Colors.accent, fontSize: 12, fontWeight: '600' },
@@ -701,5 +895,17 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  modalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalBox: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    gap: 8,
   },
 });

@@ -8,11 +8,13 @@ import { EsporteProvider } from '../contexts/EsporteContext';
 import { ClubeProvider } from '../contexts/ClubeContext';
 import { LocaleProvider } from '../contexts/LocaleContext';
 import { AuthGuard } from '../components/AuthGuard';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 SplashScreen.preventAutoHideAsync();
 
 function RootStack() {
   const { loading } = useAuth();
+  usePushNotifications();
 
   useEffect(() => {
     if (!loading) {

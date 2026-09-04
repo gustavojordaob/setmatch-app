@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Switch,
@@ -10,9 +11,15 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { ESPORTES, type EsporteId } from '../../constants/esportes';
+import {
+  composicaoPadraoPorEsporte,
+  labelComposicao,
+  type ComposicaoId,
+} from '../../constants/composicao';
 import {
   DEFINICOES_CHAVE,
   ESTRUTURAS_MATA,
@@ -29,7 +36,14 @@ import { Button } from '../../components/ui/Button';
 import { ButtonFooter } from '../../components/ui/ButtonFooter';
 import { useAuth } from '../../hooks/useAuth';
 import { listarClubesDoDono } from '../../services/clubes';
-import { criarTorneioCompleto } from '../../services/torneios';
+import {
+  atualizarMidiaTorneio,
+  criarTorneioCompleto,
+} from '../../services/torneios';
+import {
+  uploadBannerTorneio,
+  uploadLogoTorneio,
+} from '../../utils/uploadFoto';
 
 export default function TorneioNovoScreen() {
   const { clubeId } = useLocalSearchParams<{ clubeId: string }>();
@@ -37,8 +51,11 @@ export default function TorneioNovoScreen() {
   const { user } = useAuth();
   const [nome, setNome] = useState('');
   const [esporte, setEsporte] = useState<EsporteId>('tenis');
+  const [composicao, setComposicao] = useState<ComposicaoId>('simples');
   const [dataInicio, setDataInicio] = useState('');
   const [local, setLocal] = useState('');
+  const [horarioPadrao, setHorarioPadrao] = useState('');
+  const [quadraNome, setQuadraNome] = useState('');
   const [formatoChaves, setFormatoChaves] = useState<FormatoChavesId>('simples');
   const [definicaoChave, setDefinicaoChave] = useState<DefinicaoChaveId>('sorteio');
   const [estruturaMata, setEstruturaMata] = useState<EstruturaMataId>(16);
@@ -56,8 +73,27 @@ export default function TorneioNovoScreen() {
   const [descontoPix, setDescontoPix] = useState('0');
   const [descontoCartao, setDescontoCartao] = useState('0');
   const [loading, setLoading] = useState(false);
+  const [logoLocal, setLogoLocal] = useState<string | null>(null);
+  const [bannerLocal, setBannerLocal] = useState<string | null>(null);
 
   const formatosJogo = useMemo(() => formatosPartidaPorEsporte(esporte), [esporte]);
+
+  async function pickImage(kind: 'logo' | 'banner') {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Mídia', 'Permita acesso às fotos.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: kind === 'logo' ? [1, 1] : [16, 9],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets[0]?.uri) return;
+    if (kind === 'logo') setLogoLocal(result.assets[0].uri);
+    else setBannerLocal(result.assets[0].uri);
+  }
 
   const preview = useMemo(
     () =>
@@ -94,15 +130,18 @@ export default function TorneioNovoScreen() {
         Alert.alert('Torneio', 'Clube não encontrado.');
         return;
       }
-      await criarTorneioCompleto({
+      const id = await criarTorneioCompleto({
         clubeId: clube.id,
         clubeNome: clube.nome,
         cidade: clube.cidade,
         donoUid: user.uid,
         nome,
         esporte,
+        composicao,
         dataInicio,
         local,
+        horarioPadrao,
+        quadraNome,
         formatoChaves,
         definicaoChave,
         estruturaMata,
@@ -116,6 +155,7 @@ export default function TorneioNovoScreen() {
             : undefined,
         formatoPartidaId: formatoPartida,
         estruturaPreview: preview,
+        clubeLogoUrl: clube.logoUrl,
         pagamento: {
           ativo: cobrar,
           valor: v,
@@ -133,6 +173,18 @@ export default function TorneioNovoScreen() {
           ),
         },
       });
+
+      const midia: { logoUrl?: string; bannerUrl?: string } = {};
+      if (logoLocal) {
+        midia.logoUrl = await uploadLogoTorneio(id, logoLocal);
+      }
+      if (bannerLocal) {
+        midia.bannerUrl = await uploadBannerTorneio(id, bannerLocal);
+      }
+      if (midia.logoUrl || midia.bannerUrl) {
+        await atualizarMidiaTorneio(id, midia);
+      }
+
       Alert.alert('Torneio', 'Torneio criado!', [
         { text: 'OK', onPress: () => router.replace('/clube/painel') },
       ]);
@@ -161,6 +213,40 @@ export default function TorneioNovoScreen() {
           placeholder="Digite o nome do torneio"
         />
 
+        <Text style={styles.sectionLabel}>Divulgação</Text>
+        <Text style={styles.hint}>
+          Logo do torneio (patrocínio) e banner largo. O logo do clube entra
+          automaticamente se já estiver cadastrado.
+        </Text>
+        <View style={styles.midiaRow}>
+          <TouchableOpacity
+            style={[styles.midiaBox, styles.midiaLogoBox]}
+            onPress={() => void pickImage('logo')}
+          >
+            {logoLocal ? (
+              <Image source={{ uri: logoLocal }} style={styles.midiaLogo} />
+            ) : (
+              <View style={styles.midiaPlaceholder}>
+                <Ionicons name="image-outline" size={22} color={Colors.accent} />
+                <Text style={styles.midiaTxt}>Logo</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.midiaBox, styles.midiaBannerBox]}
+            onPress={() => void pickImage('banner')}
+          >
+            {bannerLocal ? (
+              <Image source={{ uri: bannerLocal }} style={styles.midiaBanner} />
+            ) : (
+              <View style={styles.midiaPlaceholder}>
+                <Ionicons name="images-outline" size={22} color={Colors.accent} />
+                <Text style={styles.midiaTxt}>Banner</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.row2}>
           <View style={{ flex: 1 }}>
             <Input title="Data" value={dataInicio} onChangeText={setDataInicio} placeholder="DD/MM" />
@@ -175,6 +261,28 @@ export default function TorneioNovoScreen() {
           </View>
         </View>
 
+        <View style={styles.row2}>
+          <View style={{ flex: 1 }}>
+            <Input
+              title="Horário (ref.)"
+              value={horarioPadrao}
+              onChangeText={setHorarioPadrao}
+              placeholder="Ex: 09:00"
+            />
+          </View>
+          <View style={{ flex: 1.15 }}>
+            <Input
+              title="Quadra (opcional)"
+              value={quadraNome}
+              onChangeText={setQuadraNome}
+              placeholder="Ex: Quadra 1"
+            />
+          </View>
+        </View>
+        <Text style={[styles.label, { marginTop: -4, opacity: 0.75, fontSize: 12 }]}>
+          Horário e quadra são definidos por você — jogadores não reservam na agenda.
+        </Text>
+
         <Text style={styles.label}>Esporte</Text>
         <View style={styles.chips}>
           {ESPORTES.map((e) => (
@@ -182,7 +290,25 @@ export default function TorneioNovoScreen() {
               key={e.id}
               label={e.nome}
               on={esporte === e.id}
-              onPress={() => setEsporte(e.id)}
+              onPress={() => {
+                setEsporte(e.id);
+                setComposicao(composicaoPadraoPorEsporte(e.id));
+              }}
+            />
+          ))}
+        </View>
+
+        <Text style={styles.label}>Composição</Text>
+        <Text style={[styles.label, { marginTop: -4, opacity: 0.75, fontSize: 12 }]}>
+          Beach, padel e raquetinha sugerem duplas. Cada atleta paga a própria inscrição.
+        </Text>
+        <View style={styles.chips}>
+          {(['simples', 'dupla'] as ComposicaoId[]).map((c) => (
+            <Chip
+              key={c}
+              label={labelComposicao(c)}
+              on={composicao === c}
+              onPress={() => setComposicao(c)}
             />
           ))}
         </View>
@@ -331,6 +457,35 @@ const styles = StyleSheet.create({
   },
   title: { color: Colors.accent, fontSize: 22, fontWeight: '900' },
   body: { padding: 16, paddingBottom: 120, gap: 4 },
+  sectionLabel: {
+    color: Colors.accent,
+    fontWeight: '800',
+    fontSize: 14,
+    marginTop: 12,
+  },
+  hint: { color: Colors.textSecondary, fontSize: 12, lineHeight: 16, marginBottom: 8 },
+  midiaRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  midiaBox: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+    backgroundColor: Colors.surface,
+  },
+  midiaLogoBox: { width: 72 },
+  midiaBannerBox: { flex: 1 },
+  midiaLogo: { width: 72, height: 72 },
+  midiaBanner: { width: '100%', height: 72 },
+  midiaPlaceholder: {
+    width: '100%',
+    minWidth: 72,
+    height: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+  },
+  midiaTxt: { color: Colors.textSecondary, fontSize: 11, fontWeight: '600' },
   row2: { flexDirection: 'row', gap: 10 },
   label: { color: Colors.textPrimary, fontWeight: '700', marginTop: 14, marginBottom: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

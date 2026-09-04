@@ -31,9 +31,9 @@ export const FORMATOS_PARTIDA: FormatoPartida[] = [
   },
   {
     id: 'melhor_de_3_stb',
-    label: 'Melhor de 3 + STB',
-    short: 'Md3·STB',
-    desc: '2 sets + super tiebreak até 10 no lugar do 3º.',
+    label: '2 sets; se empatar 1–1 → super TB até 10',
+    short: '2 sets + STB',
+    desc: 'Quem ganhar 2 sets leva. Se ficar 1 a 1, o desempate NÃO é um 3º set completo: é um super tiebreak (corrida até 10 pontos). Quem chegar a 10 fecha a partida.',
     setsParaVencer: 2,
     temSuperTiebreak: true,
     tiebreakAte: 10,

@@ -62,19 +62,58 @@ export async function syncPagamentoAprovado(
   }
 
   if (pag.tipo === 'torneio' && pag.torneioId && pag.uid) {
-    await db()
-      .collection('torneios')
-      .doc(pag.torneioId)
-      .collection('inscritos')
-      .doc(pag.uid)
-      .set(
-        {
-          pago: true,
-          pagamentoId,
-          pagoEm: FieldValue.serverTimestamp(),
-        },
+    const torneioId = String(pag.torneioId);
+    const uid = String(pag.uid);
+    const propria = db().collection('torneios').doc(torneioId).collection('inscritos').doc(uid);
+    const propriaSnap = await propria.get();
+    if (propriaSnap.exists) {
+      await propria.set(
+        { pago: true, pagamentoId, pagoEm: FieldValue.serverTimestamp() },
         { merge: true }
       );
+    } else {
+      const todos = await db().collection('torneios').doc(torneioId).collection('inscritos').get();
+      for (const d of todos.docs) {
+        if (String(d.data().parceiroUid || '') === uid) {
+          await d.ref.set(
+            {
+              parceiroPago: true,
+              parceiroPagamentoId: pagamentoId,
+              atualizadoEm: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+          break;
+        }
+      }
+    }
+    // Confirma inscrição se dupla/pagamento ok
+    const tSnap = await db().collection('torneios').doc(torneioId).get();
+    const t = tSnap.data() || {};
+    const composicao = String(t.composicao || 'simples');
+    const pagaCfg = t.pagamento as { ativo?: boolean; valor?: number } | undefined;
+    const precisaPagar = Boolean(pagaCfg?.ativo && (pagaCfg.valor ?? 0) > 0);
+    const inscritos = await db().collection('torneios').doc(torneioId).collection('inscritos').get();
+    for (const d of inscritos.docs) {
+      const insc = d.data();
+      if (String(insc.status) === 'confirmado') continue;
+      if (composicao === 'dupla' && (!insc.parceiroAceito || !insc.parceiroUid)) continue;
+      const capitaoPago = !precisaPagar || Boolean(insc.pago);
+      const parceiroPago =
+        composicao !== 'dupla' || !precisaPagar || Boolean(insc.parceiroPago);
+      if (!capitaoPago || !parceiroPago) continue;
+      await d.ref.set(
+        { status: 'confirmado', confirmadoEm: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+      if (!insc.contabilizado) {
+        await db()
+          .collection('torneios')
+          .doc(torneioId)
+          .update({ totalInscritos: FieldValue.increment(1) });
+        await d.ref.set({ contabilizado: true }, { merge: true });
+      }
+    }
   }
 
   if (pag.tipo === 'ranking' && pag.rankingId && pag.uid) {

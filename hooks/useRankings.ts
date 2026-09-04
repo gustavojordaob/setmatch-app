@@ -8,7 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
 import { useAuth } from './useAuth';
-import type { Classificacao, Ranking, Solicitacao } from '../types/ranking';
+import type { Classificacao, Ranking, RankingRegrasJogo, Solicitacao } from '../types/ranking';
 import type { EsporteId } from '../constants/esportes';
 
 function mapRanking(d: { id: string; data: () => Record<string, unknown> }): Ranking {
@@ -18,12 +18,15 @@ function mapRanking(d: { id: string; data: () => Record<string, unknown> }): Ran
     nome: String(raw.nome ?? ''),
     clubeId: String(raw.clubeId ?? ''),
     clubeNome: String(raw.clubeNome ?? ''),
+    clubeLogoUrl: raw.clubeLogoUrl ? String(raw.clubeLogoUrl) : undefined,
     cidade: String(raw.cidade ?? ''),
     esporte: (raw.esporte as EsporteId) ?? 'tenis',
+    composicao: (raw.composicao as Ranking['composicao']) ?? undefined,
     donoUid: String(raw.donoUid ?? ''),
     descricao: raw.descricao ? String(raw.descricao) : undefined,
     membros: (raw.membros as string[]) ?? [],
     totalMembros: Number(raw.totalMembros ?? 0),
+    regrasJogo: raw.regrasJogo as RankingRegrasJogo | undefined,
     pagamento: raw.pagamento
       ? {
           ativo: Boolean((raw.pagamento as { ativo?: boolean }).ativo),
@@ -140,6 +143,17 @@ export function useClassificacao(rankingId: string | null) {
       return;
     }
     setLoading(true);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { zerarPtsSemJogoNoMes } = await import('../services/rankings');
+        await zerarPtsSemJogoNoMes(rankingId);
+      } catch {
+        /* permissão / rede — listener ainda mostra dados */
+      }
+      if (cancelled) return;
+    })();
+
     const q = query(
       collection(db, 'rankings', rankingId, 'classificacao'),
       orderBy('pts', 'desc')
@@ -148,7 +162,10 @@ export function useClassificacao(rankingId: string | null) {
       setRows(snap.docs.map((d) => d.data() as Classificacao));
       setLoading(false);
     });
-    return unsub;
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, [rankingId]);
 
   return { rows, loading };

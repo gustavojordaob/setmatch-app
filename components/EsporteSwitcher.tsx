@@ -3,6 +3,7 @@ import { Colors } from '../constants/colors';
 import { ESPORTES } from '../constants/esportes';
 import { useEsporte } from '../contexts/EsporteContext';
 import { useT } from '../hooks/useI18n';
+import { EsporteIcon } from './EsporteIcon';
 
 type Props = {
   /** compact = círculos iguais à Home; chips = com nome */
@@ -24,7 +25,11 @@ export function EsporteSwitcher({ variant = 'circles' }: Props) {
               style={[styles.chip, on && styles.chipOn]}
               onPress={() => setEsporteAtivo(e.id)}
             >
-              <Text style={styles.chipEmoji}>{e.emoji}</Text>
+              <EsporteIcon
+                id={e.id}
+                size={16}
+                color={on ? Colors.textOnAccent : Colors.white}
+              />
               <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>
                 {t(`esporte.${e.id}`)}
               </Text>
@@ -44,8 +49,13 @@ export function EsporteSwitcher({ variant = 'circles' }: Props) {
             key={e.id}
             onPress={() => setEsporteIndex(i)}
             style={[styles.sportCircle, on && styles.sportCircleOn]}
+            accessibilityLabel={t(`esporte.${e.id}`)}
           >
-            <Text style={[styles.sportEmoji, !on && styles.sportEmojiOff]}>{e.emoji}</Text>
+            <EsporteIcon
+              id={e.id}
+              size={26}
+              color={on ? Colors.textOnAccent : Colors.white}
+            />
           </TouchableOpacity>
         );
       })}
@@ -71,8 +81,6 @@ const styles = StyleSheet.create({
   sportCircleOn: {
     backgroundColor: Colors.accent,
   },
-  sportEmoji: { fontSize: 26 },
-  sportEmojiOff: { opacity: 0.55 },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -82,14 +90,13 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
   chipOn: { backgroundColor: Colors.accent },
-  chipEmoji: { fontSize: 14 },
   chipTxt: { color: Colors.white, fontSize: 12, fontWeight: '600' },
   chipTxtOn: { color: Colors.textOnAccent },
 });

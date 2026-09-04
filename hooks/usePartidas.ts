@@ -21,6 +21,15 @@ export interface Partida {
   jogador2: string;
   jogador1Nome?: string;
   jogador2Nome?: string;
+  jogador1Foto?: string;
+  jogador2Foto?: string;
+  jogador1ParceiroUid?: string;
+  jogador1ParceiroNome?: string;
+  jogador1ParceiroFoto?: string;
+  jogador2ParceiroUid?: string;
+  jogador2ParceiroNome?: string;
+  jogador2ParceiroFoto?: string;
+  composicao?: 'simples' | 'dupla';
   sets: SetPlacar[];
   vencedor: string;
   esporte: string;
@@ -50,6 +59,27 @@ function mapDoc(d: { id: string; data: () => Record<string, unknown> }): Partida
     jogador2: String(raw.jogador2 ?? ''),
     jogador1Nome: raw.jogador1Nome ? String(raw.jogador1Nome) : undefined,
     jogador2Nome: raw.jogador2Nome ? String(raw.jogador2Nome) : undefined,
+    jogador1Foto: raw.jogador1Foto ? String(raw.jogador1Foto) : undefined,
+    jogador2Foto: raw.jogador2Foto ? String(raw.jogador2Foto) : undefined,
+    jogador1ParceiroUid: raw.jogador1ParceiroUid
+      ? String(raw.jogador1ParceiroUid)
+      : undefined,
+    jogador1ParceiroNome: raw.jogador1ParceiroNome
+      ? String(raw.jogador1ParceiroNome)
+      : undefined,
+    jogador1ParceiroFoto: raw.jogador1ParceiroFoto
+      ? String(raw.jogador1ParceiroFoto)
+      : undefined,
+    jogador2ParceiroUid: raw.jogador2ParceiroUid
+      ? String(raw.jogador2ParceiroUid)
+      : undefined,
+    jogador2ParceiroNome: raw.jogador2ParceiroNome
+      ? String(raw.jogador2ParceiroNome)
+      : undefined,
+    jogador2ParceiroFoto: raw.jogador2ParceiroFoto
+      ? String(raw.jogador2ParceiroFoto)
+      : undefined,
+    composicao: (raw.composicao as 'simples' | 'dupla') || undefined,
     sets: (raw.sets as SetPlacar[]) ?? [],
     vencedor: String(raw.vencedor ?? ''),
     esporte: String(raw.esporte ?? ''),
@@ -82,8 +112,16 @@ export function usePartidas() {
     const qA = query(collection(db, 'partidas'), where('jogador1', '==', user.uid));
     const qB = query(collection(db, 'partidas'), where('jogador2', '==', user.uid));
 
-    const unsubA = onSnapshot(qA, (snap) => setChunkA(snap.docs.map((d) => mapDoc(d))));
-    const unsubB = onSnapshot(qB, (snap) => setChunkB(snap.docs.map((d) => mapDoc(d))));
+    const unsubA = onSnapshot(
+      qA,
+      (snap) => setChunkA(snap.docs.map((d) => mapDoc(d))),
+      () => setChunkA([])
+    );
+    const unsubB = onSnapshot(
+      qB,
+      (snap) => setChunkB(snap.docs.map((d) => mapDoc(d))),
+      () => setChunkB([])
+    );
 
     return () => {
       unsubA();

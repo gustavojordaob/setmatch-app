@@ -1,4 +1,14 @@
-import { StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 'react-native';
+import {
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  type ViewStyle,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
@@ -6,6 +16,7 @@ import { Typography } from '../../constants/typography';
 import { useT } from '../../hooks/useI18n';
 import { Button } from '../ui/Button';
 import { ButtonFooter } from '../ui/ButtonFooter';
+import { KeyboardDoneBar } from '../ui/KeyboardDoneBar';
 
 export interface WizardLayoutProps {
   title: string;
@@ -33,32 +44,57 @@ export function WizardLayout({
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
-      {showBack ? (
-        <TouchableOpacity style={styles.back} onPress={() => router.back()}>
-          <Text style={styles.backArrow}>←</Text>
-        </TouchableOpacity>
-      ) : null}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {showBack ? (
+          <TouchableOpacity style={styles.back} onPress={() => router.back()}>
+            <Text style={styles.backArrow}>←</Text>
+          </TouchableOpacity>
+        ) : null}
 
-      <Text style={styles.title}>{title}</Text>
-      <View style={[styles.body, contentStyle]}>{children}</View>
+        <Text style={styles.title}>{title}</Text>
 
-      <Text style={styles.infoLink}>{t('wizard.whyInfo')}</Text>
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={[styles.body, contentStyle]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+          <TouchableOpacity
+            onPress={() => {
+              Keyboard.dismiss();
+              Alert.alert(t('wizard.whyInfo'), t('wizard.whyInfoBody'));
+            }}
+          >
+            <Text style={styles.infoLink}>{t('wizard.whyInfo')}</Text>
+          </TouchableOpacity>
+        </ScrollView>
 
-      <ButtonFooter>
-        <Button
-          label={continueLabel ?? t('wizard.continue')}
-          variant="primary"
-          onPress={onContinue}
-          disabled={continueDisabled}
-          loading={loading}
-        />
-      </ButtonFooter>
+        <ButtonFooter>
+          <Button
+            label={continueLabel ?? t('wizard.continue')}
+            variant="primary"
+            onPress={() => {
+              Keyboard.dismiss();
+              onContinue();
+            }}
+            disabled={continueDisabled}
+            loading={loading}
+          />
+        </ButtonFooter>
+      </KeyboardAvoidingView>
+      <KeyboardDoneBar />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background, alignItems: 'stretch' },
+  flex: { flex: 1 },
   back: { paddingHorizontal: 20, paddingTop: 8 },
   backArrow: { color: Colors.accent, fontSize: 28, fontWeight: 'bold' },
   title: {
@@ -70,13 +106,19 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: 'center',
   },
-  body: { flex: 1, paddingHorizontal: 20, paddingTop: 8 },
+  body: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 24,
+    flexGrow: 1,
+  },
   infoLink: {
     color: Colors.textPrimary,
     textAlign: 'center',
     textDecorationLine: 'underline',
     fontSize: 13,
-    marginBottom: 12,
+    marginTop: 20,
+    marginBottom: 8,
     opacity: 0.9,
   },
 });

@@ -3,12 +3,19 @@ import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestor
 import { db } from '../utils/firebaseConfig';
 import type { EsporteId } from '../constants/esportes';
 import type { Torneio } from '../services/torneios';
+import { useAuth } from './useAuth';
 
 export function useTorneios(esporte: EsporteId) {
+  const { user } = useAuth();
   const [torneios, setTorneios] = useState<Torneio[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user) {
+      setTorneios([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const q = query(collection(db, 'torneios'), where('esporte', '==', esporte));
     const unsub = onSnapshot(
@@ -21,6 +28,9 @@ export function useTorneios(esporte: EsporteId) {
               id: d.id,
               clubeId: String(raw.clubeId ?? ''),
               clubeNome: String(raw.clubeNome ?? ''),
+              clubeLogoUrl: raw.clubeLogoUrl ? String(raw.clubeLogoUrl) : undefined,
+              logoUrl: raw.logoUrl ? String(raw.logoUrl) : undefined,
+              bannerUrl: raw.bannerUrl ? String(raw.bannerUrl) : undefined,
               cidade: String(raw.cidade ?? ''),
               nome: String(raw.nome ?? ''),
               esporte: (raw.esporte as EsporteId) ?? esporte,
@@ -59,15 +69,19 @@ export function useTorneios(esporte: EsporteId) {
         );
         setLoading(false);
       },
-      () => setLoading(false)
+      () => {
+        setTorneios([]);
+        setLoading(false);
+      }
     );
     return unsub;
-  }, [esporte]);
+  }, [esporte, user]);
 
   return { torneios, loading };
 }
 
 export function usePartidasAmigos(amigoUids: Set<string>, esporte?: EsporteId) {
+  const { user } = useAuth();
   const [partidas, setPartidas] = useState<
     {
       id: string;
@@ -87,7 +101,7 @@ export function usePartidasAmigos(amigoUids: Set<string>, esporte?: EsporteId) {
   const reloadKey = useCallback(() => Array.from(amigoUids).sort().join(','), [amigoUids]);
 
   useEffect(() => {
-    if (amigoUids.size === 0) {
+    if (!user || amigoUids.size === 0) {
       setPartidas([]);
       setLoading(false);
       return;
@@ -126,10 +140,13 @@ export function usePartidasAmigos(amigoUids: Set<string>, esporte?: EsporteId) {
         setPartidas(list);
         setLoading(false);
       },
-      () => setLoading(false)
+      () => {
+        setPartidas([]);
+        setLoading(false);
+      }
     );
     return unsub;
-  }, [amigoUids, esporte, reloadKey]);
+  }, [amigoUids, esporte, reloadKey, user]);
 
   return { partidas, loading };
 }

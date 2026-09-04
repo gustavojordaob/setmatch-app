@@ -102,7 +102,11 @@ export default function SolicitarAcessoScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="never"
+          keyboardDismissMode="on-drag"
+        >
           <Text style={styles.title}>{t('auth.requestTitle')}</Text>
           <Text style={styles.sub}>{t('auth.requestSubtitle')}</Text>
 

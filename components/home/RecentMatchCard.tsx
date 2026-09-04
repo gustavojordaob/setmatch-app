@@ -1,9 +1,13 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../constants/colors';
-import { Avatar } from '../ui/Avatar';
+import { DualAvatar } from '../ui/DualAvatar';
+import { splitDuplaLabel } from '../../utils/duplaDisplay';
 
 interface PlayerLine {
   nome: string;
+  foto?: string | null;
+  parceiroNome?: string | null;
+  parceiroFoto?: string | null;
   sets: number[];
   winner?: boolean;
 }
@@ -49,11 +53,23 @@ export function RecentMatchCard({
   );
 }
 
-function PlayerRow({ nome, sets, winner }: PlayerLine) {
+function PlayerRow({ nome, foto, parceiroNome, parceiroFoto, sets, winner }: PlayerLine) {
+  const split = splitDuplaLabel(nome);
+  const nomeB = parceiroNome || split.b;
+  const label = nomeB ? `${split.a} / ${nomeB}` : split.a;
+
   return (
     <View style={styles.row}>
-      <Avatar nome={nome} size="sm" />
-      <Text style={styles.nome}>{nome}</Text>
+      <DualAvatar
+        nomeA={split.a}
+        fotoA={foto}
+        nomeB={nomeB}
+        fotoB={parceiroFoto}
+        size="sm"
+      />
+      <Text style={styles.nome} numberOfLines={2}>
+        {label}
+      </Text>
       <View style={styles.sets}>
         {sets.map((s, i) =>
           winner ? (
@@ -88,7 +104,7 @@ const styles = StyleSheet.create({
   },
   badgeTxt: { color: Colors.textOnAccent, fontWeight: 'bold', fontSize: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  nome: { flex: 1, color: Colors.textPrimary, fontWeight: 'bold' },
+  nome: { flex: 1, color: Colors.textPrimary, fontWeight: 'bold', fontSize: 13 },
   sets: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   setCircle: {
     width: 28,

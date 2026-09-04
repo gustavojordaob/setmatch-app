@@ -6,10 +6,16 @@ interface Props {
   ranking: Ranking;
   pinned?: boolean;
   onVerMais?: () => void;
+  onConfrontos?: () => void;
 }
 
 /** Card de ranking já conectado à subcoleção classificacao/{uid}. */
-export function RankingConnectedCard({ ranking, pinned, onVerMais }: Props) {
+export function RankingConnectedCard({
+  ranking,
+  pinned,
+  onVerMais,
+  onConfrontos,
+}: Props) {
   const { rows } = useClassificacao(ranking.id);
 
   const mapped = rows.slice(0, 5).map((r) => ({
@@ -21,10 +27,13 @@ export function RankingConnectedCard({ ranking, pinned, onVerMais }: Props) {
   return (
     <RankingCard
       title={ranking.nome}
+      subtitle={ranking.clubeNome}
       rows={mapped}
       pinned={pinned}
+      logoUrl={ranking.clubeLogoUrl}
       badge={ranking.clubeNome.charAt(0).toUpperCase()}
       onVerMais={onVerMais}
+      onConfrontos={onConfrontos}
     />
   );
 }

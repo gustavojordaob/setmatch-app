@@ -105,11 +105,12 @@ export async function liberarPagamentoAdmin(pagamentoId: string): Promise<void> 
   }
 
   if (pag.tipo === 'torneio' && pag.torneioId && pag.uid) {
-    await setDoc(
-      doc(db, 'torneios', String(pag.torneioId), 'inscritos', String(pag.uid)),
-      { pago: true, pagamentoId, liberadoPeloAdmin: true },
-      { merge: true }
-    );
+    const { marcarPagamentoInscricaoTorneio } = await import('./duplas');
+    await marcarPagamentoInscricaoTorneio({
+      torneioId: String(pag.torneioId),
+      uid: String(pag.uid),
+      pagamentoId,
+    });
   }
 
   if (pag.tipo === 'ranking' && pag.rankingId && pag.uid) {

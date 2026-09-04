@@ -9,11 +9,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { Avatar } from '../ui/Avatar';
+import { DualAvatar } from '../ui/DualAvatar';
 import type { ConfrontoTorneio } from '../../services/chaveamentoTorneio';
+import { splitDuplaLabel } from '../../utils/duplaDisplay';
 
 const CARD_W = 168;
-const CARD_H = 96;
+const CARD_H = 112;
 const GAP = 14;
 const COL_GAP = 8;
 const ARROW_W = 28;
@@ -24,6 +25,8 @@ type Props = {
   onPressMatch: (c: ConfrontoTorneio) => void;
   /** Destaque opcional do caminho do usuário logado */
   highlightUid?: string;
+  /** Se omitido, só confrontos `pronto` são tocáveis */
+  pressEnabled?: (c: ConfrontoTorneio) => boolean;
 };
 
 function placarLabel(c: ConfrontoTorneio): string {
@@ -35,6 +38,13 @@ function placarLabel(c: ConfrontoTorneio): string {
   return '—';
 }
 
+function agendaLabel(c: ConfrontoTorneio): string {
+  const parts: string[] = [];
+  if (c.dataHoraInicio) parts.push(c.dataHoraInicio);
+  if (c.quadraNome) parts.push(c.quadraNome);
+  return parts.join(' · ');
+}
+
 /**
  * Chave horizontal estilo apps de esporte (FotMob / NBA / UEFA):
  * Oitavas → Quartas → Semi → Final, deslizando para o lado.
@@ -44,6 +54,7 @@ export function ChaveamentoBracket({
   confrontos,
   onPressMatch,
   highlightUid,
+  pressEnabled,
 }: Props) {
   const rodadas = useMemo(() => {
     const map = new Map<number, ConfrontoTorneio[]>();
@@ -108,7 +119,10 @@ export function ChaveamentoBracket({
                     const noCaminho =
                       !!highlightUid &&
                       (c.j1Uid === highlightUid || c.j2Uid === highlightUid);
-                    const podeTocar = c.status === 'pronto';
+                    const podeTocar = pressEnabled
+                      ? pressEnabled(c)
+                      : c.status === 'pronto';
+                    const agenda = agendaLabel(c);
                     return (
                       <TouchableOpacity
                         key={c.id}
@@ -126,6 +140,8 @@ export function ChaveamentoBracket({
                         <PlayerLine
                           nome={c.j1Nome || 'A definir'}
                           foto={c.j1Foto}
+                          parceiroNome={c.j1ParceiroNome}
+                          parceiroFoto={c.j1ParceiroFoto}
                           win={c.vencedorUid === c.j1Uid && !!c.vencedorUid}
                           lose={
                             !!c.vencedorUid &&
@@ -141,6 +157,8 @@ export function ChaveamentoBracket({
                             (c.status === 'bye' ? '—' : 'A definir')
                           }
                           foto={c.j2Foto}
+                          parceiroNome={c.j2ParceiroNome}
+                          parceiroFoto={c.j2ParceiroFoto}
                           win={c.vencedorUid === c.j2Uid && !!c.vencedorUid}
                           lose={
                             !!c.vencedorUid &&
@@ -150,6 +168,11 @@ export function ChaveamentoBracket({
                           me={highlightUid === c.j2Uid}
                         />
                         <Text style={styles.placar}>{placarLabel(c)}</Text>
+                        {agenda ? (
+                          <Text style={styles.agenda} numberOfLines={1}>
+                            {agenda}
+                          </Text>
+                        ) : null}
                       </TouchableOpacity>
                     );
                   })}
@@ -183,19 +206,31 @@ export function ChaveamentoBracket({
 function PlayerLine({
   nome,
   foto,
+  parceiroNome,
+  parceiroFoto,
   win,
   lose,
   me,
 }: {
   nome: string;
   foto: string;
+  parceiroNome?: string;
+  parceiroFoto?: string;
   win: boolean;
   lose: boolean;
   me: boolean;
 }) {
+  const split = splitDuplaLabel(nome);
+  const nomeB = parceiroNome || split.b;
   return (
     <View style={styles.playerRow}>
-      <Avatar uri={foto || undefined} nome={nome} size="sm" />
+      <DualAvatar
+        nomeA={split.a}
+        fotoA={foto || undefined}
+        nomeB={nomeB}
+        fotoB={parceiroFoto}
+        size="sm"
+      />
       <Text
         style={[
           styles.playerName,
@@ -295,6 +330,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     textAlign: 'right',
+  },
+  agenda: {
+    color: Colors.accent,
+    fontSize: 9,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 2,
   },
   arrowCol: {
     width: ARROW_W + COL_GAP * 2,

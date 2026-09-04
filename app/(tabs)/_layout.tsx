@@ -1,3 +1,4 @@
+import { ActivityIndicator, View } from 'react-native';
 import { Redirect, Tabs } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { BottomNav } from '../../components/ui/BottomNav';
@@ -6,8 +7,24 @@ import { useAuth } from '../../hooks/useAuth';
 export default function TabsLayout() {
   const { user, loading } = useAuth();
 
-  if (!loading && !user) {
-    return <Redirect href="/(auth)/login" />;
+  // Enquanto auth carrega, NÃO montar as tabs (home/feed etc. consultam Firestore).
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: Colors.background,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <ActivityIndicator color={Colors.accent} />
+      </View>
+    );
+  }
+
+  if (!user) {
+    return <Redirect href="/onboarding" />;
   }
 
   return (

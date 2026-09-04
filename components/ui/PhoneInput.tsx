@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
+  Keyboard,
   Modal,
   Pressable,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { KEYBOARD_DONE_NATIVE_ID, KeyboardDoneBar } from './KeyboardDoneBar';
 import {
   formatarNacionalDigitando,
   montarTelefoneE164,
@@ -36,16 +38,19 @@ export function PhoneInput({ label, value, onChangeValue, placeholder }: Props) 
   const [busca, setBusca] = useState('');
 
   useEffect(() => {
+    const incoming = soDigitos(value);
+    const atual = montarTelefoneE164(ddi, nacional);
+    if (incoming === atual) return;
+    if (!incoming && !soDigitos(nacional)) return;
     const p = parseTelefoneSalvo(value);
-    if (p.ddi !== ddi || soDigitos(p.nacional) !== soDigitos(nacional)) {
-      setDdi(p.ddi);
-      setNacional(p.nacional);
-    }
+    setDdi(p.ddi || '55');
+    setNacional(formatarNacionalDigitando(p.ddi || '55', p.nacional));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   function emitir(nextDdi: string, nextNacional: string) {
-    onChangeValue(montarTelefoneE164(nextDdi, nextNacional));
+    const n = soDigitos(nextNacional);
+    onChangeValue(n ? montarTelefoneE164(nextDdi, nextNacional) : '');
   }
 
   function onNacionalChange(text: string) {
@@ -76,7 +81,7 @@ export function PhoneInput({ label, value, onChangeValue, placeholder }: Props) 
     <View style={styles.wrap}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <View style={styles.row}>
-        <TouchableOpacity style={styles.ddiBtn} onPress={() => setPickerOpen(true)}>
+        <TouchableOpacity style={styles.ddiBtn} onPress={() => { Keyboard.dismiss(); setPickerOpen(true); }}>
           <Text style={styles.ddiTxt}>
             {pais.iso} +{ddi}
           </Text>
@@ -87,6 +92,8 @@ export function PhoneInput({ label, value, onChangeValue, placeholder }: Props) 
           value={formatarNacionalDigitando(ddi, nacional)}
           onChangeText={onNacionalChange}
           keyboardType="phone-pad"
+          inputAccessoryViewID={KEYBOARD_DONE_NATIVE_ID}
+          blurOnSubmit
           placeholder={placeholder ?? (ddi === '55' ? '(11) 99999-9999' : 'Número')}
           placeholderTextColor={Colors.textSecondary}
         />
@@ -120,6 +127,7 @@ export function PhoneInput({ label, value, onChangeValue, placeholder }: Props) 
           </Pressable>
         </Pressable>
       </Modal>
+      <KeyboardDoneBar />
     </View>
   );
 }

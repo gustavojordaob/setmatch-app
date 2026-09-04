@@ -14,10 +14,12 @@ import { Colors } from '../../constants/colors';
 import { Avatar } from '../../components/ui/Avatar';
 import { useAuth } from '../../hooks/useAuth';
 import { useDesafios, type Desafio } from '../../hooks/useDesafios';
+import { useConfrontosTorneio } from '../../hooks/useConfrontosTorneio';
 import { ESPORTES } from '../../constants/esportes';
 import { labelFormato } from '../../constants/formatosPartida';
 import { atualizarStatusDesafio } from '../../services/desafios';
 import { useT } from '../../hooks/useI18n';
+import type { ConfrontoTorneioUsuario } from '../../services/confrontosUsuario';
 
 import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
 const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
@@ -42,6 +44,7 @@ export default function PartidasScreen() {
     agendados,
     historico,
   } = useDesafios();
+  const { proximos: proximosTorneio, loading: loadingTorneio } = useConfrontosTorneio();
   const [aba, setAba] = useState<Aba>('recebidos');
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -51,6 +54,8 @@ export default function PartidasScreen() {
     if (aba === 'agendados') return agendados;
     return historico;
   }, [aba, recebidosPendentes, enviadosPendentes, agendados, historico]);
+
+  const badgeAgendados = agendados.length + proximosTorneio.length;
 
   async function responder(d: Desafio, status: 'aceito' | 'recusado') {
     setBusyId(d.id);
@@ -77,11 +82,11 @@ export default function PartidasScreen() {
       <View style={styles.tabsRow}>
         {ABAS.map((tab) => {
           const on = aba === tab.id;
-          const badge =
+              const badge =
             tab.id === 'recebidos'
               ? recebidosPendentes.length
               : tab.id === 'agendados'
-                ? agendados.length
+                ? badgeAgendados
                 : 0;
           return (
             <TouchableOpacity
@@ -100,11 +105,21 @@ export default function PartidasScreen() {
         })}
       </View>
 
-      {loading ? (
+      {loading || (aba === 'agendados' && loadingTorneio) ? (
         <ActivityIndicator color={Colors.accent} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: TAB_PAD_BOTTOM }}>
-          {lista.length === 0 ? (
+          {aba === 'agendados' &&
+          lista.length === 0 &&
+          proximosTorneio.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Ionicons name="tennisball-outline" size={40} color={Colors.textSecondary} />
+              <Text style={styles.empty}>
+                Nenhuma partida marcada. Aceite um convite, desafie alguém ou
+                aguarde o chaveamento do torneio.
+              </Text>
+            </View>
+          ) : aba !== 'agendados' && lista.length === 0 ? (
             <View style={styles.emptyBox}>
               <Ionicons name="tennisball-outline" size={40} color={Colors.textSecondary} />
               <Text style={styles.empty}>
@@ -112,11 +127,9 @@ export default function PartidasScreen() {
                   ? 'Nenhum convite recebido. Quando alguém te desafiar, aparece aqui.'
                   : aba === 'enviados'
                     ? 'Você não enviou convites pendentes.'
-                    : aba === 'agendados'
-                      ? 'Nenhuma partida marcada. Aceite um convite ou desafie alguém.'
-                      : 'Sem histórico ainda.'}
+                    : 'Sem histórico ainda.'}
               </Text>
-              {(aba === 'recebidos' || aba === 'agendados') && (
+              {aba === 'recebidos' && (
                 <TouchableOpacity
                   style={styles.ctaBtn}
                   onPress={() => router.push('/desafio/novo')}
@@ -126,21 +139,74 @@ export default function PartidasScreen() {
               )}
             </View>
           ) : (
-            lista.map((d) => (
-              <ConfrontoCard
-                key={d.id}
-                d={d}
-                meuUid={user?.uid}
-                busy={busyId === d.id}
-                onOpen={() => router.push(`/desafio/${d.id}`)}
-                onAceitar={() => void responder(d, 'aceito')}
-                onRecusar={() => void responder(d, 'recusado')}
-              />
-            ))
+            <>
+              {aba === 'agendados' && proximosTorneio.length > 0 ? (
+                <>
+                  <Text style={styles.sectionLabel}>Torneios</Text>
+                  {proximosTorneio.map((c) => (
+                    <TorneioConfrontoCard
+                      key={`${c.torneioId}-${c.id}`}
+                      c={c}
+                      onOpen={() => router.push(c.rota as never)}
+                    />
+                  ))}
+                  {lista.length > 0 ? (
+                    <Text style={[styles.sectionLabel, { marginTop: 12 }]}>Desafios</Text>
+                  ) : null}
+                </>
+              ) : null}
+              {lista.map((d) => (
+                <ConfrontoCard
+                  key={d.id}
+                  d={d}
+                  meuUid={user?.uid}
+                  busy={busyId === d.id}
+                  onOpen={() => router.push(`/desafio/${d.id}`)}
+                  onAceitar={() => void responder(d, 'aceito')}
+                  onRecusar={() => void responder(d, 'recusado')}
+                />
+              ))}
+            </>
           )}
         </ScrollView>
       )}
     </SafeAreaView>
+  );
+}
+
+function TorneioConfrontoCard({
+  c,
+  onOpen,
+}: {
+  c: ConfrontoTorneioUsuario;
+  onOpen: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.card} onPress={onOpen} activeOpacity={0.85}>
+      <View style={styles.cardTop}>
+        <View style={[styles.statusTag, { backgroundColor: '#4ade8022' }]}>
+          <View style={[styles.statusDot, { backgroundColor: '#4ade80' }]} />
+          <Text style={[styles.statusTxt, { color: '#4ade80' }]}>Torneio</Text>
+        </View>
+        <Text style={styles.esp}>{c.labelRodada || 'Chave'}</Text>
+      </View>
+      <View style={styles.vsRow}>
+        <Avatar uri={c.j1Foto} nome={c.j1Nome} size="sm" />
+        <Text style={styles.vsNome} numberOfLines={1}>
+          {c.j1Nome}
+        </Text>
+        <Text style={styles.vsX}>×</Text>
+        <Text style={[styles.vsNome, { textAlign: 'right' }]} numberOfLines={1}>
+          {c.j2Nome}
+        </Text>
+        <Avatar uri={c.j2Foto} nome={c.j2Nome} size="sm" />
+      </View>
+      <Text style={styles.metaLine}>
+        {c.torneioNome}
+        {c.dataHoraInicio ? ` · ${c.dataHoraInicio}` : ''}
+        {c.quadraNome ? ` · ${c.quadraNome}` : ''}
+      </Text>
+    </TouchableOpacity>
   );
 }
 
@@ -362,4 +428,15 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   openHintTxt: { color: Colors.accent, fontWeight: '700', fontSize: 13 },
+  sectionLabel: {
+    color: Colors.accent,
+    fontWeight: '800',
+    fontSize: 13,
+    marginBottom: 8,
+    letterSpacing: 0.3,
+  },
+  esp: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
+  vsNome: { flex: 1, color: Colors.textPrimary, fontWeight: '700', fontSize: 12 },
+  vsX: { color: Colors.accent, fontWeight: '900', marginHorizontal: 6 },
+  metaLine: { color: Colors.textSecondary, fontSize: 12, marginTop: 4 },
 });

@@ -32,8 +32,16 @@ export function useAmigos() {
     }
     const qA = query(collection(db, 'amizades'), where('deUid', '==', user.uid));
     const qB = query(collection(db, 'amizades'), where('paraUid', '==', user.uid));
-    const unsubA = onSnapshot(qA, (snap) => setEnviadas(snap.docs.map(mapAmizade)));
-    const unsubB = onSnapshot(qB, (snap) => setRecebidas(snap.docs.map(mapAmizade)));
+    const unsubA = onSnapshot(
+      qA,
+      (snap) => setEnviadas(snap.docs.map(mapAmizade)),
+      () => setEnviadas([])
+    );
+    const unsubB = onSnapshot(
+      qB,
+      (snap) => setRecebidas(snap.docs.map(mapAmizade)),
+      () => setRecebidas([])
+    );
     return () => {
       unsubA();
       unsubB();

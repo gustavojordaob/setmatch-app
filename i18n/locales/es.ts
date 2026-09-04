@@ -132,6 +132,11 @@ export const es: TranslationDict = {
   'primeiroAcesso.subtitle':
     'Llegó tu momento de subir de nivel. Necesitamos algunos datos para una experiencia personalizada. ¡No esperes: desafíate con Rally Up!',
   'primeiroAcesso.cta': 'Vamos',
+  'primeiroAcesso.exit': 'Ya tengo cuenta — salir',
+  'primeiroAcesso.exitTitle': '¿Salir del registro?',
+  'primeiroAcesso.exitBody':
+    'Volverás al inicio de sesión. Si ya tienes cuenta, entra con ese correo y contraseña.',
+  'primeiroAcesso.exitConfirm': 'Salir',
   'baixar.title': 'Instala la app con el enlace',
   'baixar.alreadyInstalled': 'Ya está instalada en este dispositivo.',
   'baixar.openApp': 'Abrir Rally Up',
@@ -140,8 +145,11 @@ export const es: TranslationDict = {
   'baixar.continueBrowser': 'Continuar en el navegador',
 
   'wizard.continue': 'Continuar',
+  'wizard.keyboardDone': 'Listo',
   'wizard.finish': 'Finalizar',
   'wizard.whyInfo': '¿Para qué se usará esta información?',
+  'wizard.whyInfoBody':
+    'Usamos esta información para personalizar tu perfil y recomendar desafíos, clases y partidos que se adapten a tu nivel. Puedes actualizarlo cuando quieras en Perfil.',
   'wizard.ageTitle': '¿Cuál es tu edad?',
   'wizard.genderTitle': '¿Cuál es tu género?',
   'wizard.genderMale': 'Masculino',
@@ -149,6 +157,7 @@ export const es: TranslationDict = {
   'wizard.weightTitle': '¿Cuál es tu peso?',
   'wizard.heightTitle': '¿Cuál es tu altura?',
   'wizard.sportsTitle': '¿Qué deportes practicas?',
+  'wizard.sportsHint': 'Elige uno o más. Cada opción muestra una descripción corta.',
   'wizard.levelTitle': '¿Cuál es tu nivel?',
   'wizard.level.beginner': 'Principiante',
   'wizard.level.beginnerDesc': 'Empezando o juego de vez en cuando',
@@ -168,6 +177,8 @@ export const es: TranslationDict = {
   'wizard.statePlaceholder': 'BA',
   'wizard.zip': 'Código postal',
   'wizard.zipPlaceholder': '00000',
+  'wizard.zipLookingUp': 'Buscando dirección…',
+  'wizard.zipNotFound': 'Código postal no encontrado. Completa ciudad y estado manualmente.',
   'wizard.street': 'Calle / referencia',
   'wizard.streetPlaceholder': 'Opcional — ¿cerca de qué cancha?',
   'wizard.phoneTitle': '¿Cuál es tu celular?',
@@ -176,9 +187,17 @@ export const es: TranslationDict = {
   'wizard.phoneHint':
     'Elige el país. Usamos WhatsApp con amigos, clubes y confirmaciones de torneo.',
   'esporte.tenis': 'Tenis',
+  'esporte.tenisDesc':
+    'Pista de tierra, hard o hierba — raqueta con cuerdas y la pelota amarilla clásica.',
   'esporte.padel': 'Pádel',
+  'esporte.padelDesc':
+    'Pista cerrada con paredes — raqueta sólida (sin cuerdas), normalmente en dobles.',
   'esporte.raquetinha': 'Raquetinha',
+  'esporte.raquetinhaDesc':
+    'Deporte de raqueta en pista cerrada (estilo squash/racquetball).',
   'esporte.beachtennis': 'Beach tennis',
+  'esporte.beachtennisDesc':
+    'Tenis en arena, en dobles — raqueta sólida y pelota sin presión.',
 
   'home.inviteToPlay': 'Invitar a jugar',
   'home.nearMeTitle': 'Cerca de mí',
@@ -348,6 +367,12 @@ export const es: TranslationDict = {
   'trofeu.filterHint': 'Elige deporte y club arriba. Rankings y torneos siguen el filtro.',
   'trofeu.noActiveRanking': 'Ningún ranking activo aquí.',
   'trofeu.noTournamentYet': 'Ningún torneo creado aún.',
+  'trofeu.allRankings': 'Todos los rankings',
+  'trofeu.myRankings': 'Míos',
+  'trofeu.exploreRankings': 'Explorar',
+  'trofeu.noMyRankings': 'Aún no entraste en ningún ranking con este filtro.',
+  'trofeu.seeAllMyRankings': 'Ver todos mis rankings ({{count}})',
+  'trofeu.seeMoreRankings': 'Ver {{count}} rankings más',
   'trofeu.payNow': 'Pagar ahora',
   'trofeu.myPayments': 'Mis pagos',
   'trofeu.openChat': 'Abrir chat',

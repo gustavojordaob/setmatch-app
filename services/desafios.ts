@@ -14,6 +14,7 @@ import { db } from '../utils/firebaseConfig';
 import type { EsporteId } from '../constants/esportes';
 import type { FormatoPartidaId } from '../constants/formatosPartida';
 import { criarPost } from './feed';
+import { criarNotificacao } from './notificacoes';
 
 export type DesafioStatus = 'pendente' | 'aceito' | 'recusado' | 'finalizado';
 
@@ -21,9 +22,15 @@ export async function criarDesafio(input: {
   desafiante: string;
   desafianteNome: string;
   desafianteFoto?: string;
+  desafianteParceiroUid?: string;
+  desafianteParceiroNome?: string;
+  desafianteParceiroFoto?: string;
   desafiado: string;
   desafiadoNome: string;
   desafiadoFoto?: string;
+  desafiadoParceiroUid?: string;
+  desafiadoParceiroNome?: string;
+  desafiadoParceiroFoto?: string;
   esporte: EsporteId;
   quadra?: string;
   clubeId?: string;
@@ -31,14 +38,26 @@ export async function criarDesafio(input: {
   mensagem?: string;
   formato?: FormatoPartidaId;
   dataSugerida?: string;
+  rankingId?: string;
+  rankingNome?: string;
+  /** Reserva de quadra no clube (confirmação do adversário). */
+  reservaId?: string;
+  /** Evita notif duplicada quando já notificou via reserva ranking */
+  silencioso?: boolean;
 }): Promise<string> {
   const ref = await addDoc(collection(db, 'desafios'), {
     desafiante: input.desafiante,
     desafianteNome: input.desafianteNome,
     desafianteFoto: input.desafianteFoto ?? '',
+    desafianteParceiroUid: input.desafianteParceiroUid ?? '',
+    desafianteParceiroNome: input.desafianteParceiroNome ?? '',
+    desafianteParceiroFoto: input.desafianteParceiroFoto ?? '',
     desafiado: input.desafiado,
     desafiadoNome: input.desafiadoNome,
     desafiadoFoto: input.desafiadoFoto ?? '',
+    desafiadoParceiroUid: input.desafiadoParceiroUid ?? '',
+    desafiadoParceiroNome: input.desafiadoParceiroNome ?? '',
+    desafiadoParceiroFoto: input.desafiadoParceiroFoto ?? '',
     esporte: input.esporte,
     quadra: input.quadra?.trim() || 'A combinar',
     clubeId: input.clubeId ?? '',
@@ -46,9 +65,27 @@ export async function criarDesafio(input: {
     mensagem: input.mensagem?.trim() || '',
     formato: input.formato ?? 'melhor_de_3_stb',
     dataSugerida: input.dataSugerida?.trim() || '',
+    rankingId: input.rankingId ?? '',
+    rankingNome: input.rankingNome ?? '',
+    reservaId: input.reservaId ?? '',
     status: 'pendente' as DesafioStatus,
     criadoEm: serverTimestamp(),
   });
+
+  if (!input.silencioso && input.desafiado && input.desafiado !== input.desafiante) {
+    const isRanking = Boolean(input.rankingId);
+    void criarNotificacao({
+      paraUid: input.desafiado,
+      tipo: isRanking ? 'reserva_ranking' : 'desafio',
+      titulo: isRanking ? 'Horário de ranking' : 'Novo desafio',
+      corpo: isRanking
+        ? `${input.desafianteNome} marcou horário${input.rankingNome ? ` em ${input.rankingNome}` : ''}${input.dataSugerida ? ` · ${input.dataSugerida}` : ''}. Confirme a reserva.`
+        : `${input.desafianteNome} te desafiou${input.quadra ? ` · ${input.quadra}` : ''}.`,
+      rota: `/desafio/${ref.id}`,
+      refId: ref.id,
+    }).catch((e) => console.warn('[desafio] notif', e));
+  }
+
   return ref.id;
 }
 
@@ -56,18 +93,45 @@ export async function atualizarStatusDesafio(
   id: string,
   status: Exclude<DesafioStatus, 'pendente'>
 ): Promise<void> {
-  await updateDoc(doc(db, 'desafios', id), {
+  const desafioRef = doc(db, 'desafios', id);
+  const snap = await getDoc(desafioRef);
+  await updateDoc(desafioRef, {
     status,
     atualizadoEm: serverTimestamp(),
   });
+
+  if (!snap.exists()) return;
+  const raw = snap.data();
+  const reservaId = String(raw.reservaId ?? '');
+  const clubeId = String(raw.clubeId ?? '');
+  if (!reservaId || !clubeId) return;
+
+  const reservaStatus = status === 'aceito' ? 'confirmado' : 'cancelado';
+  try {
+    await updateDoc(doc(db, 'clubes', clubeId, 'reservas', reservaId), {
+      status: reservaStatus,
+      atualizadoEm: serverTimestamp(),
+    });
+  } catch (e) {
+    console.warn('[desafio] sync reserva', e);
+  }
 }
 
 export async function registrarPartidaDoDesafio(input: {
   desafioId: string;
   jogador1: string;
   jogador1Nome: string;
+  jogador1Foto?: string;
+  jogador1ParceiroUid?: string;
+  jogador1ParceiroNome?: string;
+  jogador1ParceiroFoto?: string;
   jogador2: string;
   jogador2Nome: string;
+  jogador2Foto?: string;
+  jogador2ParceiroUid?: string;
+  jogador2ParceiroNome?: string;
+  jogador2ParceiroFoto?: string;
+  composicao?: 'simples' | 'dupla';
   sets: { j1: number; j2: number }[];
   vencedor: string;
   esporte: EsporteId;
@@ -75,13 +139,27 @@ export async function registrarPartidaDoDesafio(input: {
   clubeId?: string;
   clubeNome?: string;
   formato?: FormatoPartidaId;
+  rankingId?: string;
+  publicarNoFeed?: boolean;
 }): Promise<string> {
+  const composicao =
+    input.composicao ??
+    (input.jogador1ParceiroUid || input.jogador2ParceiroUid ? 'dupla' : 'simples');
   const partidaRef = await addDoc(collection(db, 'partidas'), {
     desafioId: input.desafioId,
     jogador1: input.jogador1,
     jogador1Nome: input.jogador1Nome,
+    jogador1Foto: input.jogador1Foto ?? '',
+    jogador1ParceiroUid: input.jogador1ParceiroUid ?? '',
+    jogador1ParceiroNome: input.jogador1ParceiroNome ?? '',
+    jogador1ParceiroFoto: input.jogador1ParceiroFoto ?? '',
     jogador2: input.jogador2,
     jogador2Nome: input.jogador2Nome,
+    jogador2Foto: input.jogador2Foto ?? '',
+    jogador2ParceiroUid: input.jogador2ParceiroUid ?? '',
+    jogador2ParceiroNome: input.jogador2ParceiroNome ?? '',
+    jogador2ParceiroFoto: input.jogador2ParceiroFoto ?? '',
+    composicao,
     sets: input.sets,
     vencedor: input.vencedor,
     esporte: input.esporte,
@@ -89,7 +167,8 @@ export async function registrarPartidaDoDesafio(input: {
     clubeId: input.clubeId ?? '',
     clubeNome: input.clubeNome ?? '',
     formato: input.formato ?? '',
-    tipo: 'amistoso',
+    tipo: input.rankingId ? 'ranking' : 'amistoso',
+    rankingId: input.rankingId ?? '',
     dataPartida: serverTimestamp(),
   });
 
@@ -103,17 +182,19 @@ export async function registrarPartidaDoDesafio(input: {
   const vencedorNome =
     input.vencedor === input.jogador1 ? input.jogador1Nome : input.jogador2Nome;
 
-  await criarPost({
-    autorUid: input.jogador1,
-    autorNome: input.jogador1Nome,
-    texto: `🎾 Jogo finalizado: ${input.jogador1Nome} vs ${input.jogador2Nome}\nPlacar: ${placar}\nVencedor: ${vencedorNome}${
-      input.clubeNome ? `\nClube: ${input.clubeNome}` : ''
-    }`,
-    esporte: input.esporte,
-    clubeId: input.clubeId,
-    tipo: 'resultado',
-    partidaId: partidaRef.id,
-  });
+  if (input.publicarNoFeed !== false) {
+    await criarPost({
+      autorUid: input.jogador1,
+      autorNome: input.jogador1Nome,
+      texto: `🎾 Jogo finalizado: ${input.jogador1Nome} vs ${input.jogador2Nome}\nPlacar: ${placar}\nVencedor: ${vencedorNome}${
+        input.clubeNome ? `\nClube: ${input.clubeNome}` : ''
+      }`,
+      esporte: input.esporte,
+      clubeId: input.clubeId,
+      tipo: 'resultado',
+      partidaId: partidaRef.id,
+    });
+  }
 
   const perdedor =
     input.vencedor === input.jogador1 ? input.jogador2 : input.jogador1;
@@ -123,6 +204,28 @@ export async function registrarPartidaDoDesafio(input: {
   await updateDoc(doc(db, 'usuarios', perdedor), {
     derrotas: increment(1),
   });
+
+  if (input.rankingId) {
+    const { aplicarPtsPartidaRanking } = await import('./rankings');
+    const { calcularPtsRanking } = await import('../utils/rankingPontos');
+    const rankingSnap = await getDoc(doc(db, 'rankings', input.rankingId));
+    const regras = rankingSnap.exists()
+      ? (rankingSnap.data().regrasJogo as import('../types/ranking').RankingRegrasJogo | undefined)
+      : undefined;
+    const { ptsVencedor, ptsPerdedor } = calcularPtsRanking(
+      input.sets,
+      input.vencedor,
+      input.jogador1,
+      regras
+    );
+    await aplicarPtsPartidaRanking({
+      rankingId: input.rankingId,
+      vencedorUid: input.vencedor,
+      perdedorUid: perdedor,
+      ptsVencedor,
+      ptsPerdedor,
+    });
+  }
 
   return partidaRef.id;
 }

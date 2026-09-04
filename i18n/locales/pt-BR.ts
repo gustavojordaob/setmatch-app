@@ -138,6 +138,11 @@ export const ptBR: TranslationDict = {
   'primeiroAcesso.subtitle':
     'Chegou a sua hora de subir de nível. Precisamos de algumas informações sobre você para prepararmos uma experiência personalizada. Não perca tempo, chegou a hora de se desafiar com Rally Up.',
   'primeiroAcesso.cta': 'Vamos Lá',
+  'primeiroAcesso.exit': 'Já tenho conta — sair',
+  'primeiroAcesso.exitTitle': 'Sair do cadastro?',
+  'primeiroAcesso.exitBody':
+    'Você voltará para o login. Se já tem conta, entre com o e-mail e a senha dela.',
+  'primeiroAcesso.exitConfirm': 'Sair',
   'baixar.title': 'Instale o app pelo link',
   'baixar.alreadyInstalled': 'Já está instalado neste aparelho.',
   'baixar.openApp': 'Abrir Rally Up',
@@ -147,8 +152,11 @@ export const ptBR: TranslationDict = {
 
   // wizard
   'wizard.continue': 'Continuar',
+  'wizard.keyboardDone': 'Pronto',
   'wizard.finish': 'Finalizar',
   'wizard.whyInfo': 'Para o que esta informação será utilizada?',
+  'wizard.whyInfoBody':
+    'Usamos essas informações para personalizar seu perfil e recomendar desafios, aulas e partidas mais adequados ao seu nível. Você pode atualizar isso quando quiser em Perfil.',
   'wizard.ageTitle': 'Qual a sua idade?',
   'wizard.genderTitle': 'Qual o seu gênero?',
   'wizard.genderMale': 'Masculino',
@@ -156,6 +164,7 @@ export const ptBR: TranslationDict = {
   'wizard.weightTitle': 'Qual o seu peso?',
   'wizard.heightTitle': 'Qual a sua altura?',
   'wizard.sportsTitle': 'Quais esportes você joga?',
+  'wizard.sportsHint': 'Selecione um ou mais. A descrição aparece em cada opção.',
   'wizard.levelTitle': 'Qual o seu nível?',
   'wizard.level.beginner': 'Iniciante',
   'wizard.level.beginnerDesc': 'Começando agora ou jogo ocasionalmente',
@@ -175,6 +184,8 @@ export const ptBR: TranslationDict = {
   'wizard.statePlaceholder': 'SP',
   'wizard.zip': 'CEP',
   'wizard.zipPlaceholder': '00000-000',
+  'wizard.zipLookingUp': 'Buscando endereço…',
+  'wizard.zipNotFound': 'CEP não encontrado. Preencha cidade e UF manualmente.',
   'wizard.street': 'Rua / referência',
   'wizard.streetPlaceholder': 'Opcional — perto de qual quadra?',
   'wizard.phoneTitle': 'Qual o seu celular?',
@@ -183,9 +194,17 @@ export const ptBR: TranslationDict = {
   'wizard.phoneHint':
     'Selecione o país. Usamos WhatsApp com amigos, clubes e confirmações de torneio.',
   'esporte.tenis': 'Tênis',
+  'esporte.tenisDesc':
+    'Quadra de saibro, hard ou grama — raquete com cordas e bola amarela clássica.',
   'esporte.padel': 'Padel',
+  'esporte.padelDesc':
+    'Quadra fechada com paredes — raquete sólida (sem cordas), em duplas.',
   'esporte.raquetinha': 'Raquetinha',
-  'esporte.beachtennis': 'Beachtênis',
+  'esporte.raquetinhaDesc':
+    'Esporte de raquete em quadra fechada (estilo squash/racquetball).',
+  'esporte.beachtennis': 'Beach tênis',
+  'esporte.beachtennisDesc':
+    'Tênis na areia, em duplas — raquete sem cordas e bola sem pressão.',
 
   // home
   'home.inviteToPlay': 'Convidar para jogar',
@@ -290,7 +309,7 @@ export const ptBR: TranslationDict = {
   'saude.ahUnavailableBody':
     'Apple Health não está disponível neste iPhone (simulador, restrições de idade/conta ou Rally Up sem build nativo).',
   'saude.ahPermissionDeniedBody':
-    'Acesso negado no Apple Health. Ajustes → Saúde → Acesso a dados e dispositivos → Rally Up → ative Passos, Energia ativa, Frequência cardíaca e Sono.',
+    'O Apple Health bloqueou a leitura. Em Ajustes → Saúde → Acesso a dados e dispositivos → Rally Up, desative e ative de novo Passos e Energia ativa. Depois volte ao app e toque em conectar.',
   'saude.ahPermissionIncompleteBody':
     'Você fechou a tela de permissões sem liberar o acesso. Toque de novo no interruptor e permita a leitura no Apple Health.',
   'saude.ahAuthFailedBody':
@@ -360,6 +379,12 @@ export const ptBR: TranslationDict = {
   'trofeu.filterHint': 'Escolha esporte e clube no topo. Rankings e torneios seguem o filtro.',
   'trofeu.noActiveRanking': 'Nenhum ranking ativo aqui.',
   'trofeu.noTournamentYet': 'Nenhum torneio criado ainda.',
+  'trofeu.allRankings': 'Todos os rankings',
+  'trofeu.myRankings': 'Meus',
+  'trofeu.exploreRankings': 'Explorar',
+  'trofeu.noMyRankings': 'Você ainda não entrou em nenhum ranking deste filtro.',
+  'trofeu.seeAllMyRankings': 'Ver todos os meus rankings ({{count}})',
+  'trofeu.seeMoreRankings': 'Ver mais {{count}} rankings',
   'trofeu.payNow': 'Pagar agora',
   'trofeu.myPayments': 'Meus pagamentos',
   'trofeu.openChat': 'Abrir chat',

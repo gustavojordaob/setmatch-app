@@ -11,6 +11,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
 import type { EsporteId } from '../constants/esportes';
+import { composicaoPadraoPorEsporte } from '../constants/composicao';
+import type { ComposicaoId } from '../constants/composicao';
 
 export interface ClubeCompleto {
   id: string;
@@ -22,6 +24,8 @@ export interface ClubeCompleto {
   endereco?: string;
   telefone?: string;
   descricao?: string;
+  /** URL do logo do clube (Storage `clubes/{id}/logo_*.jpg`) */
+  logoUrl?: string;
   lat?: number;
   lng?: number;
   esportes: EsporteId[];
@@ -37,6 +41,8 @@ export interface ClubeCompleto {
     descontoPixPercent?: number;
     descontoCartaoPercent?: number;
   };
+  /** Agenda de quadras (funcionamento + slots). */
+  agenda?: import('../types/agenda').AgendaClubeConfig;
   /** Stripe Connect Express */
   stripeAccountId?: string;
   stripeChargesEnabled?: boolean;
@@ -102,6 +108,27 @@ export async function atualizarClube(
   await updateDoc(doc(db, 'clubes', clubeId), data);
 }
 
+/** Espelha `logoUrl` do clube em todos os rankings (card / detalhe). */
+export async function sincronizarLogoNosRankings(
+  clubeId: string,
+  logoUrl: string
+): Promise<void> {
+  const snap = await getDocs(
+    query(collection(db, 'rankings'), where('clubeId', '==', clubeId))
+  );
+  await Promise.all(
+    snap.docs.map((d) => updateDoc(d.ref, { clubeLogoUrl: logoUrl }))
+  );
+}
+
+export async function salvarLogoClube(
+  clubeId: string,
+  logoUrl: string
+): Promise<void> {
+  await atualizarClube(clubeId, { logoUrl });
+  await sincronizarLogoNosRankings(clubeId, logoUrl);
+}
+
 export async function criarRankingNoClube(input: {
   clubeId: string;
   clubeNome: string;
@@ -111,6 +138,9 @@ export async function criarRankingNoClube(input: {
   donoUid: string;
   donoNome: string;
   donoFotoUrl?: string;
+  clubeLogoUrl?: string;
+  regrasJogo?: import('../types/ranking').RankingRegrasJogo;
+  composicao?: ComposicaoId;
   pagamento?: {
     ativo: boolean;
     valor: number;
@@ -127,11 +157,26 @@ export async function criarRankingNoClube(input: {
     nome: input.nome.trim(),
     clubeId: input.clubeId,
     clubeNome: input.clubeNome,
+    clubeLogoUrl: input.clubeLogoUrl ?? '',
     cidade: input.cidade,
     esporte: input.esporte,
+    composicao: input.composicao ?? composicaoPadraoPorEsporte(input.esporte),
     donoUid: input.donoUid,
     membros: [input.donoUid],
     totalMembros: 1,
+    regrasJogo: input.regrasJogo ?? {
+      formatoPartidaId: 'melhor_de_3_stb',
+      modelo: 'ladder',
+      jogosPorMes: 2,
+      enfrentaAcima: 1,
+      enfrentaAbaixo: 1,
+      ptsJogoCompleto: 35,
+      ptsParticipacao: 5,
+      participacaoTambemVencedor: true,
+      qtdGrupos: 4,
+      jogadoresPorGrupo: 4,
+      textoLivre: '',
+    },
     pagamento: input.pagamento ?? {
       ativo: false,
       valor: 0,
@@ -194,6 +239,7 @@ export async function listarClubesDoDono(donoUid: string): Promise<ClubeCompleto
       endereco: String(raw.endereco ?? ''),
       telefone: String(raw.telefone ?? ''),
       descricao: String(raw.descricao ?? ''),
+      logoUrl: raw.logoUrl ? String(raw.logoUrl) : undefined,
       esportes: (raw.esportes as EsporteId[]) ?? [raw.esporte as EsporteId].filter(Boolean),
       donoUid: String(raw.donoUid ?? ''),
       donoNome: String(raw.donoNome ?? ''),

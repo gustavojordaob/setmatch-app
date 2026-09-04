@@ -158,6 +158,19 @@ export default function MeuClubeDetailScreen() {
         ) : null}
 
         <View style={styles.box}>
+          <Text style={styles.boxTitle}>Agenda das quadras</Text>
+          <Text style={styles.boxTxt}>
+            Veja horários livres e ocupados (Ranking, Amistoso, Torneio). A duração de
+            cada jogo é definida pelo clube.
+          </Text>
+          <Button
+            label="Ver agenda"
+            onPress={() => router.push(`/meu-clube/${id}/agenda`)}
+            style={{ marginTop: 10 }}
+          />
+        </View>
+
+        <View style={styles.box}>
           <Text style={styles.boxTitle}>Aulas (aluno)</Text>
           {matricula ? (
             <Text style={styles.boxTxt}>Status matrícula: {matricula.status}</Text>

@@ -136,11 +136,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await setDoc(ref, { ...base, criadoEm: serverTimestamp() });
       await garantirSetmatchId(u.uid);
     } else {
-      await updateDoc(ref, {
+      const prev = snap.data();
+      const patch: Record<string, unknown> = {
         ultimoAcesso: serverTimestamp(),
-        email: u.email ?? snap.data().email ?? '',
-      });
-      const sid = snap.data().setmatchId as string | undefined;
+        email: u.email ?? prev.email ?? '',
+      };
+      // Regras: doc sem role só permite update se o resultado tiver role == jogador
+      if (!prev.role) patch.role = 'jogador';
+      await updateDoc(ref, patch);
+      const sid = prev.setmatchId as string | undefined;
       if (!sid) await garantirSetmatchId(u.uid);
     }
   }, []);
@@ -167,8 +171,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(u);
       try {
         if (u) {
-          await ensureUsuarioDoc(u);
-          await loadPerfil(u.uid, u.email);
+          try {
+            await ensureUsuarioDoc(u);
+          } catch (err) {
+            console.warn('[auth] ensureUsuarioDoc', err);
+          }
+          try {
+            await loadPerfil(u.uid, u.email);
+          } catch (err) {
+            console.warn('[auth] loadPerfil', err);
+            setPerfil(null);
+          }
         } else {
           setPerfil(null);
         }
@@ -228,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!user) throw new Error('Usuário não autenticado.');
       const fotoUrl = draft.fotoUrl ?? user.photoURL ?? '';
       const ref = doc(db, 'usuarios', user.uid);
+      const role = perfil?.role ?? 'jogador';
       await updateDoc(ref, {
         idade: draft.idade ?? 0,
         genero: draft.genero ?? '',
@@ -242,10 +256,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         esportes: draft.esportes ?? [],
         nivel: draft.nivel ?? 'iniciante',
         fotoUrl,
+        role,
         onboardingOk: true,
         ultimoAcesso: serverTimestamp(),
       });
-      await garantirSetmatchId(user.uid);
+      try {
+        await garantirSetmatchId(user.uid);
+      } catch (e) {
+        console.warn('[auth] garantirSetmatchId wizard', e);
+      }
       if (fotoUrl) {
         try {
           const { propagarPerfilPublico } = await import('../services/propagarPerfil');
@@ -260,7 +279,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       await loadPerfil(user.uid, user.email);
     },
-    [loadPerfil, perfil?.nome, user]
+    [loadPerfil, perfil?.nome, perfil?.role, user]
   );
 
   const updatePerfil = useCallback(
@@ -305,12 +324,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         cidade: data.cidade.trim(),
         estado: data.estado?.trim() ?? '',
         telefone: data.telefone.trim(),
+        role: perfil?.role ?? 'admin_clube',
         onboardingOk: true,
         ultimoAcesso: serverTimestamp(),
       });
       await loadPerfil(user.uid, user.email);
     },
-    [loadPerfil, user]
+    [loadPerfil, perfil?.role, user]
   );
 
   const value = useMemo<AuthContextValue>(

@@ -42,7 +42,11 @@ export default function ClubeOnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="never"
+        keyboardDismissMode="on-drag"
+      >
         <Text style={styles.title}>Bem-vindo, admin</Text>
         <Text style={styles.sub}>
           Complete seus dados de contato. Depois cadastre o clube, rankings e torneios.

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dimensions, Image, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Updates from 'expo-updates';
 import { Colors } from '../constants/colors';
 import { useAuth } from '../hooks/useAuth';
 
@@ -16,6 +17,7 @@ export default function LaunchScreen() {
   const { user, loading, onboardingComplete, isAdminClube } = useAuth();
   const navigated = useRef(false);
   const [logoSize, setLogoSize] = useState(splashLogoSize);
+  const [updatesReady, setUpdatesReady] = useState(false);
 
   useEffect(() => {
     const sub = Dimensions.addEventListener('change', () => {
@@ -24,8 +26,32 @@ export default function LaunchScreen() {
     return () => sub.remove();
   }, []);
 
+  // Garante que o app aplique OTA (EAS Updates) automaticamente ao abrir.
   useEffect(() => {
-    if (loading || navigated.current) return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+          return;
+        }
+      } catch {
+        // Se a checagem falhar, seguimos com o fluxo normal.
+      } finally {
+        if (!cancelled) setUpdatesReady(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!updatesReady || loading || navigated.current) return;
 
     const timer = setTimeout(() => {
       if (navigated.current) return;
@@ -45,7 +71,7 @@ export default function LaunchScreen() {
     }, SPLASH_MS);
 
     return () => clearTimeout(timer);
-  }, [user, loading, onboardingComplete, isAdminClube, router]);
+  }, [user, loading, onboardingComplete, isAdminClube, router, updatesReady]);
 
   return (
     <View style={styles.container}>

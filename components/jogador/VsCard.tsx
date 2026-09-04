@@ -2,26 +2,53 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { Card } from '../ui/Card';
-import { Avatar } from '../ui/Avatar';
+import { DualAvatar } from '../ui/DualAvatar';
+import { labelDupla, splitDuplaLabel } from '../../utils/duplaDisplay';
 
 export interface VsCardProps {
   nomeA: string;
   fotoA?: string | null;
+  nomeA2?: string | null;
+  fotoA2?: string | null;
   nomeB: string;
   fotoB?: string | null;
+  nomeB2?: string | null;
+  fotoB2?: string | null;
   probabilidadeA: number;
 }
 
-export function VsCard({ nomeA, fotoA, nomeB, fotoB, probabilidadeA }: VsCardProps) {
+export function VsCard({
+  nomeA,
+  fotoA,
+  nomeA2,
+  fotoA2,
+  nomeB,
+  fotoB,
+  nomeB2,
+  fotoB2,
+  probabilidadeA,
+}: VsCardProps) {
   const probB = 100 - probabilidadeA;
+  const splitA = splitDuplaLabel(nomeA);
+  const splitB = splitDuplaLabel(nomeB);
+  const partnerA = nomeA2 || splitA.b;
+  const partnerB = nomeB2 || splitB.b;
+  const labelA = labelDupla(splitA.a, partnerA);
+  const labelB = labelDupla(splitB.a, partnerB);
 
   return (
     <Card variant="green">
       <View style={styles.row}>
         <View style={styles.side}>
-          <Avatar uri={fotoA} nome={nomeA} size="lg" />
-          <Text style={styles.nome} numberOfLines={1}>
-            {nomeA}
+          <DualAvatar
+            nomeA={splitA.a}
+            fotoA={fotoA}
+            nomeB={partnerA}
+            fotoB={fotoA2}
+            size="lg"
+          />
+          <Text style={styles.nome} numberOfLines={2}>
+            {labelA}
           </Text>
         </View>
 
@@ -34,9 +61,15 @@ export function VsCard({ nomeA, fotoA, nomeB, fotoB, probabilidadeA }: VsCardPro
         </View>
 
         <View style={styles.side}>
-          <Avatar uri={fotoB} nome={nomeB} size="lg" />
-          <Text style={styles.nome} numberOfLines={1}>
-            {nomeB}
+          <DualAvatar
+            nomeA={splitB.a}
+            fotoA={fotoB}
+            nomeB={partnerB}
+            fotoB={fotoB2}
+            size="lg"
+          />
+          <Text style={styles.nome} numberOfLines={2}>
+            {labelB}
           </Text>
         </View>
       </View>
@@ -46,7 +79,10 @@ export function VsCard({ nomeA, fotoA, nomeB, fotoB, probabilidadeA }: VsCardPro
         <View style={[styles.barB, { flex: probB }]} />
       </View>
       <Text style={styles.barLegend}>
-        {nomeA.split(' ')[0]} {probabilidadeA}% · {nomeB.split(' ')[0]} {probB}%
+        {splitA.a.split(' ')[0]}
+        {partnerA ? `+${partnerA.split(' ')[0]}` : ''} {probabilidadeA}% ·{' '}
+        {splitB.a.split(' ')[0]}
+        {partnerB ? `+${partnerB.split(' ')[0]}` : ''} {probB}%
       </Text>
     </Card>
   );
@@ -73,7 +109,7 @@ const styles = StyleSheet.create({
   nome: {
     color: Colors.textPrimary,
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 12,
     textAlign: 'center',
   },
   vs: {

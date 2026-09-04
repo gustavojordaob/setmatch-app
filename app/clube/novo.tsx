@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Radius } from '../../constants/radius';
 import { ESPORTES, type EsporteId } from '../../constants/esportes';
+import { EsporteIcon } from '../../components/EsporteIcon';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { ButtonFooter } from '../../components/ui/ButtonFooter';
@@ -89,9 +90,12 @@ export default function NovoClubeAdminScreen() {
                 style={[styles.chip, on && styles.chipOn]}
                 onPress={() => toggle(e.id)}
               >
-                <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>
-                  {e.emoji} {e.nome}
-                </Text>
+                <EsporteIcon
+                  id={e.id}
+                  size={16}
+                  color={on ? Colors.textOnAccent : Colors.textPrimary}
+                />
+                <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{e.nome}</Text>
               </TouchableOpacity>
             );
           })}
@@ -118,6 +122,9 @@ const styles = StyleSheet.create({
   label: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 16 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderWidth: 1.5,
     borderColor: Colors.white,
     borderRadius: Radius.pill,

@@ -32,8 +32,32 @@ import {
   listarPartidasDoJogador,
   type PartidaResumo,
 } from '../../services/partidasHistorico';
+import { listarPostsDoAutor } from '../../services/feed';
+import {
+  listarProximosConfrontosTorneio,
+  listarTorneiosDoJogador,
+  type ConfrontoTorneioUsuario,
+  type InscricaoTorneioUsuario,
+} from '../../services/confrontosUsuario';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { calcularProbabilidadeVitoria } from '../../utils/probabilidade';
 import type { UsuarioPerfil } from '../../contexts/AuthContext';
+
+type AbaPerfil = 'feed' | 'proximos' | 'torneios' | 'partidas';
+
+const ABAS: { id: AbaPerfil; label: string }[] = [
+  { id: 'feed', label: 'Feed' },
+  { id: 'proximos', label: 'Próximos' },
+  { id: 'torneios', label: 'Torneios' },
+  { id: 'partidas', label: 'Partidas' },
+];
+
+type DesafioAgendado = {
+  id: string;
+  nome: string;
+  quadra: string;
+  data?: string;
+};
 
 export default function JogadorScreen() {
   const { uid, contexto } = useLocalSearchParams<{
@@ -42,13 +66,21 @@ export default function JogadorScreen() {
   }>();
   const router = useRouter();
   const { user, perfil: meuPerfil } = useAuth();
-  /** Vista clube → aluno: sem VS / H2H / convite competitivo. */
   const modoAlunoClube = contexto === 'aluno_clube';
   const [perfil, setPerfil] = useState<UsuarioPerfil | null>(null);
   const [loading, setLoading] = useState(true);
+  const [aba, setAba] = useState<AbaPerfil>('feed');
   const [partidas, setPartidas] = useState<PartidaResumo[]>([]);
   const [h2h, setH2h] = useState<ConfrontoResumo[]>([]);
   const [campeao, setCampeao] = useState(false);
+  const [posts, setPosts] = useState<
+    { id: string; texto: string; tipo?: string; criadoEm?: { seconds: number } }[]
+  >([]);
+  const [proximosTorneio, setProximosTorneio] = useState<ConfrontoTorneioUsuario[]>(
+    []
+  );
+  const [desafiosAgendados, setDesafiosAgendados] = useState<DesafioAgendado[]>([]);
+  const [torneios, setTorneios] = useState<InscricaoTorneioUsuario[]>([]);
 
   useEffect(() => {
     if (!uid) return;
@@ -81,12 +113,42 @@ export default function JogadorScreen() {
             setmatchId: d.setmatchId ? String(d.setmatchId) : '',
           });
         }
-        const [hist, camp] = await Promise.all([
-          listarPartidasDoJogador(uid, 10),
+
+        const [hist, camp, feedPosts, confTorneio, tors] = await Promise.all([
+          listarPartidasDoJogador(uid, 15),
           jogadorFoiCampeao(uid),
+          listarPostsDoAutor(uid, 20).catch(() => []),
+          listarProximosConfrontosTorneio(uid).catch(() => []),
+          listarTorneiosDoJogador(uid).catch(() => []),
         ]);
         setPartidas(hist);
         setCampeao(camp);
+        setPosts(feedPosts);
+        setProximosTorneio(confTorneio);
+        setTorneios(tors);
+
+        // Desafios aceitos do jogador (duas queries)
+        const [dA, dB] = await Promise.all([
+          getDocs(query(collection(db, 'desafios'), where('desafiante', '==', uid))),
+          getDocs(query(collection(db, 'desafios'), where('desafiado', '==', uid))),
+        ]);
+        const map = new Map<string, DesafioAgendado>();
+        [...dA.docs, ...dB.docs].forEach((d) => {
+          const raw = d.data();
+          if (String(raw.status) !== 'aceito') return;
+          const outro =
+            String(raw.desafiante) === uid
+              ? String(raw.desafiadoNome ?? 'Adversário')
+              : String(raw.desafianteNome ?? 'Adversário');
+          map.set(d.id, {
+            id: d.id,
+            nome: outro,
+            quadra: String(raw.quadra ?? 'A combinar'),
+            data: raw.dataSugerida ? String(raw.dataSugerida) : undefined,
+          });
+        });
+        setDesafiosAgendados([...map.values()]);
+
         if (user && user.uid !== uid && !modoAlunoClube) {
           setH2h(await buscarConfrontosEntre(user.uid, uid, user.uid, 5));
         } else {
@@ -186,7 +248,6 @@ export default function JogadorScreen() {
             </Text>
           ) : null}
           {perfil.nivel ? <Text style={styles.meta}>Nível: {perfil.nivel}</Text> : null}
-          {perfil.idade ? <Text style={styles.meta}>{perfil.idade} anos</Text> : null}
           {perfil.esportes?.length ? (
             <Text style={styles.meta}>
               {perfil.esportes
@@ -201,12 +262,7 @@ export default function JogadorScreen() {
         ) : (
           <View style={styles.block}>
             <Text style={styles.blockTitle}>Aluno do clube</Text>
-            <Text style={styles.meta}>
-              Contato e dados do aluno — sem confronto competitivo.
-            </Text>
-            {perfil.setmatchId ? (
-              <Text style={styles.meta}>ID: {perfil.setmatchId}</Text>
-            ) : null}
+            <Text style={styles.meta}>Contato e dados do aluno.</Text>
           </View>
         )}
 
@@ -238,30 +294,135 @@ export default function JogadorScreen() {
 
         {!modoAlunoClube ? (
           <>
-            <View style={styles.block}>
-              <Text style={styles.blockTitle}>Últimas partidas</Text>
-              {partidas.length === 0 ? (
-                <Text style={styles.meta}>Nenhuma partida registrada ainda.</Text>
-              ) : (
-                partidas.map((p) => {
-                  const adversario =
-                    p.jogador1 === uid ? p.jogador2Nome : p.jogador1Nome;
-                  const ganhou = p.vencedor === uid;
-                  return (
-                    <View key={p.id} style={styles.row}>
-                      <Text
-                        style={[styles.rowMain, ganhou ? styles.win : styles.loss]}
-                      >
-                        {ganhou ? 'V' : 'D'} · vs {adversario}
+            <View style={styles.tabsRow}>
+              {ABAS.map((tab) => {
+                const on = aba === tab.id;
+                return (
+                  <TouchableOpacity
+                    key={tab.id}
+                    style={[styles.tab, on && styles.tabOn]}
+                    onPress={() => setAba(tab.id)}
+                  >
+                    <Text style={[styles.tabTxt, on && styles.tabTxtOn]}>{tab.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {aba === 'feed' ? (
+              <View style={styles.block}>
+                {posts.length === 0 ? (
+                  <Text style={styles.meta}>Nenhum post no feed ainda.</Text>
+                ) : (
+                  posts.map((p) => (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={styles.feedItem}
+                      onPress={() => router.push(`/post/${p.id}`)}
+                    >
+                      <Text style={styles.rowMain} numberOfLines={4}>
+                        {p.texto}
                       </Text>
                       <Text style={styles.rowSub}>
-                        {p.placar} · {p.tipo || 'jogo'} · {p.dataLabel}
+                        {p.tipo === 'resultado' ? 'Resultado' : 'Post'}
+                        {p.criadoEm?.seconds
+                          ? ` · ${new Date(p.criadoEm.seconds * 1000).toLocaleDateString('pt-BR')}`
+                          : ''}
                       </Text>
-                    </View>
-                  );
-                })
-              )}
-            </View>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </View>
+            ) : null}
+
+            {aba === 'proximos' ? (
+              <View style={styles.block}>
+                {desafiosAgendados.length === 0 && proximosTorneio.length === 0 ? (
+                  <Text style={styles.meta}>Nenhum jogo marcado no momento.</Text>
+                ) : (
+                  <>
+                    {proximosTorneio.map((c) => (
+                      <TouchableOpacity
+                        key={`${c.torneioId}-${c.id}`}
+                        style={styles.row}
+                        onPress={() => router.push(c.rota as never)}
+                      >
+                        <Text style={styles.rowMain} numberOfLines={2}>
+                          🏆 {c.j1Nome} vs {c.j2Nome}
+                        </Text>
+                        <Text style={styles.rowSub}>
+                          {c.torneioNome}
+                          {c.labelRodada ? ` · ${c.labelRodada}` : ''}
+                          {c.dataHoraInicio ? ` · ${c.dataHoraInicio}` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                    {desafiosAgendados.map((d) => (
+                      <TouchableOpacity
+                        key={d.id}
+                        style={styles.row}
+                        onPress={() => router.push(`/desafio/${d.id}`)}
+                      >
+                        <Text style={styles.rowMain}>vs {d.nome}</Text>
+                        <Text style={styles.rowSub}>
+                          Desafio · {d.quadra}
+                          {d.data ? ` · ${d.data}` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
+              </View>
+            ) : null}
+
+            {aba === 'torneios' ? (
+              <View style={styles.block}>
+                {torneios.length === 0 ? (
+                  <Text style={styles.meta}>Não está inscrito em torneios.</Text>
+                ) : (
+                  torneios.map((t) => (
+                    <TouchableOpacity
+                      key={t.torneioId}
+                      style={styles.row}
+                      onPress={() => router.push(t.rota as never)}
+                    >
+                      <Text style={styles.rowMain}>{t.torneioNome}</Text>
+                      <Text style={styles.rowSub}>
+                        {t.clubeNome ? `${t.clubeNome} · ` : ''}
+                        {t.statusTorneio}
+                        {t.statusInscricao ? ` · insc.: ${t.statusInscricao}` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </View>
+            ) : null}
+
+            {aba === 'partidas' ? (
+              <View style={styles.block}>
+                {partidas.length === 0 ? (
+                  <Text style={styles.meta}>Nenhuma partida registrada ainda.</Text>
+                ) : (
+                  partidas.map((p) => {
+                    const adversario =
+                      p.jogador1 === uid ? p.jogador2Nome : p.jogador1Nome;
+                    const ganhou = p.vencedor === uid;
+                    return (
+                      <View key={p.id} style={styles.row}>
+                        <Text
+                          style={[styles.rowMain, ganhou ? styles.win : styles.loss]}
+                        >
+                          {ganhou ? 'V' : 'D'} · vs {adversario}
+                        </Text>
+                        <Text style={styles.rowSub}>
+                          {p.placar} · {p.tipo || 'jogo'} · {p.dataLabel}
+                        </Text>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            ) : null}
 
             <View style={styles.block}>
               <Text style={styles.blockTitle}>Badges</Text>
@@ -314,9 +475,7 @@ export default function JogadorScreen() {
               />
             ) : null}
           </View>
-        ) : (
-          <Button label="Editar meu perfil" onPress={() => router.push('/perfil/editar')} />
-        )}
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -328,39 +487,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 8,
   },
   headerTitle: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 18 },
-  body: { padding: 20, gap: 16, paddingBottom: 40 },
-  top: { alignItems: 'center', gap: 8 },
-  nome: { color: Colors.textPrimary, fontSize: 26, fontWeight: 'bold' },
-  meta: { color: Colors.textSecondary, textAlign: 'center' },
-  actions: { gap: 12, marginTop: 8 },
+  body: { padding: 16, paddingBottom: 40, gap: 14 },
+  top: { alignItems: 'center', gap: 6, marginBottom: 4 },
+  nome: { color: Colors.textPrimary, fontSize: 22, fontWeight: '900' },
+  meta: { color: Colors.textSecondary, fontSize: 13, textAlign: 'center' },
   empty: { color: Colors.textSecondary, textAlign: 'center', marginTop: 40 },
   block: {
     backgroundColor: Colors.surface,
     borderRadius: 18,
     padding: 14,
-    gap: 8,
+    gap: 10,
   },
-  blockTitle: { color: Colors.textPrimary, fontWeight: '900', fontSize: 15 },
-  row: { paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#ffffff22' },
-  rowMain: { color: Colors.textPrimary, fontWeight: '700' },
-  rowSub: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
+  blockTitle: { color: Colors.accent, fontWeight: '800', fontSize: 14 },
+  row: { gap: 2, paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.08)' },
+  rowMain: { color: Colors.textPrimary, fontWeight: '700', fontSize: 14 },
+  rowSub: { color: Colors.textSecondary, fontSize: 12 },
   win: { color: Colors.accent },
-  loss: { color: Colors.textSecondary },
-  badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  badgeCell: {
-    width: '30%',
+  loss: { color: Colors.danger },
+  badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  badgeCell: { width: '30%', alignItems: 'center', gap: 4 },
+  badgeNome: { color: Colors.textPrimary, fontSize: 11, textAlign: 'center', fontWeight: '600' },
+  actions: { gap: 10, marginTop: 8 },
+  tabsRow: { flexDirection: 'row', gap: 6 },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 60,
+    backgroundColor: Colors.surface,
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 8,
   },
-  badgeNome: {
-    color: Colors.textPrimary,
-    fontSize: 11,
-    fontWeight: '700',
-    textAlign: 'center',
+  tabOn: { backgroundColor: Colors.accent },
+  tabTxt: { color: Colors.textPrimary, fontWeight: '700', fontSize: 11 },
+  tabTxtOn: { color: Colors.textOnAccent },
+  feedItem: {
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    gap: 4,
   },
 });

@@ -10,6 +10,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
+import { useAuth } from './AuthContext';
 import { useEsporte } from './EsporteContext';
 import { useMeusClubes, type MeuClubeResumo } from '../hooks/useMeusClubes';
 import type { EsporteId } from '../constants/esportes';
@@ -38,6 +39,7 @@ interface ClubeContextValue {
 const ClubeContext = createContext<ClubeContextValue | undefined>(undefined);
 
 export function ClubeProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const { esporteAtivo } = useEsporte();
   const { clubes: meusClubes, loading: loadMeus } = useMeusClubes();
   const [clubeAtivoId, setClubeAtivoIdState] = useState<string | null>(null);
@@ -56,6 +58,12 @@ export function ClubeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // clubes exige isAuth() — não consultar nos slides de onboarding / login
+    if (!user) {
+      setClubesPublicos([]);
+      return;
+    }
+
     let cancelled = false;
     void (async () => {
       try {
@@ -110,7 +118,7 @@ export function ClubeProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [esporteAtivo]);
+  }, [user, esporteAtivo]);
 
   const clubesDisponiveis = useMemo(() => {
     const map = new Map<string, ClubeOpcao>();

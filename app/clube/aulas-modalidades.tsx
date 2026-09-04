@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Radius } from '../../constants/radius';
 import { Button } from '../../components/ui/Button';
+import { KeyboardDoneBar, KEYBOARD_DONE_NATIVE_ID } from '../../components/ui/KeyboardDoneBar';
 import { useAuth } from '../../hooks/useAuth';
 import { listarClubesDoDono } from '../../services/clubes';
 import {
@@ -162,6 +163,7 @@ export default function AulasModalidadesScreen() {
         placeholder="280"
         placeholderTextColor={Colors.textSecondary}
         keyboardType="decimal-pad"
+        inputAccessoryViewID={KEYBOARD_DONE_NATIVE_ID}
         value={valor}
         onChangeText={setValor}
       />
@@ -186,6 +188,7 @@ export default function AulasModalidadesScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <KeyboardDoneBar />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={26} color={Colors.accent} />

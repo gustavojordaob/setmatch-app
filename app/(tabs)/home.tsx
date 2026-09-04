@@ -31,7 +31,10 @@ import { EsporteSwitcher } from '../../components/EsporteSwitcher';
 import { ClubeSwitcher } from '../../components/ClubeSwitcher';
 import { alternarCurtida, criarPost } from '../../services/feed';
 import { useDesafios } from '../../hooks/useDesafios';
+import { useConfrontosTorneio } from '../../hooks/useConfrontosTorneio';
 import { useT } from '../../hooks/useI18n';
+import { DualAvatar } from '../../components/ui/DualAvatar';
+import { splitDuplaLabel } from '../../utils/duplaDisplay';
 import { useTotalNaoLidas } from '../../hooks/useTotalNaoLidas';
 import { useNoticias } from '../../hooks/useNoticias';
 import { UnreadBadge } from '../../components/ui/UnreadBadge';
@@ -53,7 +56,8 @@ export default function HomeScreen() {
   const { clubeAtivoId, clubeAtivo } = useClube();
   const esporteLabel = t(`esporte.${esporteAtivo}`);
   const { amigoUids } = useAmigos();
-  const { recebidosPendentes, enviadosPendentes } = useDesafios();
+  const { recebidosPendentes, enviadosPendentes, agendados } = useDesafios();
+  const { proximos: proximosTorneio } = useConfrontosTorneio();
   const [soAmigos, setSoAmigos] = useState(false);
   const { posts, loading: feedLoading } = useFeedFiltrado({
     esporte: esporteAtivo,
@@ -303,7 +307,12 @@ export default function HomeScreen() {
                 const setsJ2 = p.sets.map((s) => s.j2);
                 const nome1 = p.jogador1Nome ?? (euSouJ1 ? nome : 'Jogador');
                 const nome2 = p.jogador2Nome ?? (!euSouJ1 ? nome : 'Adversário');
-                const tipoLabel = p.tipo === 'ranking' ? 'Ranking' : 'Amistoso';
+                const tipoLabel =
+                  p.tipo === 'ranking'
+                    ? 'Ranking'
+                    : p.tipo === 'torneio'
+                      ? 'Torneio'
+                      : 'Amistoso';
                 const dataLabel =
                   'dataPartida' in p && p.dataPartida?.seconds
                     ? formatDataPartida(p as Parameters<typeof formatDataPartida>[0])
@@ -319,11 +328,17 @@ export default function HomeScreen() {
                       vitoria={vitoria}
                       jogador1={{
                         nome: nome1,
+                        foto: p.jogador1Foto,
+                        parceiroNome: p.jogador1ParceiroNome,
+                        parceiroFoto: p.jogador1ParceiroFoto,
                         sets: setsJ1,
                         winner: p.vencedor === p.jogador1,
                       }}
                       jogador2={{
                         nome: nome2,
+                        foto: p.jogador2Foto,
+                        parceiroNome: p.jogador2ParceiroNome,
+                        parceiroFoto: p.jogador2ParceiroFoto,
                         sets: setsJ2,
                         winner: p.vencedor === p.jogador2,
                       }}
@@ -335,7 +350,75 @@ export default function HomeScreen() {
             )}
           </>
         ) : (
-          <Text style={styles.empty}>{t('home.noScheduled')}</Text>
+          <>
+            <Text style={styles.section}>{t('home.upcomingMatches')}</Text>
+            {agendados.length === 0 && proximosTorneio.length === 0 ? (
+              <Text style={styles.empty}>{t('home.noScheduled')}</Text>
+            ) : (
+              <>
+                {agendados.slice(0, 8).map((d) => {
+                  const outro =
+                    d.desafiante === user?.uid
+                      ? { nome: d.desafiadoNome, foto: d.desafiadoFoto }
+                      : { nome: d.desafianteNome, foto: d.desafianteFoto };
+                  return (
+                    <TouchableOpacity
+                      key={`d-${d.id}`}
+                      style={styles.proximoCard}
+                      onPress={() => router.push(`/desafio/${d.id}`)}
+                    >
+                      <Avatar uri={outro.foto} nome={outro.nome} size="md" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.proximoTitulo} numberOfLines={1}>
+                          vs {outro.nome}
+                        </Text>
+                        <Text style={styles.proximoSub} numberOfLines={1}>
+                          Desafio · {d.quadra || 'A combinar'}
+                          {d.dataSugerida ? ` · ${d.dataSugerida}` : ''}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
+                    </TouchableOpacity>
+                  );
+                })}
+                {proximosTorneio.slice(0, 8).map((c) => {
+                  const euJ1 =
+                    c.j1Uid === user?.uid ||
+                    /* parceiro no label */ false;
+                  const split1 = splitDuplaLabel(c.j1Nome);
+                  const split2 = splitDuplaLabel(c.j2Nome);
+                  return (
+                    <TouchableOpacity
+                      key={`t-${c.torneioId}-${c.id}`}
+                      style={styles.proximoCard}
+                      onPress={() => router.push(c.rota as never)}
+                    >
+                      <DualAvatar
+                        nomeA={euJ1 ? split2.a : split1.a}
+                        fotoA={euJ1 ? c.j2Foto : c.j1Foto}
+                        nomeB={euJ1 ? split2.b : split1.b}
+                        size="md"
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.proximoTitulo} numberOfLines={1}>
+                          {c.j1Nome} vs {c.j2Nome}
+                        </Text>
+                        <Text style={styles.proximoSub} numberOfLines={2}>
+                          Torneio · {c.torneioNome}
+                          {c.labelRodada ? ` · ${c.labelRodada}` : ''}
+                          {c.dataHoraInicio ? ` · ${c.dataHoraInicio}` : ''}
+                          {c.quadraNome ? ` · ${c.quadraNome}` : ''}
+                        </Text>
+                      </View>
+                      <View style={styles.torneioTag}>
+                        <Text style={styles.torneioTagTxt}>Torneio</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
+            )}
+          </>
         )}
 
         {/* Notícias do mundo do tênis / padel */}
@@ -406,11 +489,17 @@ export default function HomeScreen() {
                   vitoria={vitoria}
                   jogador1={{
                     nome: nome1,
+                    foto: p.jogador1Foto,
+                    parceiroNome: p.jogador1ParceiroNome,
+                    parceiroFoto: p.jogador1ParceiroFoto,
                     sets: setsJ1,
                     winner: p.vencedor === p.jogador1,
                   }}
                   jogador2={{
                     nome: nome2,
+                    foto: p.jogador2Foto,
+                    parceiroNome: p.jogador2ParceiroNome,
+                    parceiroFoto: p.jogador2ParceiroFoto,
                     sets: setsJ2,
                     winner: p.vencedor === p.jogador2,
                   }}
@@ -783,4 +872,22 @@ const styles = StyleSheet.create({
   },
   likeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   likeTxt: { color: Colors.textMutedDark, fontSize: 13, fontWeight: '600' },
+  proximoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+  },
+  proximoTitulo: { color: Colors.textDark, fontWeight: '800', fontSize: 14 },
+  proximoSub: { color: Colors.textMutedDark, fontSize: 12, marginTop: 2 },
+  torneioTag: {
+    backgroundColor: Colors.accent,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  torneioTagTxt: { color: Colors.textOnAccent, fontSize: 11, fontWeight: '800' },
 });

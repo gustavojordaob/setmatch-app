@@ -22,6 +22,8 @@ export {
 } from './stravaHandlers';
 
 export { atualizarNoticias, atualizarNoticiasManual } from './noticiasHandlers';
+export { expirarPreReservasRanking } from './expirarReservas';
+export { enviarPushAoCriarNotificacao } from './pushNotificacoes';
 
 initializeApp();
 setGlobalOptions({ region: 'southamerica-east1' });

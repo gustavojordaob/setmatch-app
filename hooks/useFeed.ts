@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
 import type { EsporteId } from '../constants/esportes';
+import { useAuth } from './useAuth';
 
 export interface Post {
   id: string;
@@ -21,10 +22,18 @@ export interface Post {
 }
 
 export function useFeed(max = 50) {
+  const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // posts exige isAuth() — não escutar no onboarding / login
+    if (!user) {
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     const q = query(collection(db, 'posts'), orderBy('criadoEm', 'desc'), limit(max));
     const unsub = onSnapshot(
       q,
@@ -52,10 +61,13 @@ export function useFeed(max = 50) {
         );
         setLoading(false);
       },
-      () => setLoading(false)
+      () => {
+        setPosts([]);
+        setLoading(false);
+      }
     );
     return unsub;
-  }, [max]);
+  }, [max, user]);
 
   return { posts, loading };
 }

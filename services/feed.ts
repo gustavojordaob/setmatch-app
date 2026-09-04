@@ -3,14 +3,17 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   increment,
   arrayRemove,
   arrayUnion,
+  limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   updateDoc,
+  where,
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
@@ -121,5 +124,38 @@ export function ouvirComentarios(
         };
       })
     );
+  });
+}
+
+export async function listarPostsDoAutor(
+  autorUid: string,
+  max = 30
+): Promise<
+  {
+    id: string;
+    autorUid: string;
+    autorNome: string;
+    texto: string;
+    tipo?: string;
+    criadoEm?: { seconds: number };
+  }[]
+> {
+  const q = query(
+    collection(db, 'posts'),
+    where('autorUid', '==', autorUid),
+    orderBy('criadoEm', 'desc'),
+    limit(max)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const raw = d.data();
+    return {
+      id: d.id,
+      autorUid: String(raw.autorUid ?? ''),
+      autorNome: String(raw.autorNome ?? ''),
+      texto: String(raw.texto ?? ''),
+      tipo: raw.tipo ? String(raw.tipo) : undefined,
+      criadoEm: raw.criadoEm as { seconds: number } | undefined,
+    };
   });
 }

@@ -40,5 +40,12 @@ service firebase.storage {
         );
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
+
+    // Logo do clube / mídia de torneio ficam em usuarios/{uid}/… (rules acima).
+    // Mantém path legado clubes/{id} só leitura se já existir.
+    match /clubes/{clubeId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
   }
 }

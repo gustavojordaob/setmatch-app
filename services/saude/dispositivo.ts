@@ -26,6 +26,18 @@ function startOfToday(): Date {
   return d;
 }
 
+/** Filtro de hoje no formato da lib v14+ (`filter.date`, não `{ from, to }`). */
+function filtroHoje() {
+  return {
+    filter: {
+      date: {
+        startDate: startOfToday(),
+        endDate: new Date(),
+      },
+    },
+  };
+}
+
 function emptyMetrics(): MetricasDispositivo {
   return {
     passos: null,
@@ -33,6 +45,23 @@ function emptyMetrics(): MetricasDispositivo {
     freqCardiacaMedia: null,
     sonoMinutos: null,
   };
+}
+
+/** Normaliza energia para kcal (preferred unit do iOS pode ser J / cal). */
+function quantidadeParaKcal(q?: { quantity?: number; unit?: string } | null): number | null {
+  if (!q || typeof q.quantity !== 'number' || !Number.isFinite(q.quantity)) return null;
+  const unit = (q.unit ?? '').trim();
+  const v = q.quantity;
+  if (unit === 'kcal' || unit === 'Cal') return Math.round(v);
+  if (unit === 'cal') return Math.round(v / 1000);
+  if (unit === 'J' || unit === 'kJ' || unit.endsWith('J')) {
+    // 1 kcal ≈ 4184 J; se vier kJ, 1 kcal ≈ 4.184 kJ
+    if (unit === 'kJ') return Math.round(v / 4.184);
+    return Math.round(v / 4184);
+  }
+  // Sem unit conhecida: valores absurdos para 1 dia → assume joules
+  if (v > 20000) return Math.round(v / 4184);
+  return Math.round(v);
 }
 
 /** HealthKit — só iOS + dev build (não Expo Go). */
@@ -68,36 +97,31 @@ export async function lerMetricasHealthKit(): Promise<MetricasDispositivo> {
     throw new Error('APPLE_HEALTH_AUTH_FAILED');
   }
 
+  /**
+   * Apple NÃO revela se a leitura foi liberada ou negada (privacidade).
+   * `authorizationStatusFor` só reflete permissão de ESCRITA — como não pedimos
+   * write, sempre vinha `sharingDenied` e o app acusava acesso negado à toa.
+   * Só checamos se ainda precisamos pedir o sheet (`shouldRequest`).
+   */
   try {
     const reqStatus = await HK.getRequestStatusForAuthorization({
       toRead: [...HK_READ_TYPES],
     });
-    // 1 = shouldRequest — usuário fechou o sheet sem liberar leitura
+    // 1 = shouldRequest — sheet ainda não foi concluído / tipos não autorizados a pedir
     if (reqStatus === 1) {
       const err = new Error('APPLE_HEALTH_PERMISSION_INCOMPLETE');
       logErroSaude('apple-health-status', err, 'APPLE_HEALTH_PERMISSION_INCOMPLETE');
       throw err;
     }
-    const stepAuth = HK.authorizationStatusFor('HKQuantityTypeIdentifierStepCount');
-    // 1 = sharingDenied — negou no Apple Health
-    if (stepAuth === 1) {
-      const err = new Error('APPLE_HEALTH_PERMISSION_DENIED');
-      logErroSaude('apple-health-status', err, 'APPLE_HEALTH_PERMISSION_DENIED');
-      throw err;
-    }
   } catch (e: unknown) {
     const codigo = e instanceof Error ? e.message : '';
-    if (
-      codigo === 'APPLE_HEALTH_PERMISSION_INCOMPLETE' ||
-      codigo === 'APPLE_HEALTH_PERMISSION_DENIED'
-    ) {
+    if (codigo === 'APPLE_HEALTH_PERMISSION_INCOMPLETE') {
       throw e instanceof Error ? e : new Error(codigo);
     }
     /* status opcional — segue se a API falhar em builds antigos */
   }
 
-  const from = startOfToday();
-  const to = new Date();
+  const hoje = filtroHoje();
 
   let passos: number | null = null;
   let kcalAtivas: number | null = null;
@@ -108,7 +132,7 @@ export async function lerMetricasHealthKit(): Promise<MetricasDispositivo> {
     const stats = await HK.queryStatisticsForQuantity(
       'HKQuantityTypeIdentifierStepCount',
       ['cumulativeSum'],
-      { from, to }
+      { ...hoje, unit: 'count' }
     );
     const sum = (stats as { sumQuantity?: { quantity?: number } }).sumQuantity?.quantity;
     if (typeof sum === 'number') passos = Math.round(sum);
@@ -120,10 +144,11 @@ export async function lerMetricasHealthKit(): Promise<MetricasDispositivo> {
     const stats = await HK.queryStatisticsForQuantity(
       'HKQuantityTypeIdentifierActiveEnergyBurned',
       ['cumulativeSum'],
-      { from, to }
+      { ...hoje, unit: 'kcal' }
     );
-    const sum = (stats as { sumQuantity?: { quantity?: number } }).sumQuantity?.quantity;
-    if (typeof sum === 'number') kcalAtivas = Math.round(sum);
+    const sumQ = (stats as { sumQuantity?: { quantity?: number; unit?: string } })
+      .sumQuantity;
+    kcalAtivas = quantidadeParaKcal(sumQ);
   } catch {
     /* */
   }
@@ -132,7 +157,7 @@ export async function lerMetricasHealthKit(): Promise<MetricasDispositivo> {
     const stats = await HK.queryStatisticsForQuantity(
       'HKQuantityTypeIdentifierHeartRate',
       ['discreteAverage'],
-      { from, to }
+      { ...hoje, unit: 'count/min' }
     );
     const avg = (stats as { averageQuantity?: { quantity?: number } }).averageQuantity
       ?.quantity;
@@ -144,13 +169,19 @@ export async function lerMetricasHealthKit(): Promise<MetricasDispositivo> {
   try {
     const sleep = await HK.queryCategorySamples(
       'HKCategoryTypeIdentifierSleepAnalysis',
-      { from, to }
+      { ...hoje, limit: 0 }
     );
     const list = sleep as { startDate: Date; endDate: Date }[];
+    const inicio = startOfToday().getTime();
+    const fim = Date.now();
     sonoMinutos = Math.round(
       list.reduce((a, s) => {
-        const ms = new Date(s.endDate).getTime() - new Date(s.startDate).getTime();
-        return a + Math.max(0, ms) / 60000;
+        const start = new Date(s.startDate).getTime();
+        const end = new Date(s.endDate).getTime();
+        // Intersecta o intervalo de sono com o dia de hoje
+        const lo = Math.max(start, inicio);
+        const hi = Math.min(end, fim);
+        return a + Math.max(0, hi - lo) / 60000;
       }, 0)
     );
   } catch {

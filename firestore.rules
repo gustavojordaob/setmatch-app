@@ -51,22 +51,41 @@ service cloud.firestore {
     match /usuarios/{uid} {
       allow read: if isAuth();
       allow create: if isSelf(uid)
-        && request.resource.data.role == 'jogador';
-      // Não pode mudar role; se o doc antigo não tiver role, só permite gravar jogador
+        && request.resource.data.get('role', 'jogador') == 'jogador';
+      // Self-update: não pode mudar role; docs antigos sem role tratam como jogador
       allow update: if onlyStatsBump()
         || (
           isSelf(uid)
-          && (
-            !('role' in resource.data)
-              ? request.resource.data.role == 'jogador'
-              : request.resource.data.role == resource.data.role
-          )
+          && request.resource.data.get('role', 'jogador')
+            == resource.data.get('role', 'jogador')
+          && request.resource.data.get('role', 'jogador')
+            in ['jogador', 'professor', 'admin_clube']
         );
 
       // Tokens Strava — só Admin SDK (Cloud Functions); cliente não lê/escreve
       match /integracoes/{provider} {
         allow read, write: if false;
       }
+
+      // Feed in-app: dono lê/atualiza; qualquer auth pode criar notificação para outro uid
+      match /notificacoes/{notifId} {
+        allow read, update: if isSelf(uid);
+        allow create: if isAuth();
+        allow delete: if isSelf(uid);
+      }
+    }
+
+    // Convites de dupla (torneio / ranking)
+    match /convitesDupla/{conviteId} {
+      allow read: if isAuth()
+        && (request.auth.uid == resource.data.deUid
+            || request.auth.uid == resource.data.paraUid
+            || request.auth.uid == resource.data.get('donoUid', ''));
+      allow create: if isAuth()
+        && request.auth.uid == request.resource.data.deUid;
+      allow update: if isAuth()
+        && (request.auth.uid == resource.data.deUid
+            || request.auth.uid == resource.data.paraUid);
     }
 
     match /desafios/{desafioId} {
@@ -97,6 +116,39 @@ service cloud.firestore {
         allow create, update, delete: if isAuth()
           && request.auth.uid == get(/databases/$(database)/documents/clubes/$(clubeId)).data.donoUid;
       }
+
+      match /quadras/{quadraId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAuth()
+          && request.auth.uid == get(/databases/$(database)/documents/clubes/$(clubeId)).data.donoUid;
+      }
+
+      match /reservas/{reservaId} {
+        allow read: if isAuth();
+        // Dono bloqueia / cancela; jogador cria reserva de ranking em que participa
+        allow create: if isAuth()
+          && (
+            request.auth.uid == get(/databases/$(database)/documents/clubes/$(clubeId)).data.donoUid
+            || (
+              request.resource.data.tipo == 'ranking'
+              && request.resource.data.status == 'pendente'
+              && (
+                request.auth.uid == request.resource.data.jogador1Uid
+                || request.auth.uid == request.resource.data.jogador2Uid
+                || request.auth.uid == request.resource.data.criadoPorUid
+              )
+            )
+          );
+        allow update: if isAuth()
+          && (
+            request.auth.uid == get(/databases/$(database)/documents/clubes/$(clubeId)).data.donoUid
+            || request.auth.uid == resource.data.criadoPorUid
+            || request.auth.uid == resource.data.get('jogador1Uid', '')
+            || request.auth.uid == resource.data.get('jogador2Uid', '')
+          );
+        allow delete: if isAuth()
+          && request.auth.uid == get(/databases/$(database)/documents/clubes/$(clubeId)).data.donoUid;
+      }
     }
 
     match /rankings/{rankingId} {
@@ -108,6 +160,11 @@ service cloud.firestore {
         && (
           request.auth.uid == resource.data.donoUid
           || request.auth.uid in resource.data.get('membros', [])
+          || (
+            // Dono do clube pode só espelhar o logo nos rankings
+            request.auth.uid == get(/databases/$(database)/documents/clubes/$(resource.data.clubeId)).data.donoUid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clubeLogoUrl'])
+          )
         );
       allow delete: if isAuth()
         && request.auth.uid == resource.data.donoUid;
@@ -151,6 +208,8 @@ service cloud.firestore {
             request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid
             || request.auth.uid == resource.data.j1Uid
             || request.auth.uid == resource.data.j2Uid
+            || request.auth.uid == resource.data.get('j1ParceiroUid', '')
+            || request.auth.uid == resource.data.get('j2ParceiroUid', '')
           );
         allow delete: if isAuth()
           && request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid;

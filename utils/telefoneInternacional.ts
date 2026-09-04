@@ -48,14 +48,22 @@ export function paisPorDdi(ddi: string): PaisTelefone {
  * Números BR antigos (10–11 dígitos sem 55) viram DDI 55.
  */
 export function parseTelefoneSalvo(raw: string): { ddi: string; nacional: string } {
-  let d = soDigitos(raw);
+  const d = soDigitos(raw);
   if (!d) return { ddi: '55', nacional: '' };
+
+  // Só o DDI, ainda sem número nacional (ex.: "55" enquanto o campo está vazio)
+  for (const ddi of DDI_ORD) {
+    if (d === ddi) return { ddi, nacional: '' };
+  }
 
   for (const ddi of DDI_ORD) {
     if (d.startsWith(ddi) && d.length > ddi.length) {
       const nacional = d.slice(ddi.length);
       const pais = paisPorDdi(ddi);
-      if (nacional.length >= pais.minNacional - 2) {
+      const completo = nacional.length >= pais.minNacional && nacional.length <= pais.maxNacional;
+      const digitando = nacional.length < pais.minNacional && d.length <= ddi.length + pais.maxNacional;
+      // Completo: 55 + 10/11 dígitos. Digitando: não reciclar o DDI como se fosse DDD.
+      if (completo || digitando) {
         return { ddi, nacional };
       }
     }

@@ -9,7 +9,7 @@ export const SUPPORT_PAGE_URL = `${HOSTING_BASE_URL}/suporte`;
 export const SUPPORT_EMAIL = 'gustavojordaob@jordaob.com.br';
 export const SUPPORT_WHATSAPP = '5519989632897';
 
-export const LEGAL_UPDATED_LABEL = '8 de agosto de 2026';
+export const LEGAL_UPDATED_LABEL = '1 de setembro de 2026';
 
 /** Idade mínima (diretrizes loja / não direcionado a crianças). */
 export const IDADE_MINIMA_APP = 13;

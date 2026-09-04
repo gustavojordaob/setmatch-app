@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import {
   Dimensions,
   FlatList,
+  Keyboard,
   StyleSheet,
   Text,
   TextInput,
@@ -11,6 +12,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { KEYBOARD_DONE_NATIVE_ID } from '../ui/KeyboardDoneBar';
 
 const ITEM_WIDTH = 56;
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -66,6 +68,7 @@ export function ScrollPicker({ min, max, value, onChange }: ScrollPickerProps) {
           onBlur={commitText}
           onSubmitEditing={commitText}
           keyboardType="number-pad"
+          inputAccessoryViewID={KEYBOARD_DONE_NATIVE_ID}
           maxLength={3}
           autoFocus
           selectionColor={Colors.accent}
@@ -95,9 +98,19 @@ export function ScrollPicker({ min, max, value, onChange }: ScrollPickerProps) {
         renderItem={({ item }) => {
           const selected = item === value;
           return (
-            <View style={[styles.item, selected && styles.itemSelected]}>
+            <TouchableOpacity
+              style={[styles.item, selected && styles.itemSelected]}
+              activeOpacity={0.85}
+              onPress={() => {
+                Keyboard.dismiss();
+                setEditing(false);
+                setText(String(item));
+                if (item !== value) onChange(item);
+                scrollToValue(item);
+              }}
+            >
               <Text style={[styles.num, selected && styles.numSelected]}>{item}</Text>
-            </View>
+            </TouchableOpacity>
           );
         }}
       />

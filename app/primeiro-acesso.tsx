@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
@@ -11,7 +11,8 @@ import { useT } from '../hooks/useI18n';
 export default function PrimeiroAcessoScreen() {
   const router = useRouter();
   const t = useT();
-  const { user, loading, isAdminClube, onboardingComplete } = useAuth();
+  const { user, loading, isAdminClube, onboardingComplete, signOut } = useAuth();
+  const [saindo, setSaindo] = useState(false);
   const nome = user?.displayName?.split(' ')[0] ?? 'Jogador';
 
   useEffect(() => {
@@ -24,6 +25,27 @@ export default function PrimeiroAcessoScreen() {
       router.replace('/(tabs)/home');
     }
   }, [loading, isAdminClube, onboardingComplete, router]);
+
+  async function handleSair() {
+    Alert.alert(t('primeiroAcesso.exitTitle'), t('primeiroAcesso.exitBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('primeiroAcesso.exitConfirm'),
+        style: 'destructive',
+        onPress: async () => {
+          setSaindo(true);
+          try {
+            await signOut();
+            router.replace('/(auth)/login');
+          } catch {
+            Alert.alert(t('common.error'), t('common.logoutFailed'));
+          } finally {
+            setSaindo(false);
+          }
+        },
+      },
+    ]);
+  }
 
   // Evita flash do wizard enquanto o perfil ainda carrega
   if (loading || isAdminClube || onboardingComplete) {
@@ -38,6 +60,13 @@ export default function PrimeiroAcessoScreen() {
       </View>
       <ButtonFooter style={styles.ctaFooter}>
         <Button label={t('primeiroAcesso.cta')} onPress={() => router.push('/wizard/idade')} />
+        <Button
+          label={t('primeiroAcesso.exit')}
+          variant="outline"
+          onPress={handleSair}
+          loading={saindo}
+          style={styles.exitBtn}
+        />
       </ButtonFooter>
     </SafeAreaView>
   );
@@ -64,5 +93,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontSize: 16,
   },
-  ctaFooter: { paddingHorizontal: 24 },
+  ctaFooter: { paddingHorizontal: 24, gap: 12 },
+  exitBtn: { marginTop: 4 },
 });

@@ -119,3 +119,48 @@ export async function uploadFotoPost(uri: string): Promise<string> {
   }
   return uploadViaRest(uri, objectPath);
 }
+
+/** Logo do clube — path sob o uid (mesmas rules de foto de perfil). */
+export async function uploadLogoClube(
+  clubeId: string,
+  uri: string
+): Promise<string> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Não autenticado');
+  if (!clubeId) throw new Error('Clube inválido');
+
+  const objectPath = `usuarios/${user.uid}/clube_${clubeId}_logo_${Date.now()}.jpg`;
+
+  if (Platform.OS === 'web') {
+    return uploadViaWebSdk(uri, objectPath);
+  }
+  return uploadViaRest(uri, objectPath);
+}
+
+/** Banner de divulgação do torneio (patrocínio / arte). */
+export async function uploadBannerTorneio(
+  torneioId: string,
+  uri: string
+): Promise<string> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Não autenticado');
+  const objectPath = `usuarios/${user.uid}/torneio_${torneioId}_banner_${Date.now()}.jpg`;
+  if (Platform.OS === 'web') {
+    return uploadViaWebSdk(uri, objectPath);
+  }
+  return uploadViaRest(uri, objectPath);
+}
+
+/** Logo específico do torneio (pode ser de patrocinador). */
+export async function uploadLogoTorneio(
+  torneioId: string,
+  uri: string
+): Promise<string> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Não autenticado');
+  const objectPath = `usuarios/${user.uid}/torneio_${torneioId}_logo_${Date.now()}.jpg`;
+  if (Platform.OS === 'web') {
+    return uploadViaWebSdk(uri, objectPath);
+  }
+  return uploadViaRest(uri, objectPath);
+}

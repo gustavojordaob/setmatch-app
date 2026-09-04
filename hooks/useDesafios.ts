@@ -86,8 +86,16 @@ export function useDesafios() {
     let unsubA: Unsubscribe | undefined;
     let unsubB: Unsubscribe | undefined;
 
-    unsubA = onSnapshot(qA, (snap) => setChunkA(snap.docs.map((d) => mapDoc(d))));
-    unsubB = onSnapshot(qB, (snap) => setChunkB(snap.docs.map((d) => mapDoc(d))));
+    unsubA = onSnapshot(
+      qA,
+      (snap) => setChunkA(snap.docs.map((d) => mapDoc(d))),
+      () => setChunkA([])
+    );
+    unsubB = onSnapshot(
+      qB,
+      (snap) => setChunkB(snap.docs.map((d) => mapDoc(d))),
+      () => setChunkB([])
+    );
 
     return () => {
       unsubA?.();

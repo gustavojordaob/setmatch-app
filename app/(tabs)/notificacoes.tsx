@@ -13,21 +13,16 @@ import {
   type Conversa,
 } from '../../hooks/useConversas';
 import { useDesafios } from '../../hooks/useDesafios';
+import { useNotificacoes } from '../../hooks/useNotificacoes';
+import { marcarNotificacaoLida, type NotificacaoApp } from '../../services/notificacoes';
 import { Avatar } from '../../components/ui/Avatar';
 import { UnreadBadge } from '../../components/ui/UnreadBadge';
 import { useT } from '../../hooks/useI18n';
-
-type TabNotif = 'confrontos' | 'mensagens' | 'lembretes' | 'sistema';
-
 import { TAB_BAR_CLEARANCE } from '../../constants/tabBar';
+
 const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
 
-const MOCK_HOJE = [
-  { hora: '10:30 AM', id: '1' },
-  { hora: '9:00 AM', id: '2' },
-];
-
-const MOCK_ONTEM = [{ hora: '6:15 PM', id: '3' }];
+type TabNotif = 'confrontos' | 'mensagens' | 'lembretes' | 'sistema';
 
 function formatHora(seconds?: number): string {
   if (!seconds) return '';
@@ -43,16 +38,49 @@ function formatHora(seconds?: number): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
+function iconForTipo(tipo: NotificacaoApp['tipo']): keyof typeof Ionicons.glyphMap {
+  switch (tipo) {
+    case 'desafio':
+      return 'tennisball-outline';
+    case 'reserva_ranking':
+      return 'calendar-outline';
+    case 'chave_torneio':
+      return 'git-branch-outline';
+    case 'convite_dupla':
+      return 'people-outline';
+    case 'pagamento':
+      return 'card-outline';
+    default:
+      return 'notifications-outline';
+  }
+}
+
 export default function NotificacoesScreen() {
   const router = useRouter();
   const t = useT();
   const { user } = useAuth();
   const conversas = useConversas();
   const { recebidosPendentes, agendados } = useDesafios();
+  const { itens: notifs } = useNotificacoes();
   const [aba, setAba] = useState<TabNotif>('confrontos');
   const [autoAba, setAutoAba] = useState(false);
 
   const msgsNaoLidas = totalNaoLidas(conversas, user?.uid);
+
+  const lembretes = useMemo(
+    () =>
+      notifs.filter((n) =>
+        ['desafio', 'reserva_ranking', 'convite_dupla'].includes(n.tipo)
+      ),
+    [notifs]
+  );
+  const sistema = useMemo(
+    () =>
+      notifs.filter((n) =>
+        ['chave_torneio', 'pagamento', 'sistema'].includes(n.tipo)
+      ),
+    [notifs]
+  );
 
   const comMensagem = useMemo(() => {
     const list = conversas.filter((c) => c.ultimoTexto);
@@ -77,6 +105,13 @@ export default function NotificacoesScreen() {
     if (c.tipo === 'clube') return c.clubeNome ?? 'Clube';
     const outroUid = c.participantes.find((p) => p !== user?.uid);
     return (outroUid && c.nomes?.[outroUid]) || 'Jogador';
+  }
+
+  async function abrirNotif(n: NotificacaoApp) {
+    if (user?.uid && !n.lida) {
+      void marcarNotificacaoLida(user.uid, n.id);
+    }
+    if (n.rota) router.push(n.rota as never);
   }
 
   return (
@@ -126,6 +161,11 @@ export default function NotificacoesScreen() {
             <Text style={[styles.toggleTxt, aba === 'lembretes' && styles.toggleTxtOn]}>
               LEMBRETES
             </Text>
+            {lembretes.filter((n) => !n.lida).length > 0 ? (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeTxt}>{lembretes.filter((n) => !n.lida).length}</Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.toggleBtn, aba === 'sistema' && styles.toggleOn]}
@@ -134,6 +174,11 @@ export default function NotificacoesScreen() {
             <Text style={[styles.toggleTxt, aba === 'sistema' && styles.toggleTxtOn]}>
               SISTEMA
             </Text>
+            {sistema.filter((n) => !n.lida).length > 0 ? (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeTxt}>{sistema.filter((n) => !n.lida).length}</Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
         </View>
 
@@ -179,8 +224,10 @@ export default function NotificacoesScreen() {
                   </Text>
                 ) : null}
                 {agendados.map((d) => {
-                  const outroNome = d.desafiante === user?.uid ? d.desafiadoNome : d.desafianteNome;
-                  const outroFoto = d.desafiante === user?.uid ? d.desafiadoFoto : d.desafianteFoto;
+                  const outroNome =
+                    d.desafiante === user?.uid ? d.desafiadoNome : d.desafianteNome;
+                  const outroFoto =
+                    d.desafiante === user?.uid ? d.desafiadoFoto : d.desafianteFoto;
                   return (
                     <TouchableOpacity
                       key={d.id}
@@ -245,37 +292,63 @@ export default function NotificacoesScreen() {
                 );
               })
             )
+          ) : aba === 'lembretes' ? (
+            lembretes.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Ionicons name="alarm-outline" size={36} color={Colors.textSecondary} />
+                <Text style={styles.empty}>{t('notificacoes.placeholder')}</Text>
+              </View>
+            ) : (
+              lembretes.map((n) => (
+                <TouchableOpacity
+                  key={n.id}
+                  style={[styles.card, !n.lida && styles.cardUnread]}
+                  onPress={() => void abrirNotif(n)}
+                >
+                  <View style={styles.iconBox}>
+                    <Ionicons name={iconForTipo(n.tipo)} size={22} color={Colors.accent} />
+                  </View>
+                  <View style={styles.cardBody}>
+                    <Text style={[styles.cardTitle, !n.lida && styles.cardTitleUnread]}>
+                      {n.titulo}
+                    </Text>
+                    <Text style={styles.cardSub} numberOfLines={2}>
+                      {n.corpo}
+                    </Text>
+                  </View>
+                  <Text style={styles.hora}>{formatHora(n.criadoEm?.seconds)}</Text>
+                </TouchableOpacity>
+              ))
+            )
+          ) : sistema.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Ionicons name="notifications-outline" size={36} color={Colors.textSecondary} />
+              <Text style={styles.empty}>{t('notificacoes.placeholder')}</Text>
+            </View>
           ) : (
-            <>
-              <Text style={styles.section}>Hoje</Text>
-              {MOCK_HOJE.map((n) => (
-                <NotifCard key={n.id} hora={n.hora} />
-              ))}
-
-              <Text style={[styles.section, { marginTop: 20 }]}>Ontem</Text>
-              {MOCK_ONTEM.map((n) => (
-                <NotifCard key={n.id} hora={n.hora} />
-              ))}
-            </>
+            sistema.map((n) => (
+              <TouchableOpacity
+                key={n.id}
+                style={[styles.card, !n.lida && styles.cardUnread]}
+                onPress={() => void abrirNotif(n)}
+              >
+                <View style={styles.iconBox}>
+                  <Ionicons name={iconForTipo(n.tipo)} size={22} color={Colors.accent} />
+                </View>
+                <View style={styles.cardBody}>
+                  <Text style={[styles.cardTitle, !n.lida && styles.cardTitleUnread]}>
+                    {n.titulo}
+                  </Text>
+                  <Text style={styles.cardSub} numberOfLines={2}>
+                    {n.corpo}
+                  </Text>
+                </View>
+                <Text style={styles.hora}>{formatHora(n.criadoEm?.seconds)}</Text>
+              </TouchableOpacity>
+            ))
           )}
         </ScrollView>
       </SafeAreaView>
-    </View>
-  );
-}
-
-function NotifCard({ hora }: { hora: string }) {
-  const t = useT();
-  return (
-    <View style={styles.card}>
-      <View style={styles.iconBox}>
-        <Ionicons name="trophy" size={22} color={Colors.accent} />
-      </View>
-      <View style={styles.cardBody}>
-        <Text style={styles.cardTitle}>{t('notificacoes.title')}</Text>
-        <Text style={styles.cardSub}>{t('notificacoes.placeholder')}</Text>
-      </View>
-      <Text style={styles.hora}>{hora}</Text>
     </View>
   );
 }
@@ -301,7 +374,7 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 40 },
   toggleRow: {
     flexDirection: 'row',
-    marginHorizontal: 20,
+    marginHorizontal: 12,
     backgroundColor: Colors.surfaceDark,
     borderRadius: Radius.pill,
     padding: 4,
@@ -310,25 +383,25 @@ const styles = StyleSheet.create({
   toggleBtn: {
     flex: 1,
     flexDirection: 'row',
-    gap: 4,
-    paddingVertical: 12,
+    gap: 2,
+    paddingVertical: 10,
     borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   toggleOn: { backgroundColor: Colors.accent },
-  toggleTxt: { color: Colors.white, fontWeight: 'bold', fontSize: 11 },
+  toggleTxt: { color: Colors.white, fontWeight: 'bold', fontSize: 9 },
   toggleTxtOn: { color: Colors.textOnAccent },
   tabBadge: {
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    minWidth: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: Colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 3,
+    paddingHorizontal: 2,
   },
-  tabBadgeTxt: { color: Colors.white, fontSize: 9, fontWeight: 'bold' },
+  tabBadgeTxt: { color: Colors.white, fontSize: 8, fontWeight: 'bold' },
   respTag: {
     backgroundColor: Colors.accent,
     borderRadius: Radius.pill,
@@ -366,6 +439,6 @@ const styles = StyleSheet.create({
   rightCol: { alignItems: 'flex-end', gap: 6 },
   hora: { color: Colors.textSecondary, fontSize: 11 },
   emptyBox: { alignItems: 'center', gap: 10, marginTop: 40 },
-  empty: { color: Colors.textSecondary },
+  empty: { color: Colors.textSecondary, textAlign: 'center', paddingHorizontal: 24 },
   emptyLink: { color: Colors.accent, fontWeight: 'bold' },
 });

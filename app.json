@@ -2,7 +2,7 @@
   "expo": {
     "name": "Rally Up",
     "slug": "setmatch-app",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "scheme": "setmatch",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.fabricaapps.setmatch",
-      "buildNumber": "8",
+      "buildNumber": "13",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "Rally Up uses your photo library so you can choose a profile picture on Edit Profile, or attach a photo to a post on Home.",
@@ -36,7 +36,7 @@
         "backgroundColor": "#255943"
       },
       "package": "com.fabricaapps.setmatch",
-      "versionCode": 10,
+      "versionCode": 12,
       "softwareKeyboardLayoutMode": "resize",
       "edgeToEdgeEnabled": true,
       "permissions": [
@@ -76,6 +76,14 @@
       "expo-web-browser",
       "expo-dev-client",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#255943",
+          "defaultChannel": "setmatch-geral"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#255943",
@@ -113,7 +121,9 @@
             "minSdkVersion": 26,
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
-            "buildArchs": ["arm64-v8a"]
+            "buildArchs": [
+              "arm64-v8a"
+            ]
           }
         }
       ]

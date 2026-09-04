@@ -120,7 +120,11 @@ export default function PerfilEditarScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="never"
+          keyboardDismissMode="on-drag"
+        >
           <TouchableOpacity
             style={styles.fotoWrap}
             onPress={() => void escolherFoto()}

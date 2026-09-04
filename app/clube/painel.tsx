@@ -198,6 +198,16 @@ export default function ClubePainelScreen() {
               onPress={() => router.push('/clube/torneios')}
             />
             <Action
+              icon="tennisball-outline"
+              label="Agenda de quadras"
+              onPress={() =>
+                router.push({
+                  pathname: '/clube/agenda',
+                  params: { clubeId: clube.id },
+                })
+              }
+            />
+            <Action
               icon="add-circle-outline"
               label={t('clube.createTournament')}
               onPress={() =>

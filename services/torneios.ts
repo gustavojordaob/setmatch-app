@@ -15,6 +15,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
 import type { EsporteId } from '../constants/esportes';
+import type { ComposicaoId } from '../constants/composicao';
+import { composicaoPadraoPorEsporte } from '../constants/composicao';
 import type {
   DefinicaoChaveId,
   EstruturaMataId,
@@ -22,8 +24,15 @@ import type {
   FormatoPartidaTorneioId,
   GruposConfig,
 } from '../constants/chaveamentosTorneio';
+import { criarConviteDupla } from './duplas';
+import { criarRegistroPagamento } from './pagamentos';
+import { criarNotificacao } from './notificacoes';
 
 export type TorneioStatus = 'aberto' | 'em_andamento' | 'finalizado';
+export type InscricaoStatus =
+  | 'aguardando_parceiro'
+  | 'aguardando_pagamento'
+  | 'confirmado';
 
 export interface Torneio {
   id: string;
@@ -32,6 +41,7 @@ export interface Torneio {
   cidade: string;
   nome: string;
   esporte: EsporteId;
+  composicao: ComposicaoId;
   dataInicio?: string;
   dataFim?: string;
   descricao?: string;
@@ -44,12 +54,21 @@ export interface Torneio {
   estruturaMata?: EstruturaMataId;
   gruposConfig?: GruposConfig;
   formatoPartidaId?: FormatoPartidaTorneioId;
+  /** Logo do clube (desnormalizado) */
+  clubeLogoUrl?: string;
+  /** Logo próprio do torneio (patrocínio etc.) */
+  logoUrl?: string;
+  /** Banner de divulgação (arte larga) */
   bannerUrl?: string;
   estruturaPreview?: string;
   campeaoUid?: string;
   campeaoNome?: string;
   /** true quando o admin sorteou/liberou a chave para todos verem */
   chaveLiberada?: boolean;
+  /** Horário padrão / referência (organizador). Jogador não reserva. */
+  horarioPadrao?: string;
+  /** Quadra opcional do evento (organizador). */
+  quadraNome?: string;
   pagamento?: {
     ativo: boolean;
     valor: number;
@@ -67,6 +86,12 @@ export interface InscricaoTorneio {
   nome: string;
   fotoUrl?: string;
   telefone?: string;
+  status?: InscricaoStatus;
+  pago?: boolean;
+  parceiroUid?: string;
+  parceiroNome?: string;
+  parceiroAceito?: boolean;
+  parceiroPago?: boolean;
   criadoEm?: { seconds: number };
 }
 
@@ -78,6 +103,9 @@ function mapTorneio(id: string, raw: Record<string, unknown>): Torneio {
     cidade: String(raw.cidade ?? ''),
     nome: String(raw.nome ?? ''),
     esporte: (raw.esporte as EsporteId) ?? 'tenis',
+    composicao:
+      (raw.composicao as ComposicaoId) ??
+      composicaoPadraoPorEsporte((raw.esporte as EsporteId) ?? 'tenis'),
     dataInicio: raw.dataInicio ? String(raw.dataInicio) : undefined,
     dataFim: raw.dataFim ? String(raw.dataFim) : undefined,
     descricao: raw.descricao ? String(raw.descricao) : undefined,
@@ -89,10 +117,15 @@ function mapTorneio(id: string, raw: Record<string, unknown>): Torneio {
     definicaoChave: raw.definicaoChave as DefinicaoChaveId | undefined,
     estruturaMata: raw.estruturaMata != null ? (Number(raw.estruturaMata) as EstruturaMataId) : undefined,
     formatoPartidaId: raw.formatoPartidaId as FormatoPartidaTorneioId | undefined,
+    clubeLogoUrl: raw.clubeLogoUrl ? String(raw.clubeLogoUrl) : undefined,
+    logoUrl: raw.logoUrl ? String(raw.logoUrl) : undefined,
+    bannerUrl: raw.bannerUrl ? String(raw.bannerUrl) : undefined,
     estruturaPreview: raw.estruturaPreview ? String(raw.estruturaPreview) : undefined,
     campeaoUid: raw.campeaoUid ? String(raw.campeaoUid) : undefined,
     campeaoNome: raw.campeaoNome ? String(raw.campeaoNome) : undefined,
     chaveLiberada: Boolean(raw.chaveLiberada),
+    horarioPadrao: raw.horarioPadrao ? String(raw.horarioPadrao) : undefined,
+    quadraNome: raw.quadraNome ? String(raw.quadraNome) : undefined,
     pagamento: raw.pagamento
       ? {
           ativo: Boolean((raw.pagamento as { ativo?: boolean }).ativo),
@@ -121,6 +154,7 @@ export async function criarTorneioCompleto(input: {
   donoUid: string;
   nome: string;
   esporte: EsporteId;
+  composicao?: ComposicaoId;
   dataInicio?: string;
   dataFim?: string;
   descricao?: string;
@@ -130,8 +164,12 @@ export async function criarTorneioCompleto(input: {
   estruturaMata?: EstruturaMataId;
   gruposConfig?: GruposConfig;
   formatoPartidaId?: FormatoPartidaTorneioId;
+  clubeLogoUrl?: string;
+  logoUrl?: string;
   bannerUrl?: string;
   estruturaPreview?: string;
+  horarioPadrao?: string;
+  quadraNome?: string;
   pagamento?: {
     ativo: boolean;
     valor: number;
@@ -150,15 +188,20 @@ export async function criarTorneioCompleto(input: {
     donoUid: input.donoUid,
     nome: input.nome.trim(),
     esporte: input.esporte,
+    composicao: input.composicao ?? composicaoPadraoPorEsporte(input.esporte),
     dataInicio: input.dataInicio ?? '',
     dataFim: input.dataFim ?? '',
     descricao: input.descricao?.trim() ?? '',
     local: input.local?.trim() ?? '',
+    horarioPadrao: input.horarioPadrao?.trim() ?? '',
+    quadraNome: input.quadraNome?.trim() ?? '',
     formatoChaves: input.formatoChaves ?? 'simples',
     definicaoChave: input.definicaoChave ?? 'sorteio',
     estruturaMata: input.estruturaMata ?? 16,
     gruposConfig: input.gruposConfig ?? null,
     formatoPartidaId: input.formatoPartidaId ?? 'melhor_de_3_stb',
+    clubeLogoUrl: input.clubeLogoUrl ?? '',
+    logoUrl: input.logoUrl ?? '',
     bannerUrl: input.bannerUrl ?? '',
     estruturaPreview: input.estruturaPreview ?? '',
     status: 'aberto' as TorneioStatus,
@@ -176,6 +219,29 @@ export async function criarTorneioCompleto(input: {
     criadoEm: serverTimestamp(),
   });
   return ref.id;
+}
+
+export async function atualizarAgendaTorneio(
+  torneioId: string,
+  data: { horarioPadrao?: string; quadraNome?: string; local?: string }
+): Promise<void> {
+  await updateDoc(doc(db, 'torneios', torneioId), {
+    horarioPadrao: data.horarioPadrao?.trim() ?? '',
+    quadraNome: data.quadraNome?.trim() ?? '',
+    ...(data.local != null ? { local: data.local.trim() } : {}),
+  });
+}
+
+export async function atualizarMidiaTorneio(
+  torneioId: string,
+  data: { logoUrl?: string; bannerUrl?: string; clubeLogoUrl?: string }
+): Promise<void> {
+  const patch: Record<string, string> = {};
+  if (data.logoUrl != null) patch.logoUrl = data.logoUrl;
+  if (data.bannerUrl != null) patch.bannerUrl = data.bannerUrl;
+  if (data.clubeLogoUrl != null) patch.clubeLogoUrl = data.clubeLogoUrl;
+  if (!Object.keys(patch).length) return;
+  await updateDoc(doc(db, 'torneios', torneioId), patch);
 }
 
 export async function listarTorneiosPorEsporte(esporte: EsporteId): Promise<Torneio[]> {
@@ -210,28 +276,120 @@ export async function inscreverTorneio(input: {
   nome: string;
   fotoUrl?: string;
   telefone?: string;
-}): Promise<void> {
+  setmatchId?: string;
+  /** Obrigatório se torneio for em duplas */
+  parceiroUid?: string;
+  parceiroNome?: string;
+  parceiroBusca?: string;
+}): Promise<{
+  status: InscricaoStatus;
+  pagamentoId?: string;
+  conviteId?: string;
+}> {
   const tRef = doc(db, 'torneios', input.torneioId);
   const tSnap = await getDoc(tRef);
   if (!tSnap.exists()) throw new Error('Torneio não encontrado.');
-  if (String(tSnap.data().status ?? 'aberto') !== 'aberto') {
+  const tData = tSnap.data();
+  if (String(tData.status ?? 'aberto') !== 'aberto') {
     throw new Error('Inscrições fechadas.');
   }
+
+  const composicao =
+    (tData.composicao as ComposicaoId) ??
+    composicaoPadraoPorEsporte((tData.esporte as EsporteId) ?? 'tenis');
+  const pag = tData.pagamento as
+    | { ativo?: boolean; valor?: number; ciclo?: string }
+    | undefined;
+  const precisaPagar = Boolean(pag?.ativo && (pag.valor ?? 0) > 0);
 
   const ref = doc(db, 'torneios', input.torneioId, 'inscritos', input.uid);
   const ja = await getDoc(ref);
   if (ja.exists()) throw new Error('Você já está inscrito neste torneio.');
+
+  if (composicao === 'dupla') {
+    if (!input.parceiroUid || !input.parceiroNome) {
+      throw new Error('Informe a dupla (e-mail ou ID Rally Up).');
+    }
+    const conviteId = await criarConviteDupla({
+      contexto: 'torneio',
+      refId: input.torneioId,
+      refNome: String(tData.nome ?? 'Torneio'),
+      clubeId: String(tData.clubeId ?? ''),
+      clubeNome: String(tData.clubeNome ?? ''),
+      donoUid: String(tData.donoUid ?? ''),
+      deUid: input.uid,
+      deNome: input.nome,
+      paraUid: input.parceiroUid,
+      paraNome: input.parceiroNome,
+      busca: input.parceiroBusca ?? '',
+    });
+
+    await setDoc(ref, {
+      uid: input.uid,
+      nome: input.nome,
+      fotoUrl: input.fotoUrl ?? '',
+      telefone: input.telefone ?? '',
+      status: 'aguardando_parceiro' as InscricaoStatus,
+      pago: false,
+      parceiroUid: input.parceiroUid,
+      parceiroNome: input.parceiroNome,
+      parceiroAceito: false,
+      parceiroPago: false,
+      conviteId,
+      criadoEm: serverTimestamp(),
+    });
+    return { status: 'aguardando_parceiro', conviteId };
+  }
+
+  // Simples
+  if (precisaPagar) {
+    await setDoc(ref, {
+      uid: input.uid,
+      nome: input.nome,
+      fotoUrl: input.fotoUrl ?? '',
+      telefone: input.telefone ?? '',
+      status: 'aguardando_pagamento' as InscricaoStatus,
+      pago: false,
+      criadoEm: serverTimestamp(),
+    });
+    const pagamentoId = await criarRegistroPagamento({
+      uid: input.uid,
+      setmatchId: input.setmatchId || '',
+      nome: input.nome,
+      telefone: input.telefone,
+      tipo: 'torneio',
+      clubeId: String(tData.clubeId ?? ''),
+      clubeNome: String(tData.clubeNome ?? ''),
+      donoUid: String(tData.donoUid ?? ''),
+      torneioId: input.torneioId,
+      torneioNome: String(tData.nome ?? ''),
+      valor: Number(pag!.valor),
+      ciclo: 'unico',
+      status: 'aguardando_pagamento',
+    });
+    void criarNotificacao({
+      paraUid: input.uid,
+      tipo: 'pagamento',
+      titulo: 'Pagamento da inscrição',
+      corpo: `Pague para confirmar sua vaga em ${String(tData.nome ?? 'torneio')}.`,
+      rota: '/pagamentos',
+      refId: pagamentoId,
+    }).catch(() => undefined);
+    return { status: 'aguardando_pagamento', pagamentoId };
+  }
 
   await setDoc(ref, {
     uid: input.uid,
     nome: input.nome,
     fotoUrl: input.fotoUrl ?? '',
     telefone: input.telefone ?? '',
+    status: 'confirmado' as InscricaoStatus,
+    pago: true,
+    contabilizado: true,
     criadoEm: serverTimestamp(),
   });
-  await updateDoc(tRef, {
-    totalInscritos: increment(1),
-  });
+  await updateDoc(tRef, { totalInscritos: increment(1) });
+  return { status: 'confirmado' };
 }
 
 export async function jaInscrito(torneioId: string, uid: string): Promise<boolean> {
@@ -251,6 +409,12 @@ export function ouvirInscritosTorneio(
         nome: String(raw.nome ?? 'Jogador'),
         fotoUrl: raw.fotoUrl ? String(raw.fotoUrl) : undefined,
         telefone: raw.telefone ? String(raw.telefone) : undefined,
+        status: (raw.status as InscricaoStatus) || 'confirmado',
+        pago: Boolean(raw.pago),
+        parceiroUid: raw.parceiroUid ? String(raw.parceiroUid) : undefined,
+        parceiroNome: raw.parceiroNome ? String(raw.parceiroNome) : undefined,
+        parceiroAceito: Boolean(raw.parceiroAceito),
+        parceiroPago: Boolean(raw.parceiroPago),
       };
     });
     list.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
