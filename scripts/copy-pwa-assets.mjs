@@ -85,7 +85,29 @@ async function main() {
     }
   }
 
-  console.log('PWA assets + páginas legais (privacy/terms/suporte) em dist-web.');
+  // Landing page (HTML + assets da marca; ignora pasta figma/ com originais brutos)
+  const landingFrom = path.join(ROOT, 'public', 'landing');
+  const landingTo = path.join(DIST, 'landing');
+  if (fs.existsSync(landingFrom)) {
+    fs.cpSync(landingFrom, landingTo, {
+      recursive: true,
+      filter: (src) => !src.includes(`${path.sep}figma${path.sep}`) && !src.endsWith(`${path.sep}figma`),
+    });
+  }
+
+  // Página ponte app-only (torneio): deep link + lojas — sem SPA Expo
+  const abrirFrom = path.join(ROOT, 'public', 'abrir');
+  const abrirTo = path.join(DIST, 'abrir');
+  if (fs.existsSync(abrirFrom)) {
+    fs.cpSync(abrirFrom, abrirTo, { recursive: true });
+  }
+  // Remover rotas Expo /torneio para a rewrite do Hosting servir a ponte
+  const torneioDist = path.join(DIST, 'torneio');
+  if (fs.existsSync(torneioDist)) {
+    fs.rmSync(torneioDist, { recursive: true, force: true });
+  }
+
+  console.log('PWA assets + páginas legais + landing + abrir/torneio em dist-web.');
 }
 
 main().catch((err) => {

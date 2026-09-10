@@ -22,6 +22,7 @@ import { abrirOuCriarConversaClube, enviarMensagem } from '../../services/mensag
 import { registrarInteresseAulas } from '../../services/torneios';
 import { criarRegistroPagamento, solicitarAulas } from '../../services/pagamentos';
 import { pagarComEscolhaDeMeio, resumoPromoCurto } from '../../utils/checkoutComMeio';
+import { compartilharRankingFora } from '../../utils/compartilharRanking';
 import { useAuth } from '../../hooks/useAuth';
 import { useEsporte } from '../../contexts/EsporteContext';
 import { EsporteSwitcher } from '../../components/EsporteSwitcher';
@@ -338,6 +339,32 @@ export default function RankingsTodosScreen() {
                   onVerMais={() => router.push(`/ranking/${r.id}`)}
                   onConfrontos={() => router.push(`/ranking/${r.id}/confrontos`)}
                 />
+                {user?.uid === r.donoUid ? (
+                  <View style={styles.adminRow}>
+                    <Text style={styles.adminBadge}>Admin</Text>
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push({
+                          pathname: '/clube/ranking-regras',
+                          params: { rankingId: r.id },
+                        })
+                      }
+                    >
+                      <Text style={styles.verClubeTxt}>Editar regras</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() =>
+                        void compartilharRankingFora({
+                          rankingId: r.id,
+                          nome: r.nome,
+                          clubeNome: r.clubeNome,
+                        }).catch(() => undefined)
+                      }
+                    >
+                      <Text style={styles.verClubeTxt}>Compartilhar</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
                 <TouchableOpacity
                   style={styles.verClubeLink}
                   onPress={() => router.push(`/meu-clube/${r.clubeId}`)}
@@ -450,6 +477,23 @@ const styles = StyleSheet.create({
   empty: { color: Colors.textSecondary, textAlign: 'center', marginTop: 24 },
   verClubeLink: { paddingVertical: 8, paddingHorizontal: 4 },
   verClubeTxt: { color: Colors.accent, fontSize: 12, fontWeight: '600' },
+  adminRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 4,
+    paddingBottom: 4,
+  },
+  adminBadge: {
+    color: Colors.textOnAccent,
+    backgroundColor: Colors.accent,
+    fontSize: 11,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
   clubeCard: {
     flexDirection: 'row',
     backgroundColor: Colors.surface,

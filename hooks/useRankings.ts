@@ -86,11 +86,21 @@ export function useRankings() {
   }, [user]);
 
   const meus = useMemo(
-    () => (user ? todos.filter((r) => r.membros.includes(user.uid)) : []),
+    () =>
+      user
+        ? todos.filter(
+            (r) => r.membros.includes(user.uid) || r.donoUid === user.uid
+          )
+        : [],
     [todos, user]
   );
   const proximos = useMemo(
-    () => (user ? todos.filter((r) => !r.membros.includes(user.uid)) : todos),
+    () =>
+      user
+        ? todos.filter(
+            (r) => !r.membros.includes(user.uid) && r.donoUid !== user.uid
+          )
+        : todos,
     [todos, user]
   );
 

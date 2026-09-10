@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dimensions, Image, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Linking from 'expo-linking';
 import * as Updates from 'expo-updates';
 import { Colors } from '../constants/colors';
 import { useAuth } from '../hooks/useAuth';
+import { rotaFromIncomingUrl } from '../utils/deepLinks';
 
 const SPLASH_MS = 1200;
 /** Não bloquear splash para sempre se a rede do OTA travar. */
@@ -30,8 +32,6 @@ export default function LaunchScreen() {
     return () => sub.remove();
   }, []);
 
-  // OTA: checa update, mas com timeout — nunca prende a splash.
-  // reloadAsync só se houver update (após download).
   useEffect(() => {
     if (!Updates.isEnabled || __DEV__) {
       setUpdatesReady(true);
@@ -74,17 +74,30 @@ export default function LaunchScreen() {
       if (navigated.current) return;
       navigated.current = true;
 
-      if (!user) {
-        router.replace('/onboarding');
-        return;
-      }
+      void (async () => {
+        try {
+          const initial = await Linking.getInitialURL();
+          const deep = rotaFromIncomingUrl(initial);
+          if (deep && user && onboardingComplete) {
+            router.replace(deep as never);
+            return;
+          }
+        } catch (e) {
+          console.warn('[launch] deep link', e);
+        }
 
-      if (isAdminClube) {
-        router.replace(onboardingComplete ? '/clube/painel' : '/clube/onboarding');
-        return;
-      }
+        if (!user) {
+          router.replace('/onboarding');
+          return;
+        }
 
-      router.replace(onboardingComplete ? '/(tabs)/home' : '/primeiro-acesso');
+        if (isAdminClube) {
+          router.replace(onboardingComplete ? '/clube/painel' : '/clube/onboarding');
+          return;
+        }
+
+        router.replace(onboardingComplete ? '/(tabs)/home' : '/primeiro-acesso');
+      })();
     }, SPLASH_MS);
 
     return () => clearTimeout(timer);

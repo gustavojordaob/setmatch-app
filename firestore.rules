@@ -188,17 +188,22 @@ service cloud.firestore {
       allow delete: if isAuth()
         && request.auth.uid == resource.data.donoUid;
 
-      match /inscritos/{uid} {
+      // Doc id = uid (legado) ou uid__categoriaId (multi-categoria)
+      match /inscritos/{inscritoId} {
         allow read: if isAuth();
         allow create: if isAuth()
-          && (request.auth.uid == uid
-              || request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid);
+          && (
+            request.auth.uid == request.resource.data.uid
+            || request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid
+          );
         allow update, delete: if isAuth()
-          && (request.auth.uid == uid
-              || request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid);
+          && (
+            request.auth.uid == resource.data.uid
+            || request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid
+          );
       }
 
-      // Chaveamento vivo — dono gera; jogadores do confronto ou dono registram placar
+      // Chaveamento — dono gera; dono OU jogadores do confronto registram placar
       match /confrontos/{confrontoId} {
         allow read: if isAuth();
         allow create: if isAuth()
@@ -206,8 +211,8 @@ service cloud.firestore {
         allow update: if isAuth()
           && (
             request.auth.uid == get(/databases/$(database)/documents/torneios/$(torneioId)).data.donoUid
-            || request.auth.uid == resource.data.j1Uid
-            || request.auth.uid == resource.data.j2Uid
+            || request.auth.uid == resource.data.get('j1Uid', '')
+            || request.auth.uid == resource.data.get('j2Uid', '')
             || request.auth.uid == resource.data.get('j1ParceiroUid', '')
             || request.auth.uid == resource.data.get('j2ParceiroUid', '')
           );

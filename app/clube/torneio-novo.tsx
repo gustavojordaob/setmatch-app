@@ -40,11 +40,15 @@ import { listarClubesDoDono } from '../../services/clubes';
 import {
   atualizarMidiaTorneio,
   criarTorneioCompleto,
+  novaCategoriaId,
 } from '../../services/torneios';
+import { maskDateBR, maskTimeHHMM } from '../../utils/mascaras';
 import {
   uploadBannerTorneio,
   uploadLogoTorneio,
 } from '../../utils/uploadFoto';
+
+type CatDraft = { nome: string; composicao: ComposicaoId };
 
 export default function TorneioNovoScreen() {
   const { clubeId } = useLocalSearchParams<{ clubeId: string }>();
@@ -52,8 +56,9 @@ export default function TorneioNovoScreen() {
   const { user } = useAuth();
   const [nome, setNome] = useState('');
   const [esporte, setEsporte] = useState<EsporteId>('tenis');
-  const [composicao, setComposicao] = useState<ComposicaoId>('simples');
+  const [composicaoPadrao, setComposicaoPadrao] = useState<ComposicaoId>('simples');
   const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
   const [local, setLocal] = useState('');
   const [horarioPadrao, setHorarioPadrao] = useState('');
   const [quadraNome, setQuadraNome] = useState('');
@@ -64,7 +69,7 @@ export default function TorneioNovoScreen() {
   const [jogPorGrupo, setJogPorGrupo] = useState('4');
   const [classifPorGrupo, setClassifPorGrupo] = useState('2');
   const [formatoPartida, setFormatoPartida] =
-    useState<FormatoPartidaTorneioId>('tres_sets_de_3');
+    useState<FormatoPartidaTorneioId>('melhor_de_3_stb');
   const [cobrar, setCobrar] = useState(true);
   const [valor, setValor] = useState('80.00');
   const [prazo, setPrazo] = useState('');
@@ -73,9 +78,17 @@ export default function TorneioNovoScreen() {
   );
   const [descontoPix, setDescontoPix] = useState('0');
   const [descontoCartao, setDescontoCartao] = useState('0');
+  const [descontoMultiCat, setDescontoMultiCat] = useState('20');
+  const [resultadoSoOrganizador, setResultadoSoOrganizador] = useState(false);
   const [loading, setLoading] = useState(false);
   const [logoLocal, setLogoLocal] = useState<string | null>(null);
   const [bannerLocal, setBannerLocal] = useState<string | null>(null);
+  const [categorias, setCategorias] = useState<CatDraft[]>([
+    { nome: 'Simples', composicao: 'simples' },
+    { nome: 'Duplas', composicao: 'dupla' },
+  ]);
+  const [novaCategoria, setNovaCategoria] = useState('');
+  const [novaCatComp, setNovaCatComp] = useState<ComposicaoId>('simples');
 
   const formatosJogo = useMemo(() => formatosPartidaPorEsporte(esporte), [esporte]);
 
@@ -114,7 +127,11 @@ export default function TorneioNovoScreen() {
   );
 
   async function salvar() {
-    if (!clubeId || !nome.trim() || !user) {
+    if (!user) {
+      Alert.alert('Torneio', 'Faça login para criar o torneio.');
+      return;
+    }
+    if (!nome.trim()) {
       Alert.alert('Torneio', 'Informe o nome do torneio.');
       return;
     }
@@ -123,12 +140,23 @@ export default function TorneioNovoScreen() {
       Alert.alert('Torneio', 'Informe o valor da inscrição.');
       return;
     }
+    const cats = categorias
+      .map((c) => ({
+        nome: c.nome.trim(),
+        composicao: c.composicao,
+      }))
+      .filter((c) => c.nome.length > 0);
+    if (cats.length === 0) {
+      Alert.alert('Torneio', 'Informe ao menos uma categoria.');
+      return;
+    }
     setLoading(true);
     try {
       const clubes = await listarClubesDoDono(user.uid);
-      const clube = clubes.find((c) => c.id === clubeId) ?? clubes[0];
+      const clube =
+        (clubeId ? clubes.find((c) => c.id === clubeId) : undefined) ?? clubes[0];
       if (!clube) {
-        Alert.alert('Torneio', 'Clube não encontrado.');
+        Alert.alert('Torneio', 'Clube não encontrado. Cadastre o clube no painel.');
         return;
       }
       const id = await criarTorneioCompleto({
@@ -138,8 +166,9 @@ export default function TorneioNovoScreen() {
         donoUid: user.uid,
         nome,
         esporte,
-        composicao,
+        composicao: composicaoPadrao,
         dataInicio,
+        dataFim,
         local,
         horarioPadrao,
         quadraNome,
@@ -157,6 +186,11 @@ export default function TorneioNovoScreen() {
         formatoPartidaId: formatoPartida,
         estruturaPreview: preview,
         clubeLogoUrl: clube.logoUrl,
+        categorias: cats.map((c) => ({
+          id: novaCategoriaId(),
+          nome: c.nome,
+          composicao: c.composicao,
+        })),
         pagamento: {
           ativo: cobrar,
           valor: v,
@@ -172,7 +206,12 @@ export default function TorneioNovoScreen() {
             100,
             Math.max(0, Number(String(descontoCartao).replace(',', '.')) || 0)
           ),
+          descontoMultiCategoriaValor: Math.max(
+            0,
+            Number(String(descontoMultiCat).replace(',', '.')) || 0
+          ),
         },
+        resultadoSoOrganizador,
       });
 
       const midia: { logoUrl?: string; bannerUrl?: string } = {};
@@ -187,7 +226,7 @@ export default function TorneioNovoScreen() {
       }
 
       Alert.alert('Torneio', 'Torneio criado!', [
-        { text: 'OK', onPress: () => router.replace('/clube/painel') },
+        { text: 'OK', onPress: () => router.replace(`/torneio/${id}`) },
       ]);
     } catch (e: unknown) {
       Alert.alert('Torneio', e instanceof Error ? e.message : 'Falha ao criar.');
@@ -208,7 +247,7 @@ export default function TorneioNovoScreen() {
 
       <ScrollView contentContainerStyle={styles.body}>
         <Input
-          title="Nome"
+          label="Nome"
           value={nome}
           onChangeText={setNome}
           placeholder="Digite o nome do torneio"
@@ -250,30 +289,47 @@ export default function TorneioNovoScreen() {
 
         <View style={styles.row2}>
           <View style={{ flex: 1 }}>
-            <Input title="Data" value={dataInicio} onChangeText={setDataInicio} placeholder="DD/MM" />
-          </View>
-          <View style={{ flex: 1.15 }}>
             <Input
-              title="Localização"
-              value={local}
-              onChangeText={setLocal}
-              placeholder="Clube / cidade"
+              label="Data início"
+              value={dataInicio}
+              onChangeText={(t) => setDataInicio(maskDateBR(t))}
+              placeholder="DD/MM/AAAA"
+              keyboardType="number-pad"
+              maxLength={10}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Input
+              label="Data fim"
+              value={dataFim}
+              onChangeText={(t) => setDataFim(maskDateBR(t))}
+              placeholder="DD/MM/AAAA"
+              keyboardType="number-pad"
+              maxLength={10}
             />
           </View>
         </View>
+        <Input
+          label="Localização"
+          value={local}
+          onChangeText={setLocal}
+          placeholder="Clube / cidade"
+        />
 
         <View style={styles.row2}>
           <View style={{ flex: 1 }}>
             <Input
-              title="Horário (ref.)"
+              label="Horário (ref.)"
               value={horarioPadrao}
-              onChangeText={setHorarioPadrao}
-              placeholder="Ex: 09:00"
+              onChangeText={(t) => setHorarioPadrao(maskTimeHHMM(t))}
+              placeholder="09:00"
+              keyboardType="number-pad"
+              maxLength={5}
             />
           </View>
           <View style={{ flex: 1.15 }}>
             <Input
-              title="Quadra (opcional)"
+              label="Quadra (opcional)"
               value={quadraNome}
               onChangeText={setQuadraNome}
               placeholder="Ex: Quadra 1"
@@ -284,6 +340,84 @@ export default function TorneioNovoScreen() {
           Horário e quadra são definidos por você — jogadores não reservam na agenda.
         </Text>
 
+        <Text style={styles.label}>Categorias (simples e duplas separadas)</Text>
+        <Text style={[styles.label, { marginTop: -4, opacity: 0.75, fontSize: 12 }]}>
+          Cada categoria tem composição própria. Ex.: “Simples A”, “Duplas B”, “+35 Duplas”.
+        </Text>
+        {categorias.map((cat, idx) => (
+          <View key={`cat-${idx}`} style={styles.catBlock}>
+            <View style={styles.catRow}>
+              <View style={{ flex: 1 }}>
+                <Input
+                  label={idx === 0 ? 'Nome da categoria' : undefined}
+                  value={cat.nome}
+                  onChangeText={(t) => {
+                    setCategorias((prev) =>
+                      prev.map((c, i) => (i === idx ? { ...c, nome: t } : c))
+                    );
+                  }}
+                  placeholder="Ex.: Simples A"
+                />
+              </View>
+              {categorias.length > 1 ? (
+                <TouchableOpacity
+                  style={styles.catRemove}
+                  onPress={() => setCategorias((prev) => prev.filter((_, i) => i !== idx))}
+                >
+                  <Ionicons name="close-circle" size={22} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <View style={styles.chips}>
+              {(['simples', 'dupla'] as ComposicaoId[]).map((comp) => (
+                <Chip
+                  key={comp}
+                  label={labelComposicao(comp)}
+                  on={cat.composicao === comp}
+                  onPress={() =>
+                    setCategorias((prev) =>
+                      prev.map((c, i) => (i === idx ? { ...c, composicao: comp } : c))
+                    )
+                  }
+                />
+              ))}
+            </View>
+          </View>
+        ))}
+        <View style={styles.catAddRow}>
+          <View style={{ flex: 1 }}>
+            <Input
+              value={novaCategoria}
+              onChangeText={setNovaCategoria}
+              placeholder="Nova categoria"
+            />
+          </View>
+          <TouchableOpacity
+            style={styles.catAddBtn}
+            onPress={() => {
+              const n = novaCategoria.trim();
+              if (!n) return;
+              setCategorias((prev) => [
+                ...prev,
+                { nome: n, composicao: novaCatComp },
+              ]);
+              setNovaCategoria('');
+            }}
+          >
+            <Text style={styles.catAddTxt}>+ Add</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.chips}>
+          {(['simples', 'dupla'] as ComposicaoId[]).map((comp) => (
+            <Chip
+              key={comp}
+              label={`Nova: ${labelComposicao(comp)}`}
+              on={novaCatComp === comp}
+              onPress={() => setNovaCatComp(comp)}
+            />
+          ))}
+        </View>
+
         <Text style={styles.label}>Esporte</Text>
         <View style={styles.chips}>
           {ESPORTES.map((e) => (
@@ -293,24 +427,11 @@ export default function TorneioNovoScreen() {
               on={esporte === e.id}
               onPress={() => {
                 setEsporte(e.id);
-                setComposicao(composicaoPadraoPorEsporte(e.id));
+                const pad = composicaoPadraoPorEsporte(e.id);
+                setComposicaoPadrao(pad);
+                setNovaCatComp(pad);
                 setFormatoPartida(formatoPartidaPadraoPorEsporte(e.id));
               }}
-            />
-          ))}
-        </View>
-
-        <Text style={styles.label}>Composição</Text>
-        <Text style={[styles.label, { marginTop: -4, opacity: 0.75, fontSize: 12 }]}>
-          Beach, padel, pickleball e raquetinha sugerem duplas. Cada atleta paga a própria inscrição.
-        </Text>
-        <View style={styles.chips}>
-          {(['simples', 'dupla'] as ComposicaoId[]).map((c) => (
-            <Chip
-              key={c}
-              label={labelComposicao(c)}
-              on={composicao === c}
-              onPress={() => setComposicao(c)}
             />
           ))}
         </View>
@@ -419,10 +540,39 @@ export default function TorneioNovoScreen() {
             <Text style={styles.promoHint}>
               O inscrito vê o desconto do meio na hora de pagar (ex.: PIX −10%).
             </Text>
-            <Input title="Prazo pagamento" value={prazo} onChangeText={setPrazo} />
-            <Input title="Regras" value={regras} onChangeText={setRegras} />
+            <Input
+              label="Desconto 2ª+ categoria (R$)"
+              value={descontoMultiCat}
+              onChangeText={setDescontoMultiCat}
+              keyboardType="decimal-pad"
+              placeholder="Ex: 20"
+            />
+            <Text style={styles.promoHint}>
+              A partir da 2ª categoria do mesmo jogador, abate esse valor da inscrição.
+            </Text>
+            <Input
+              label="Prazo pagamento"
+              value={prazo}
+              onChangeText={(t) => setPrazo(maskDateBR(t))}
+              placeholder="DD/MM/AAAA"
+              keyboardType="number-pad"
+              maxLength={10}
+            />
+            <Input label="Regras" value={regras} onChangeText={setRegras} />
           </>
         ) : null}
+
+        <View style={styles.switchRow}>
+          <Text style={styles.label}>Só organizador lança placar</Text>
+          <Switch
+            value={resultadoSoOrganizador}
+            onValueChange={setResultadoSoOrganizador}
+            trackColor={{ true: Colors.accent, false: Colors.surface }}
+          />
+        </View>
+        <Text style={[styles.hint, { marginBottom: 12 }]}>
+          Se ativo, jogadores não registram resultado — só o dono do clube.
+        </Text>
       </ScrollView>
 
       <ButtonFooter>
@@ -491,6 +641,18 @@ const styles = StyleSheet.create({
   row2: { flexDirection: 'row', gap: 10 },
   label: { color: Colors.textPrimary, fontWeight: '700', marginTop: 14, marginBottom: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  catRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  catBlock: { gap: 6, marginBottom: 10 },
+  catRemove: { paddingBottom: 14 },
+  catAddRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 8 },
+  catAddBtn: {
+    backgroundColor: Colors.accent,
+    borderRadius: 60,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 2,
+  },
+  catAddTxt: { color: Colors.textOnAccent, fontWeight: '800' },
   chip: {
     minWidth: '46%',
     paddingVertical: 12,

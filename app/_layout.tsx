@@ -9,6 +9,7 @@ import { ClubeProvider } from '../contexts/ClubeContext';
 import { LocaleProvider } from '../contexts/LocaleContext';
 import { AuthGuard } from '../components/AuthGuard';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { useDeepLinkNavigation } from '../hooks/useDeepLinkNavigation';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -16,6 +17,7 @@ function RootStack() {
   const { loading } = useAuth();
   // Só registra push se o binário tiver o módulo nativo (não quebra OTA antigo).
   usePushNotifications();
+  useDeepLinkNavigation();
 
   useEffect(() => {
     if (!loading) {

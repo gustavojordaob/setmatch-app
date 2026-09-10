@@ -3,6 +3,23 @@ import { useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 
 const PUBLIC_ROOTS = new Set(['index', '(auth)', 'onboarding', 'baixar']);
+/** Rotas profundas que o guard NÃO pode roubar (share / notificação). */
+const DEEP_ROOTS = new Set([
+  'torneio',
+  'ranking',
+  'desafio',
+  'post',
+  'chat',
+  'jogador',
+  'convite-dupla',
+  'partida',
+  'aula',
+  'pagamento',
+  'pagamentos',
+  'meu-clube',
+  'meus-clubes',
+  'clube',
+]);
 
 function homeFor(isAdmin: boolean, onboardingOk: boolean): string {
   if (isAdmin) return onboardingOk ? '/clube/painel' : '/clube/onboarding';
@@ -40,8 +57,20 @@ export function AuthGuard() {
       return;
     }
 
+    // Deep links / rotas de detalhe — não mandar para home/painel
+    if (DEEP_ROOTS.has(root)) {
+      if (
+        !onboardingComplete &&
+        root !== 'clube' &&
+        root !== 'wizard' &&
+        root !== 'primeiro-acesso'
+      ) {
+        router.replace(isAdminClube ? '/clube/onboarding' : '/primeiro-acesso');
+      }
+      return;
+    }
+
     if (isAdminClube) {
-      // Admin/professor: painel clube, mas pode ver notificações e mensagens
       if (root === 'wizard' || root === 'primeiro-acesso') {
         router.replace(dest);
         return;

@@ -1,7 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -14,6 +16,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { DualAvatar } from '../../components/ui/DualAvatar';
 import { useAuth } from '../../hooks/useAuth';
@@ -25,6 +28,11 @@ import {
 } from '../../services/desafios';
 import { ESPORTES, type EsporteId } from '../../constants/esportes';
 import { labelFormato, type FormatoPartidaId } from '../../constants/formatosPartida';
+import {
+  quantosSetsVisiveis,
+  rotuloSet,
+  validarPlacarPartida,
+} from '../../utils/placarTorneio';
 
 type DesafioDoc = {
   id: string;
@@ -52,6 +60,10 @@ type DesafioDoc = {
   rankingNome?: string;
 };
 
+function emptySetsDraft(): { j1: string; j2: string }[] {
+  return Array.from({ length: 5 }, () => ({ j1: '', j2: '' }));
+}
+
 export default function DesafioDetalheScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -59,8 +71,7 @@ export default function DesafioDetalheScreen() {
   const [d, setD] = useState<DesafioDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [s1, setS1] = useState('6');
-  const [s2, setS2] = useState('4');
+  const [setsDraft, setSetsDraft] = useState(emptySetsDraft);
   const [publicarFeed, setPublicarFeed] = useState(true);
 
   const carregar = useCallback(async () => {
@@ -116,6 +127,16 @@ export default function DesafioDetalheScreen() {
     }, [carregar])
   );
 
+  const setsParciais = useMemo(
+    () =>
+      setsDraft.map((s) => ({
+        j1: Number(s.j1) || 0,
+        j2: Number(s.j2) || 0,
+      })),
+    [setsDraft]
+  );
+  const nSets = quantosSetsVisiveis(d?.formato, setsParciais);
+
   async function setStatus(status: 'aceito' | 'recusado') {
     if (!id) return;
     setBusy(true);
@@ -129,17 +150,38 @@ export default function DesafioDetalheScreen() {
     }
   }
 
-  async function registrar() {
+  function pedirConfirmacaoPlacar() {
     if (!user || !perfil || !d) return;
-    const j1 = Number(s1);
-    const j2 = Number(s2);
-    if (Number.isNaN(j1) || Number.isNaN(j2)) {
-      Alert.alert('Placar', 'Informe números válidos nos sets.');
+    const valid = validarPlacarPartida({
+      formatoId: d.formato,
+      sets: setsParciais,
+    });
+    if (!valid.ok) {
+      Alert.alert('Placar', valid.erro);
       return;
     }
+    const n1 = labelDupla(d.desafianteNome ?? 'Jogador 1', d.desafianteParceiroNome);
+    const n2 = labelDupla(d.desafiadoNome ?? 'Jogador 2', d.desafiadoParceiroNome);
+    const nomeVenc = valid.vencedor === 'j1' ? n1 : n2;
+    const resumo = valid.sets.map((s) => `${s.j1}–${s.j2}`).join('  ');
+    Alert.alert(
+      'Confirmar placar',
+      `${n1} × ${n2}\n${resumo}\n\nVencedor: ${nomeVenc}\n\nConfirma o lançamento?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Confirmar', onPress: () => void executarRegistrar(valid) },
+      ]
+    );
+  }
+
+  async function executarRegistrar(
+    valid: Extract<ReturnType<typeof validarPlacarPartida>, { ok: true }>
+  ) {
+    if (!user || !perfil || !d) return;
     setBusy(true);
     try {
-      const vencedor = j1 > j2 ? d.desafiante : d.desafiado;
+      const vencedor =
+        valid.vencedor === 'j1' ? d.desafiante : d.desafiado;
       await registrarPartidaDoDesafio({
         desafioId: d.id,
         jogador1: d.desafiante,
@@ -154,7 +196,7 @@ export default function DesafioDetalheScreen() {
         jogador2ParceiroUid: d.desafiadoParceiroUid,
         jogador2ParceiroNome: d.desafiadoParceiroNome,
         jogador2ParceiroFoto: d.desafiadoParceiroFoto,
-        sets: [{ j1, j2 }],
+        sets: valid.sets,
         vencedor,
         esporte: (d.esporte as EsporteId) || 'tenis',
         quadra: d.quadra,
@@ -207,144 +249,160 @@ export default function DesafioDetalheScreen() {
   }
 
   const souDesafiado = user?.uid === d.desafiado;
-  const souParticipante = user?.uid === d.desafiante || souDesafiado;
-  const esp = ESPORTES.find((e) => e.id === d.esporte);
-  const statusLabel: Record<string, string> = {
-    pendente: 'Aguardando resposta',
-    aceito: 'Aceito — bora jogar!',
-    recusado: 'Recusado',
-    finalizado: 'Finalizado',
-  };
+  const souParte = user?.uid === d.desafiante || user?.uid === d.desafiado;
+  const esporteNome = ESPORTES.find((e) => e.id === d.esporte)?.nome ?? d.esporte;
+  const nome1 = labelDupla(d.desafianteNome ?? 'Jogador 1', d.desafianteParceiroNome);
+  const nome2 = labelDupla(d.desafiadoNome ?? 'Jogador 2', d.desafiadoParceiroNome);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={26} color={Colors.accent} />
+          <Ionicons name="arrow-back" size={24} color={Colors.accent} />
         </TouchableOpacity>
-        <Text style={styles.title}>Confronto</Text>
-        <View style={{ width: 26 }} />
+        <Text style={styles.title}>Desafio</Text>
+        <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
-        <View style={styles.vsCard}>
-          <Text style={styles.esporteBadge}>
-            {esp?.emoji} {esp?.nome ?? d.esporte}
-            {d.clubeNome ? ` · ${d.clubeNome}` : ''}
-          </Text>
-          <View style={styles.vsRow}>
-            <View style={styles.playerCol}>
-              <DualAvatar
-                nomeA={d.desafianteNome ?? 'Jogador'}
-                fotoA={d.desafianteFoto}
-                nomeB={d.desafianteParceiroNome}
-                fotoB={d.desafianteParceiroFoto}
-                size="lg"
-              />
-              <Text style={styles.playerName} numberOfLines={2}>
-                {labelDupla(d.desafianteNome ?? 'Jogador', d.desafianteParceiroNome)}
-              </Text>
-            </View>
-            <Text style={styles.vsText}>VS</Text>
-            <View style={styles.playerCol}>
-              <DualAvatar
-                nomeA={d.desafiadoNome ?? 'Jogador'}
-                fotoA={d.desafiadoFoto}
-                nomeB={d.desafiadoParceiroNome}
-                fotoB={d.desafiadoParceiroFoto}
-                size="lg"
-              />
-              <Text style={styles.playerName} numberOfLines={2}>
-                {labelDupla(d.desafiadoNome ?? 'Jogador', d.desafiadoParceiroNome)}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.card}>
-          <InfoRow icon="trophy-outline" label="Formato" value={labelFormato(d.formato)} />
-          <InfoRow icon="location-outline" label="Local" value={d.quadra || 'A combinar'} />
-          {d.dataSugerida ? (
-            <InfoRow icon="calendar-outline" label="Quando" value={d.dataSugerida} />
-          ) : null}
-          <InfoRow
-            icon="flag-outline"
-            label="Status"
-            value={statusLabel[d.status] ?? d.status}
-            accent
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+      >
+      <ScrollView
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.vsRow}>
+          <DualAvatar
+            fotoA={d.desafianteFoto}
+            fotoB={d.desafianteParceiroFoto}
+            nomeA={d.desafianteNome ?? 'Jogador 1'}
+            nomeB={d.desafianteParceiroNome}
+            size="lg"
           />
-          {d.rankingNome ? (
-            <InfoRow icon="podium-outline" label="Ranking" value={d.rankingNome} accent />
-          ) : null}
-          {d.mensagem ? (
-            <Text style={styles.msg}>“{d.mensagem}”</Text>
-          ) : null}
+          <Text style={styles.vs}>VS</Text>
+          <DualAvatar
+            fotoA={d.desafiadoFoto}
+            fotoB={d.desafiadoParceiroFoto}
+            nomeA={d.desafiadoNome ?? 'Jogador 2'}
+            nomeB={d.desafiadoParceiroNome}
+            size="lg"
+          />
         </View>
+        <Text style={styles.names}>
+          {nome1} × {nome2}
+        </Text>
 
-        {souDesafiado && d.status === 'pendente' ? (
+        <InfoRow icon="tennisball-outline" label="Esporte" value={esporteNome} />
+        <InfoRow icon="location-outline" label="Local" value={d.quadra || '—'} />
+        <InfoRow icon="trophy-outline" label="Formato" value={labelFormato(d.formato)} />
+        {d.rankingNome ? (
+          <InfoRow icon="podium-outline" label="Ranking" value={d.rankingNome} />
+        ) : null}
+        {d.dataSugerida ? (
+          <InfoRow icon="calendar-outline" label="Quando" value={d.dataSugerida} />
+        ) : null}
+        <InfoRow icon="flag-outline" label="Status" value={d.status} />
+        {d.mensagem ? <Text style={styles.msg}>{d.mensagem}</Text> : null}
+
+        {d.status === 'pendente' && souDesafiado ? (
           <View style={styles.actions}>
-            <Button label="Aceitar desafio" onPress={() => void setStatus('aceito')} loading={busy} />
+            <Button label="Aceitar" loading={busy} onPress={() => void setStatus('aceito')} />
             <Button
               label="Recusar"
               variant="outline"
-              onPress={() => void setStatus('recusado')}
               loading={busy}
+              onPress={() => void setStatus('recusado')}
             />
           </View>
         ) : null}
 
-        {souParticipante && d.status === 'aceito' ? (
-          <View style={styles.card}>
+        {d.status === 'aceito' && souParte ? (
+          <View style={styles.box}>
             <Text style={styles.boxTitle}>Registrar placar</Text>
-            <Text style={styles.meta}>
-              Formato: {labelFormato(d.formato)} · informe o placar dos sets
+            <Text style={styles.hint}>
+              Formato: {labelFormato(d.formato)} · fotos + placar por set (mesma regra do torneio)
             </Text>
-            <View style={styles.placarRow}>
-              <View style={{ flex: 1 }}>
+
+            <View style={styles.placarHeader}>
+              <View style={styles.placarSide}>
+                <Avatar uri={d.desafianteFoto} nome={nome1} size="sm" />
                 <Text style={styles.placarNome} numberOfLines={2}>
-                  {labelDupla(
-                    d.desafianteNome ?? 'J1',
-                    d.desafianteParceiroNome
-                  )}
+                  {nome1}
                 </Text>
-                <TextInput
-                  style={styles.placarInput}
-                  keyboardType="number-pad"
-                  value={s1}
-                  onChangeText={setS1}
-                />
               </View>
-              <Text style={styles.vsSmall}>×</Text>
-              <View style={{ flex: 1 }}>
+              <Text style={styles.placarVs}>×</Text>
+              <View style={[styles.placarSide, styles.placarSideRight]}>
                 <Text style={styles.placarNome} numberOfLines={2}>
-                  {labelDupla(d.desafiadoNome ?? 'J2', d.desafiadoParceiroNome)}
+                  {nome2}
                 </Text>
-                <TextInput
-                  style={styles.placarInput}
-                  keyboardType="number-pad"
-                  value={s2}
-                  onChangeText={setS2}
-                />
+                <Avatar uri={d.desafiadoFoto} nome={nome2} size="sm" />
               </View>
             </View>
+
+            {Array.from({ length: nSets }, (_, idx) => (
+              <View key={`set-${idx}`} style={styles.setBlock}>
+                <Text style={styles.setLabel}>
+                  {rotuloSet(d.formato, idx, setsParciais)}
+                </Text>
+                <View style={styles.scoreRow}>
+                  <TextInput
+                    style={styles.placarInput}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    placeholderTextColor={Colors.textSecondary}
+                    value={setsDraft[idx]?.j1 ?? ''}
+                    onChangeText={(t) =>
+                      setSetsDraft((prev) => {
+                        const next = [...prev];
+                        next[idx] = {
+                          ...(next[idx] ?? { j1: '', j2: '' }),
+                          j1: t.replace(/\D/g, '').slice(0, 2),
+                        };
+                        return next;
+                      })
+                    }
+                  />
+                  <Text style={styles.dash}>–</Text>
+                  <TextInput
+                    style={styles.placarInput}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    placeholderTextColor={Colors.textSecondary}
+                    value={setsDraft[idx]?.j2 ?? ''}
+                    onChangeText={(t) =>
+                      setSetsDraft((prev) => {
+                        const next = [...prev];
+                        next[idx] = {
+                          ...(next[idx] ?? { j1: '', j2: '' }),
+                          j2: t.replace(/\D/g, '').slice(0, 2),
+                        };
+                        return next;
+                      })
+                    }
+                  />
+                </View>
+              </View>
+            ))}
+
             <View style={styles.feedRow}>
-              <Text style={styles.feedLabel}>Publicar no meu feed</Text>
+              <Text style={styles.feedLabel}>Publicar no feed</Text>
               <Switch
                 value={publicarFeed}
                 onValueChange={setPublicarFeed}
-                trackColor={{ true: Colors.accent }}
+                trackColor={{ true: Colors.accent, false: Colors.surface }}
               />
             </View>
-            <Button label="Salvar resultado" onPress={() => void registrar()} loading={busy} />
+            <Button
+              label="Salvar resultado"
+              loading={busy}
+              onPress={pedirConfirmacaoPlacar}
+            />
           </View>
         ) : null}
-
-        {d.status === 'finalizado' ? (
-          <Text style={styles.done}>
-            Partida finalizada{d.rankingId ? ' · pontos do ranking aplicados' : ''}.
-          </Text>
-        ) : null}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -353,91 +411,94 @@ function InfoRow({
   icon,
   label,
   value,
-  accent,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
-  accent?: boolean;
 }) {
   return (
     <View style={styles.infoRow}>
       <Ionicons name={icon} size={18} color={Colors.accent} />
       <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={[styles.infoValue, accent && { color: Colors.accent }]} numberOfLines={2}>
-        {value}
-      </Text>
+      <Text style={styles.infoValue}>{value}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background, paddingHorizontal: 16 },
+  safe: { flex: 1, backgroundColor: Colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
     paddingTop: 8,
-    marginBottom: 12,
   },
-  title: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 18 },
-  vsCard: {
-    backgroundColor: Colors.surfaceDark,
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(199,217,65,0.35)',
+  title: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800' },
+  body: { padding: 20, gap: 10, paddingBottom: 40 },
+  empty: { color: Colors.textSecondary, textAlign: 'center', marginTop: 40 },
+  vsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginVertical: 12,
   },
-  esporteBadge: {
-    color: Colors.accent,
-    fontWeight: '700',
-    fontSize: 12,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  vsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  playerCol: { flex: 1, alignItems: 'center', gap: 8 },
-  playerName: {
+  vs: { color: Colors.accent, fontWeight: '900', fontSize: 18 },
+  names: {
     color: Colors.textPrimary,
-    fontWeight: '800',
-    fontSize: 14,
     textAlign: 'center',
+    fontWeight: '700',
+    marginBottom: 8,
   },
-  vsText: { color: Colors.accent, fontWeight: '900', fontSize: 26, paddingHorizontal: 8 },
-  card: {
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  infoLabel: { color: Colors.textSecondary, width: 72 },
+  infoValue: { color: Colors.textPrimary, flex: 1, fontWeight: '600' },
+  msg: { color: Colors.textSecondary, marginTop: 8, lineHeight: 20 },
+  actions: { gap: 10, marginTop: 16 },
+  box: {
+    marginTop: 16,
     backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 16,
     gap: 10,
-    marginBottom: 16,
   },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  infoLabel: { color: Colors.textSecondary, fontSize: 12, width: 64 },
-  infoValue: { flex: 1, color: Colors.textPrimary, fontWeight: '600', fontSize: 14 },
-  meta: { color: Colors.textSecondary, fontSize: 13 },
-  msg: { color: Colors.textPrimary, marginTop: 4, fontStyle: 'italic', lineHeight: 20 },
-  actions: { gap: 10, marginBottom: 16 },
-  boxTitle: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 16 },
-  placarRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginVertical: 12 },
-  placarNome: { color: Colors.textSecondary, fontSize: 12, textAlign: 'center', marginBottom: 6 },
+  boxTitle: { color: Colors.accent, fontWeight: '900', fontSize: 16 },
+  hint: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
+  placarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  placarSide: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  placarSideRight: { justifyContent: 'flex-end' },
+  placarNome: { color: Colors.textPrimary, fontWeight: '700', flexShrink: 1, fontSize: 12 },
+  placarVs: { color: Colors.accent, fontWeight: '900', fontSize: 16 },
+  setBlock: { gap: 4 },
+  setLabel: { color: Colors.textSecondary, fontWeight: '700', fontSize: 12 },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
   placarInput: {
-    backgroundColor: Colors.background,
+    width: 56,
+    backgroundColor: Colors.surfaceDark,
     borderRadius: 12,
-    padding: 14,
     color: Colors.textPrimary,
     textAlign: 'center',
-    fontSize: 22,
-    fontWeight: 'bold',
+    paddingVertical: 10,
+    fontWeight: '800',
+    fontSize: 18,
   },
-  vsSmall: { color: Colors.textPrimary, fontSize: 20, fontWeight: 'bold', marginBottom: 14 },
+  dash: { color: Colors.textSecondary, fontWeight: '700' },
   feedRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginTop: 4,
   },
-  feedLabel: { color: Colors.textPrimary, fontWeight: '600', flex: 1, marginRight: 12 },
-  done: { color: Colors.accent, textAlign: 'center', fontWeight: '700' },
-  empty: { color: Colors.textSecondary, textAlign: 'center', marginTop: 40 },
+  feedLabel: { color: Colors.textPrimary, fontWeight: '600' },
 });

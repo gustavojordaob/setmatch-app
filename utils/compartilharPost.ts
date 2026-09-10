@@ -2,7 +2,7 @@ import { Platform, Share } from 'react-native';
 
 const ANDROID_STORE =
   'https://play.google.com/store/apps/details?id=com.fabricaapps.setmatch';
-const IOS_STORE = 'https://apps.apple.com/app/setmatch';
+const IOS_STORE = 'https://apps.apple.com/br/app/rallyup/id6799449067';
 const WEB_GATE =
   process.env.EXPO_PUBLIC_SHARE_BASE_URL ??
   'https://setmatch-app-fabrica.web.app';

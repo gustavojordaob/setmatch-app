@@ -43,6 +43,48 @@
       }
     ],
     "rewrites": [
+      {
+        "source": "/abrir/torneio",
+        "function": {
+          "functionId": "paginaAbrirTorneio",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/abrir/torneio/**",
+        "function": {
+          "functionId": "paginaAbrirTorneio",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/torneio/**",
+        "function": {
+          "functionId": "paginaAbrirTorneio",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/abrir/ranking",
+        "function": {
+          "functionId": "paginaAbrirRanking",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/abrir/ranking/**",
+        "function": {
+          "functionId": "paginaAbrirRanking",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/ranking/**",
+        "function": {
+          "functionId": "paginaAbrirRanking",
+          "region": "southamerica-east1"
+        }
+      },
       { "source": "**", "destination": "/index.html" }
     ]
   }

@@ -33,31 +33,42 @@ export interface ConviteDupla {
   paraNome: string;
   status: ConviteDuplaStatus;
   busca: string;
+  categoriaId?: string;
+  inscricaoId?: string;
 }
 
 /** Busca usuário por e-mail ou setmatchId (SM-XXXX). */
 export async function buscarUsuarioPorEmailOuId(
   busca: string
-): Promise<{ uid: string; nome: string; email?: string; setmatchId?: string; fotoUrl?: string } | null> {
+): Promise<{
+  uid: string;
+  nome: string;
+  email?: string;
+  setmatchId?: string;
+  fotoUrl?: string;
+  telefone?: string;
+} | null> {
   const raw = busca.trim();
   if (!raw) return null;
+
+  const mapUser = (d: { id: string; data: () => Record<string, unknown> }) => {
+    const data = d.data();
+    return {
+      uid: d.id,
+      nome: String(data.nome ?? 'Jogador'),
+      email: data.email ? String(data.email) : undefined,
+      setmatchId: data.setmatchId ? String(data.setmatchId) : undefined,
+      fotoUrl: data.fotoUrl ? String(data.fotoUrl) : undefined,
+      telefone: data.telefone ? String(data.telefone) : undefined,
+    };
+  };
 
   const email = raw.toLowerCase();
   if (email.includes('@')) {
     const snap = await getDocs(
       query(collection(db, 'usuarios'), where('email', '==', email), limit(1))
     );
-    if (!snap.empty) {
-      const d = snap.docs[0];
-      const data = d.data();
-      return {
-        uid: d.id,
-        nome: String(data.nome ?? 'Jogador'),
-        email: data.email ? String(data.email) : undefined,
-        setmatchId: data.setmatchId ? String(data.setmatchId) : undefined,
-        fotoUrl: data.fotoUrl ? String(data.fotoUrl) : undefined,
-      };
-    }
+    if (!snap.empty) return mapUser(snap.docs[0]);
   }
 
   const idNorm = raw.toUpperCase().startsWith('SM-')
@@ -69,32 +80,13 @@ export async function buscarUsuarioPorEmailOuId(
   const byId = await getDocs(
     query(collection(db, 'usuarios'), where('setmatchId', '==', idNorm), limit(1))
   );
-  if (!byId.empty) {
-    const d = byId.docs[0];
-    const data = d.data();
-    return {
-      uid: d.id,
-      nome: String(data.nome ?? 'Jogador'),
-      email: data.email ? String(data.email) : undefined,
-      setmatchId: data.setmatchId ? String(data.setmatchId) : undefined,
-      fotoUrl: data.fotoUrl ? String(data.fotoUrl) : undefined,
-    };
-  }
+  if (!byId.empty) return mapUser(byId.docs[0]);
 
   // Fallback: alguns seeds sem setmatchId
   const byIdRaw = await getDocs(
     query(collection(db, 'usuarios'), where('setmatchId', '==', raw), limit(1))
   );
-  if (!byIdRaw.empty) {
-    const d = byIdRaw.docs[0];
-    const data = d.data();
-    return {
-      uid: d.id,
-      nome: String(data.nome ?? 'Jogador'),
-      setmatchId: data.setmatchId ? String(data.setmatchId) : undefined,
-      fotoUrl: data.fotoUrl ? String(data.fotoUrl) : undefined,
-    };
-  }
+  if (!byIdRaw.empty) return mapUser(byIdRaw.docs[0]);
 
   return null;
 }
@@ -111,6 +103,8 @@ export async function criarConviteDupla(input: {
   paraUid: string;
   paraNome: string;
   busca: string;
+  categoriaId?: string;
+  inscricaoId?: string;
 }): Promise<string> {
   if (input.deUid === input.paraUid) {
     throw new Error('Escolha outro jogador como parceiro.');
@@ -159,6 +153,8 @@ export async function aceitarConviteDupla(conviteId: string, uid: string): Promi
     paraNome: String(raw.paraNome ?? ''),
     status: 'aceito',
     busca: String(raw.busca ?? ''),
+    categoriaId: raw.categoriaId ? String(raw.categoriaId) : undefined,
+    inscricaoId: raw.inscricaoId ? String(raw.inscricaoId) : undefined,
   };
 
   if (convite.contexto === 'torneio') {
@@ -192,8 +188,44 @@ export async function recusarConviteDupla(conviteId: string, uid: string): Promi
   });
 }
 
+/** Resolve doc de inscrição (legado uid ou uid__categoriaId). */
+async function refInscricaoTorneio(
+  torneioId: string,
+  capitaoUid: string,
+  opts?: { inscricaoId?: string; categoriaId?: string }
+) {
+  if (opts?.inscricaoId) {
+    return doc(db, 'torneios', torneioId, 'inscritos', opts.inscricaoId);
+  }
+  if (opts?.categoriaId) {
+    return doc(
+      db,
+      'torneios',
+      torneioId,
+      'inscritos',
+      `${capitaoUid}__${opts.categoriaId}`
+    );
+  }
+  const legado = doc(db, 'torneios', torneioId, 'inscritos', capitaoUid);
+  const legadoSnap = await getDoc(legado);
+  if (legadoSnap.exists()) return legado;
+
+  const snap = await getDocs(collection(db, 'torneios', torneioId, 'inscritos'));
+  const hit = snap.docs.find(
+    (d) =>
+      String(d.data().uid ?? '') === capitaoUid ||
+      d.id === capitaoUid ||
+      d.id.startsWith(`${capitaoUid}__`)
+  );
+  if (hit) return hit.ref;
+  return legado;
+}
+
 async function vincularParceiroTorneio(c: ConviteDupla): Promise<void> {
-  const inscRef = doc(db, 'torneios', c.refId, 'inscritos', c.deUid);
+  const inscRef = await refInscricaoTorneio(c.refId, c.deUid, {
+    inscricaoId: c.inscricaoId,
+    categoriaId: c.categoriaId,
+  });
   const insc = await getDoc(inscRef);
   if (!insc.exists()) throw new Error('Inscrição do parceiro não encontrada.');
 
@@ -237,7 +269,10 @@ async function vincularParceiroTorneio(c: ConviteDupla): Promise<void> {
     });
   }
 
-  await tentarConfirmarInscricaoTorneio(c.refId, c.deUid);
+  await tentarConfirmarInscricaoTorneio(c.refId, c.deUid, {
+    inscricaoId: insc.id,
+    categoriaId: c.categoriaId,
+  });
 }
 
 async function vincularParceiroRanking(c: ConviteDupla): Promise<void> {
@@ -275,7 +310,8 @@ async function vincularParceiroRanking(c: ConviteDupla): Promise<void> {
  */
 export async function tentarConfirmarInscricaoTorneio(
   torneioId: string,
-  capitaoUid: string
+  capitaoUid: string,
+  opts?: { inscricaoId?: string; categoriaId?: string }
 ): Promise<boolean> {
   const tSnap = await getDoc(doc(db, 'torneios', torneioId));
   if (!tSnap.exists()) return false;
@@ -284,7 +320,7 @@ export async function tentarConfirmarInscricaoTorneio(
   const pag = t.pagamento as { ativo?: boolean; valor?: number } | undefined;
   const precisaPagar = Boolean(pag?.ativo && (pag.valor ?? 0) > 0);
 
-  const inscRef = doc(db, 'torneios', torneioId, 'inscritos', capitaoUid);
+  const inscRef = await refInscricaoTorneio(torneioId, capitaoUid, opts);
   const inscSnap = await getDoc(inscRef);
   if (!inscSnap.exists()) return false;
   const insc = inscSnap.data();
@@ -322,21 +358,26 @@ export async function marcarPagamentoInscricaoTorneio(input: {
   const tSnap = await getDoc(doc(db, 'torneios', input.torneioId));
   if (!tSnap.exists()) return;
 
-  // Pode ser capitão ou parceiro
-  const propria = doc(db, 'torneios', input.torneioId, 'inscritos', input.uid);
-  const propriaSnap = await getDoc(propria);
-  if (propriaSnap.exists()) {
-    await updateDoc(propria, {
-      pago: true,
-      pagamentoId: input.pagamentoId,
-      atualizadoEm: serverTimestamp(),
-    });
-    await tentarConfirmarInscricaoTorneio(input.torneioId, input.uid);
-    return;
+  const todos = await getDocs(collection(db, 'torneios', input.torneioId, 'inscritos'));
+
+  // Capitão: doc uid, uid__cat, ou campo uid
+  for (const d of todos.docs) {
+    const raw = d.data();
+    const capitao = String(raw.uid ?? d.id.split('__')[0]);
+    if (capitao === input.uid || d.id === input.uid) {
+      await updateDoc(d.ref, {
+        pago: true,
+        pagamentoId: input.pagamentoId,
+        atualizadoEm: serverTimestamp(),
+      });
+      await tentarConfirmarInscricaoTorneio(input.torneioId, capitao, {
+        inscricaoId: d.id,
+      });
+      return;
+    }
   }
 
   // Parceiro: achar inscrição onde parceiroUid == uid
-  const todos = await getDocs(collection(db, 'torneios', input.torneioId, 'inscritos'));
   for (const d of todos.docs) {
     const raw = d.data();
     if (String(raw.parceiroUid ?? '') === input.uid) {
@@ -345,7 +386,10 @@ export async function marcarPagamentoInscricaoTorneio(input: {
         parceiroPagamentoId: input.pagamentoId,
         atualizadoEm: serverTimestamp(),
       });
-      await tentarConfirmarInscricaoTorneio(input.torneioId, d.id);
+      const capitao = String(raw.uid ?? d.id.split('__')[0]);
+      await tentarConfirmarInscricaoTorneio(input.torneioId, capitao, {
+        inscricaoId: d.id,
+      });
       return;
     }
   }

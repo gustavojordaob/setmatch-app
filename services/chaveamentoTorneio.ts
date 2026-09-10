@@ -34,6 +34,8 @@ export interface InscritoSlot {
 export interface ConfrontoTorneio {
   id: string;
   torneioId: string;
+  categoriaId?: string;
+  categoriaNome?: string;
   round: number;
   pos: number;
   labelRodada: string;
@@ -63,6 +65,8 @@ function mapConfronto(id: string, raw: Record<string, unknown>): ConfrontoTornei
   return {
     id,
     torneioId: String(raw.torneioId ?? ''),
+    categoriaId: raw.categoriaId ? String(raw.categoriaId) : undefined,
+    categoriaNome: raw.categoriaNome ? String(raw.categoriaNome) : undefined,
     round: Number(raw.round ?? 1),
     pos: Number(raw.pos ?? 0),
     labelRodada: String(raw.labelRodada ?? ''),
@@ -88,7 +92,10 @@ function mapConfronto(id: string, raw: Record<string, unknown>): ConfrontoTornei
   };
 }
 
-export async function listarInscritosTorneio(torneioId: string): Promise<InscritoSlot[]> {
+export async function listarInscritosTorneio(
+  torneioId: string,
+  categoriaId?: string
+): Promise<InscritoSlot[]> {
   const snap = await getDocs(collection(db, 'torneios', torneioId, 'inscritos'));
   return snap.docs
     .map((d) => {
@@ -96,10 +103,17 @@ export async function listarInscritosTorneio(torneioId: string): Promise<Inscrit
       const status = String(raw.status ?? 'confirmado');
       // Legacy sem status = confirmado; só entram slots confirmados na chave
       if (status !== 'confirmado' && raw.status != null) return null;
+      const cat = String(raw.categoriaId ?? '');
+      if (categoriaId) {
+        // Legado sem categoria entra só se for a primeira geração sem filtro estrito:
+        // com categoriaId explícito, exige match (legado vazio não entra em cat nova)
+        if (cat && cat !== categoriaId) return null;
+        if (!cat && categoriaId) return null;
+      }
       const parceiroNome = raw.parceiroNome ? String(raw.parceiroNome) : '';
       const nomeBase = String(raw.nome ?? 'Jogador');
       return {
-        uid: String(raw.uid ?? d.id),
+        uid: String(raw.uid ?? d.id.split('__')[0]),
         nome: parceiroNome ? `${nomeBase} / ${parceiroNome}` : nomeBase,
         fotoUrl: raw.fotoUrl ? String(raw.fotoUrl) : undefined,
         parceiroUid: raw.parceiroUid ? String(raw.parceiroUid) : undefined,
@@ -123,36 +137,91 @@ export function ouvirConfrontos(
 
 /**
  * Gera chave single-elim (sorteio ou ordem de inscrição).
- * Cria todas as rodadas com ponteiros next — padrão apps de clube.
+ * Com categorias: gera só a chave da categoria informada (ids prefixados).
  */
+/** Remove confrontos de uma categoria (ou legado sem cat) para refazer a chave. */
+export async function apagarChaveamentoCategoria(
+  torneioId: string,
+  categoriaId?: string
+): Promise<number> {
+  const catId = categoriaId?.trim() || '';
+  const snap = await getDocs(collection(db, 'torneios', torneioId, 'confrontos'));
+  const batch = writeBatch(db);
+  let n = 0;
+  for (const d of snap.docs) {
+    const c = String(d.data().categoriaId ?? '');
+    const match = catId
+      ? c === catId || d.id.startsWith(`${catId}-`)
+      : !c;
+    if (!match) continue;
+    batch.delete(d.ref);
+    n += 1;
+  }
+  if (n > 0) await batch.commit();
+  return n;
+}
+
 export async function gerarChaveamento(input: {
   torneioId: string;
   donoUid: string;
   estruturaMata?: number;
   sortear?: boolean;
+  categoriaId?: string;
+  categoriaNome?: string;
+  /** Uids dos cabeças de chave (ordem = seed 1, 2, …). */
+  cabecasUids?: string[];
+  /** Se true, apaga chave existente da categoria e gera de novo. */
+  forcar?: boolean;
 }): Promise<number> {
   const existentes = await getDocs(
     collection(db, 'torneios', input.torneioId, 'confrontos')
   );
-  if (!existentes.empty) {
-    throw new Error('Chaveamento já gerado. Apague os confrontos no Console para refazer.');
+  const catId = input.categoriaId?.trim() || '';
+  const jaTemCat = existentes.docs.some((d) => {
+    const c = String(d.data().categoriaId ?? '');
+    if (catId) return c === catId || d.id.startsWith(`${catId}-`);
+    return !c; // legado sem categoria
+  });
+  if (jaTemCat) {
+    if (input.forcar) {
+      await apagarChaveamentoCategoria(input.torneioId, catId || undefined);
+    } else {
+      throw new Error(
+        catId
+          ? 'Chaveamento desta categoria já foi gerado.'
+          : 'Chaveamento já gerado. Apague os confrontos no Console para refazer.'
+      );
+    }
   }
 
-  const inscritos = await listarInscritosTorneio(input.torneioId);
+  const inscritos = await listarInscritosTorneio(
+    input.torneioId,
+    catId || undefined
+  );
   if (inscritos.length < 2) {
-    throw new Error('Precisa de pelo menos 2 inscritos para gerar a chave.');
+    throw new Error(
+      catId
+        ? 'Precisa de pelo menos 2 inscritos confirmados nesta categoria.'
+        : 'Precisa de pelo menos 2 inscritos para gerar a chave.'
+    );
   }
 
   const tamanho = proximaPotenciaDe2(
     Math.max(inscritos.length, input.estruturaMata ?? 2)
   );
-  const slots = montarSlotsComByes(inscritos, tamanho, input.sortear !== false);
+  const slots = montarSlotsComByes(
+    inscritos,
+    tamanho,
+    input.sortear !== false,
+    input.cabecasUids
+  );
   const totalRounds = Math.log2(slots.length);
   const batch = writeBatch(db);
   const col = collection(db, 'torneios', input.torneioId, 'confrontos');
 
-  // IDs estáveis por rodada/pos
-  const idOf = (round: number, pos: number) => `r${round}-p${pos}`;
+  // IDs estáveis por rodada/pos (+ categoria)
+  const idOf = (round: number, pos: number) =>
+    catId ? `${catId}-r${round}-p${pos}` : `r${round}-p${pos}`;
 
   // Pré-cria confrontos de todas as rodadas
   for (let round = 1; round <= totalRounds; round++) {
@@ -224,6 +293,8 @@ export async function gerarChaveamento(input: {
 
       batch.set(doc(col, id), {
         torneioId: input.torneioId,
+        categoriaId: catId,
+        categoriaNome: input.categoriaNome ?? '',
         round,
         pos,
         labelRodada: nomeRodada(round, totalRounds),
@@ -253,15 +324,15 @@ export async function gerarChaveamento(input: {
     status: 'em_andamento',
     chaveLiberada: true,
     chaveGeradaEm: serverTimestamp(),
-    totalInscritos: inscritos.length,
   });
 
   await batch.commit();
 
-  // Avança byes da rodada 1
+  // Avança byes da rodada 1 desta categoria
   const r1 = await getDocs(collection(db, 'torneios', input.torneioId, 'confrontos'));
   for (const d of r1.docs) {
     const c = mapConfronto(d.id, d.data());
+    if (catId && c.categoriaId && c.categoriaId !== catId) continue;
     if (c.round === 1 && c.status === 'bye' && c.vencedorUid && c.nextConfrontoId) {
       await avancarVencedor(c);
     }
@@ -269,23 +340,18 @@ export async function gerarChaveamento(input: {
 
   const tDoc = await getDoc(doc(db, 'torneios', input.torneioId));
   const torneioNome = String(tDoc.data()?.nome ?? 'Torneio');
+  const catLabel = input.categoriaNome ? ` (${input.categoriaNome})` : '';
 
-  const inscritosSnap = await getDocs(collection(db, 'torneios', input.torneioId, 'inscritos'));
   const uidsNotificados = new Set<string>();
-  for (const d of inscritosSnap.docs) {
-    const raw = d.data();
-    const status = String(raw.status ?? 'confirmado');
-    if (raw.status != null && status !== 'confirmado') continue;
-    const uid = String(raw.uid ?? d.id);
-    const parceiroUid = raw.parceiroUid ? String(raw.parceiroUid) : '';
-    for (const u of [uid, parceiroUid].filter(Boolean)) {
+  for (const slot of inscritos) {
+    for (const u of [slot.uid, slot.parceiroUid].filter(Boolean) as string[]) {
       if (uidsNotificados.has(u)) continue;
       uidsNotificados.add(u);
       void criarNotificacao({
         paraUid: u,
         tipo: 'chave_torneio',
         titulo: 'Chaveamento liberado',
-        corpo: `O chaveamento de ${torneioNome} já está disponível.`,
+        corpo: `O chaveamento de ${torneioNome}${catLabel} já está disponível.`,
         rota: `/torneio/${input.torneioId}`,
         refId: input.torneioId,
       }).catch((e) => console.warn('[chave] notif', e));
@@ -331,6 +397,44 @@ async function avancarVencedor(c: ConfrontoTorneio): Promise<void> {
     .find((x) => x.id === c.nextConfrontoId);
   if (next && next.j1Uid && next.j2Uid && next.status === 'aguardando') {
     await updateDoc(nextRef, { status: 'pronto' });
+    const tSnap = await getDoc(doc(db, 'torneios', c.torneioId));
+    const torneioNome = String(tSnap.data()?.nome ?? 'Torneio');
+    const cat = next.categoriaNome ? ` · ${next.categoriaNome}` : '';
+    for (const u of [
+      next.j1Uid,
+      next.j2Uid,
+      next.j1ParceiroUid,
+      next.j2ParceiroUid,
+    ].filter(Boolean) as string[]) {
+      void getDoc(doc(db, 'usuarios', u))
+        .then((uSnap) => {
+          if (!uSnap.exists()) return;
+          return criarNotificacao({
+            paraUid: u,
+            tipo: 'sistema',
+            titulo: 'Seu próximo jogo está pronto',
+            corpo: `${next.j1Nome} vs ${next.j2Nome}${cat} · ${torneioNome}`,
+            rota: `/torneio/${c.torneioId}`,
+            refId: next.id,
+          });
+        })
+        .catch((e) => console.warn('[torneio] notif pronto', e));
+    }
+  }
+}
+
+async function bumpUsuarioStats(
+  uid: string,
+  fields: Record<string, ReturnType<typeof increment>>
+): Promise<void> {
+  if (!uid) return;
+  try {
+    const ref = doc(db, 'usuarios', uid);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return;
+    await updateDoc(ref, fields);
+  } catch (e) {
+    console.warn('[torneio] bump stats', uid, e);
   }
 }
 
@@ -367,17 +471,116 @@ export async function registrarResultadoConfronto(input: {
   if (atualizado.nextConfrontoId) {
     await avancarVencedor(atualizado);
   } else {
-    // Campeão
-    await updateDoc(doc(db, 'torneios', input.torneioId), {
-      status: 'finalizado',
-      campeaoUid: input.vencedorUid,
-      campeaoNome:
-        input.vencedorUid === c.j1Uid ? c.j1Nome : c.j2Nome,
-      finalizadoEm: serverTimestamp(),
-    });
-    await updateDoc(doc(db, 'usuarios', input.vencedorUid), {
-      torneiosVencidos: increment(1),
-    });
+    // Último jogo desta chave (final da categoria ou do torneio)
+    const campeaoNome =
+      input.vencedorUid === c.j1Uid ? c.j1Nome : c.j2Nome;
+    const catId = c.categoriaId ?? '';
+    const tSnapFim = await getDoc(doc(db, 'torneios', input.torneioId));
+    const tRaw = tSnapFim.data() ?? {};
+    const todosApos = (
+      await getDocs(collection(db, 'torneios', input.torneioId, 'confrontos'))
+    ).docs.map((d) => mapConfronto(d.id, d.data()));
+
+    const catsCfg = Array.isArray(tRaw.categorias)
+      ? (tRaw.categorias as { id?: string }[])
+          .map((x) => String(x.id ?? '').trim())
+          .filter(Boolean)
+      : [];
+    const catsAlvo =
+      catsCfg.length > 0
+        ? catsCfg
+        : Array.from(
+            new Set(todosApos.map((x) => x.categoriaId ?? '').filter((x) => x !== undefined))
+          );
+
+    const categoriaEstaFinalizada = (cid: string) => {
+      const finais = todosApos.filter(
+        (x) => (x.categoriaId ?? '') === cid && !x.nextConfrontoId
+      );
+      if (finais.length === 0) return false;
+      return finais.every(
+        (f) =>
+          f.id === c.id ||
+          f.status === 'finalizado' ||
+          f.status === 'bye'
+      );
+    };
+
+    const torneioAcabou =
+      catsAlvo.length === 0
+        ? true
+        : catsAlvo.every((cid) =>
+            cid === catId ? true : categoriaEstaFinalizada(cid)
+          ) && categoriaEstaFinalizada(catId);
+
+    const patchTorneio: Record<string, unknown> = {
+      [`campeoesPorCategoria.${catId || 'geral'}`]: {
+        uid: input.vencedorUid,
+        nome: campeaoNome,
+        categoriaId: catId || null,
+        categoriaNome: c.categoriaNome ?? null,
+        finalizadoEm: serverTimestamp(),
+      },
+    };
+    if (torneioAcabou) {
+      patchTorneio.status = 'finalizado';
+      patchTorneio.campeaoUid = input.vencedorUid;
+      patchTorneio.campeaoNome = campeaoNome;
+      patchTorneio.finalizadoEm = serverTimestamp();
+    }
+    await updateDoc(doc(db, 'torneios', input.torneioId), patchTorneio);
+    await bumpUsuarioStats(input.vencedorUid, { torneiosVencidos: increment(1) });
+
+    try {
+      const torneioNome = String(tRaw.nome ?? 'Torneio');
+      const catLabel = c.categoriaNome ? ` (${c.categoriaNome})` : '';
+      let corpoFim = torneioAcabou
+        ? `${torneioNome} terminou. Campeão: ${campeaoNome}.`
+        : `${torneioNome}${catLabel} terminou. Campeão: ${campeaoNome}.`;
+      if (torneioAcabou) {
+        const tAfter = await getDoc(doc(db, 'torneios', input.torneioId));
+        const champs = (tAfter.data()?.campeoesPorCategoria ?? {}) as Record<
+          string,
+          { nome?: string; categoriaNome?: string | null }
+        >;
+        const linhas = Object.values(champs)
+          .map((ch) => {
+            const nome = String(ch.nome ?? '').trim();
+            if (!nome) return '';
+            const cn = ch.categoriaNome ? String(ch.categoriaNome) : '';
+            return cn ? `${cn}: ${nome}` : nome;
+          })
+          .filter(Boolean);
+        if (linhas.length > 1) {
+          corpoFim = `${torneioNome} terminou.\nCampeões:\n${linhas.join('\n')}`;
+        }
+      }
+      const inscSnap = await getDocs(
+        collection(db, 'torneios', input.torneioId, 'inscritos')
+      );
+      const uids = new Set<string>();
+      inscSnap.docs.forEach((d) => {
+        const raw = d.data();
+        const uid = String(raw.uid ?? '');
+        const iCat = String(raw.categoriaId ?? '');
+        if (!uid) return;
+        if (torneioAcabou || !catId || iCat === catId || !iCat) uids.add(uid);
+        const p = String(raw.parceiroUid ?? '');
+        if (p && (torneioAcabou || !catId || iCat === catId || !iCat)) uids.add(p);
+      });
+      for (const uid of uids) {
+        void criarNotificacao({
+          paraUid: uid,
+          tipo: 'sistema',
+          titulo: torneioAcabou ? 'Torneio encerrado' : 'Categoria encerrada',
+          corpo: corpoFim,
+          rota: `/torneio/${input.torneioId}`,
+          refId: input.torneioId,
+        }).catch((e) => console.warn('[torneio] notif fim', e));
+      }
+    } catch (e) {
+      console.warn('[torneio] fim categoria notif', e);
+    }
   }
 
   // Espelha em partidas (histórico / H2H)
@@ -406,23 +609,24 @@ export async function registrarResultadoConfronto(input: {
   });
 
   const perdedor = input.vencedorUid === c.j1Uid ? c.j2Uid : c.j1Uid;
-  await updateDoc(doc(db, 'usuarios', input.vencedorUid), {
-    vitorias: increment(1),
-  });
-  await updateDoc(doc(db, 'usuarios', perdedor), {
-    derrotas: increment(1),
-  });
+  await bumpUsuarioStats(input.vencedorUid, { vitorias: increment(1) });
+  await bumpUsuarioStats(perdedor, { derrotas: increment(1) });
 
   const placar = input.sets.map((s) => `${s.j1}-${s.j2}`).join(', ');
   const vencedorNome =
     input.vencedorUid === c.j1Uid ? c.j1Nome : c.j2Nome;
   let torneioNome = 'Torneio';
   let clubeId = '';
+  let registradorNome = 'Organizador';
   try {
     const tSnap = await getDoc(doc(db, 'torneios', input.torneioId));
     if (tSnap.exists()) {
       torneioNome = String(tSnap.data()?.nome ?? 'Torneio');
       clubeId = String(tSnap.data()?.clubeId ?? '');
+    }
+    const uSnap = await getDoc(doc(db, 'usuarios', input.registradoPor));
+    if (uSnap.exists()) {
+      registradorNome = String(uSnap.data()?.nome ?? 'Organizador');
     }
   } catch {
     /* ignore */
@@ -430,9 +634,10 @@ export async function registrarResultadoConfronto(input: {
 
   const { criarPost } = await import('./feed');
   const { criarNotificacao } = await import('./notificacoes');
+  // autor = quem registrou (rules exigem auth.uid == autorUid)
   void criarPost({
-    autorUid: input.vencedorUid,
-    autorNome: vencedorNome,
+    autorUid: input.registradoPor,
+    autorNome: registradorNome,
     texto: `🏆 Torneio ${torneioNome}: ${c.j1Nome} vs ${c.j2Nome}\nPlacar: ${placar}\nVencedor: ${vencedorNome}`,
     esporte: input.esporte,
     clubeId: clubeId || undefined,
@@ -444,14 +649,20 @@ export async function registrarResultadoConfronto(input: {
     Boolean
   ) as string[]) {
     if (u === input.registradoPor) continue;
-    void criarNotificacao({
-      paraUid: u,
-      tipo: 'sistema',
-      titulo: 'Resultado do torneio',
-      corpo: `${c.j1Nome} vs ${c.j2Nome}: ${placar} · ${torneioNome}`,
-      rota: `/torneio/${input.torneioId}`,
-      refId: input.confrontoId,
-    }).catch((e) => console.warn('[torneio] notif resultado', e));
+    // Só notifica uids reais (docs de usuário); seeds não têm notificações
+    void getDoc(doc(db, 'usuarios', u))
+      .then((uSnap) => {
+        if (!uSnap.exists()) return;
+        return criarNotificacao({
+          paraUid: u,
+          tipo: 'sistema',
+          titulo: 'Resultado do torneio',
+          corpo: `${c.j1Nome} vs ${c.j2Nome}: ${placar} · ${torneioNome}`,
+          rota: `/torneio/${input.torneioId}`,
+          refId: input.confrontoId,
+        });
+      })
+      .catch((e) => console.warn('[torneio] notif resultado', e));
   }
 }
 
@@ -461,8 +672,45 @@ export async function atualizarAgendaConfronto(
   confrontoId: string,
   data: { dataHoraInicio?: string; quadraNome?: string }
 ): Promise<void> {
+  const hora = data.dataHoraInicio?.trim() ?? '';
+  const quadra = data.quadraNome?.trim() ?? '';
   await updateDoc(doc(db, 'torneios', torneioId, 'confrontos', confrontoId), {
-    dataHoraInicio: data.dataHoraInicio?.trim() ?? '',
-    quadraNome: data.quadraNome?.trim() ?? '',
+    dataHoraInicio: hora,
+    quadraNome: quadra,
   });
+
+  if (!hora && !quadra) return;
+
+  try {
+    const [cSnap, tSnap] = await Promise.all([
+      getDoc(doc(db, 'torneios', torneioId, 'confrontos', confrontoId)),
+      getDoc(doc(db, 'torneios', torneioId)),
+    ]);
+    if (!cSnap.exists()) return;
+    const c = mapConfronto(cSnap.id, cSnap.data());
+    const torneioNome = String(tSnap.data()?.nome ?? 'Torneio');
+    const detalhe = [hora, quadra].filter(Boolean).join(' · ');
+    for (const u of [
+      c.j1Uid,
+      c.j2Uid,
+      c.j1ParceiroUid,
+      c.j2ParceiroUid,
+    ].filter(Boolean) as string[]) {
+      void getDoc(doc(db, 'usuarios', u))
+        .then((uSnap) => {
+          if (!uSnap.exists()) return;
+          return criarNotificacao({
+            paraUid: u,
+            tipo: 'sistema',
+            titulo: 'Jogo agendado',
+            corpo: `${c.j1Nome} vs ${c.j2Nome}: ${detalhe} · ${torneioNome}`,
+            rota: `/torneio/${torneioId}`,
+            refId: confrontoId,
+          });
+        })
+        .catch((e) => console.warn('[torneio] notif agenda', e));
+    }
+  } catch (e) {
+    console.warn('[torneio] agenda notif', e);
+  }
 }

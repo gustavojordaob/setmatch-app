@@ -2,12 +2,14 @@ import {
   addDoc,
   collection,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   updateDoc,
   where,
+  writeBatch,
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
@@ -109,6 +111,19 @@ export async function marcarNotificacaoLida(uid: string, notifId: string): Promi
   await updateDoc(doc(db, 'usuarios', uid, 'notificacoes', notifId), {
     lida: true,
   });
+}
+
+/** Marca todas as não lidas do usuário (ao abrir a tela de notificações). */
+export async function marcarTodasNotificacoesLidas(uid: string): Promise<number> {
+  if (!uid) return 0;
+  const snap = await getDocs(
+    query(collection(db, 'usuarios', uid, 'notificacoes'), where('lida', '==', false))
+  );
+  if (snap.empty) return 0;
+  const batch = writeBatch(db);
+  snap.docs.forEach((d) => batch.update(d.ref, { lida: true }));
+  await batch.commit();
+  return snap.size;
 }
 
 export function ouvirNotificacoes(

@@ -26,6 +26,8 @@ export { expirarPreReservasRanking } from './expirarReservas';
 export { enviarPushAoCriarNotificacao } from './pushNotificacoes';
 export { aplicarMovimentacaoRankingsMensal } from './aplicarMovimentacaoRankings';
 export { buscarQuadrasMaps } from './buscarQuadrasMaps';
+export { paginaAbrirTorneio } from './abrirTorneioShare';
+export { paginaAbrirRanking } from './abrirRankingShare';
 
 initializeApp();
 setGlobalOptions({ region: 'southamerica-east1' });

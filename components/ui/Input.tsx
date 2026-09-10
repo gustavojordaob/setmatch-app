@@ -13,11 +13,14 @@ import { Radius } from '../../constants/radius';
 
 export interface InputProps extends TextInputProps {
   label?: string;
+  /** Alias de label (telas legadas usavam title). */
+  title?: string;
   showPasswordToggle?: boolean;
 }
 
 export function Input({
   label,
+  title,
   showPasswordToggle,
   secureTextEntry,
   style,
@@ -25,10 +28,11 @@ export function Input({
   ...rest
 }: InputProps) {
   const [hidden, setHidden] = useState(!!secureTextEntry);
+  const labelTxt = label ?? title;
 
   return (
     <View style={styles.wrap}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {labelTxt ? <Text style={styles.label}>{labelTxt}</Text> : null}
       <View style={styles.row}>
         <TextInput
           style={[styles.input, style]}

@@ -1,0 +1,46 @@
+{
+  "domains": [
+    {
+      "site": "setmatch-app-fabrica",
+      "domainName": "rallyup.com.br",
+      "updateTime": "2026-09-08T21:46:16.613112094Z",
+      "provisioning": {
+        "certStatus": "CERT_PENDING",
+        "certChallengeDns": {
+          "domainName": "_acme-challenge.rallyup.com.br",
+          "token": "JfJZSL-AyKrVkN6X9-s-ho-ARsMpUy1eSGW8AHtkcn8"
+        },
+        "certChallengeHttp": {
+          "path": "/.well-known/acme-challenge/2ssoNT8qTof_M0S9OuB2bJqbWVJi9X2PNOpQ8kVAMSdZeWpWFNMmGjdY7tXc3iM9",
+          "token": "2ssoNT8qTof_M0S9OuB2bJqbWVJi9X2PNOpQ8kVAMSdZeWpWFNMmGjdY7tXc3iM9.M0-GObbb5ePi63ASQsPKBrDqfgayGnOWpyrEF0nHqug"
+        },
+        "dnsStatus": "DNS_PARTIAL_MATCH",
+        "expectedIps": [
+          "199.36.158.100"
+        ]
+      },
+      "status": "DOMAIN_VERIFICATION_LOST"
+    },
+    {
+      "site": "setmatch-app-fabrica",
+      "domainName": "www.rallyup.com.br",
+      "updateTime": "2026-09-08T21:46:17.329363078Z",
+      "provisioning": {
+        "certStatus": "CERT_PENDING",
+        "certChallengeDns": {
+          "domainName": "_acme-challenge.www.rallyup.com.br",
+          "token": "bapYBPkDmoIGAfb5LHh51E3e9xSniPlwO6KdGwmNhBQ"
+        },
+        "certChallengeHttp": {
+          "path": "/.well-known/acme-challenge/yhwfv5SpwHowCjtg1zSP6kVa1ZHQNEvTsXhDPAWhcTkH06R6NJ3gcpD6XBXiLKm5",
+          "token": "yhwfv5SpwHowCjtg1zSP6kVa1ZHQNEvTsXhDPAWhcTkH06R6NJ3gcpD6XBXiLKm5.M0-GObbb5ePi63ASQsPKBrDqfgayGnOWpyrEF0nHqug"
+        },
+        "dnsStatus": "DNS_MISSING",
+        "expectedIps": [
+          "199.36.158.100"
+        ]
+      },
+      "status": "DOMAIN_VERIFICATION_LOST"
+    }
+  ]
+}

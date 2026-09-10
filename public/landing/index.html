@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rally Up — Desafios, rankings e torneios</title>
+  <meta name="description" content="O Rally Up conecta jogadores e clubes de tênis, padel, raquetinha, pickleball e beach tennis. Marque desafios, acompanhe rankings e participe de torneios." />
+  <meta property="og:title" content="Rally Up" />
+  <meta property="og:description" content="Desafios, rankings e torneios: tênis, padel, raquetinha, pickleball e beach." />
+  <meta property="og:image" content="https://setmatch-app-fabrica.web.app/landing/assets/banner-hero.jpg" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="assets/logo-rallyup.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;1,700;1,800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #255943;
+      --primary-deep: #163528;
+      --primary-mid: #1e4635;
+      --accent: #C7D941;
+      --accent-soft: rgba(199, 217, 65, 0.16);
+      --surface: #1A1A1A;
+      --text: #FFFFFF;
+      --text-muted: rgba(255, 255, 255, 0.72);
+      --nav-h: 72px;
+      --max: 1120px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: var(--nav-h); }
+    body {
+      font-family: "Outfit", system-ui, sans-serif;
+      background: var(--primary-deep);
+      color: var(--text);
+      line-height: 1.55;
+      overflow-x: hidden;
+    }
+    img { max-width: 100%; display: block; }
+    a { color: inherit; text-decoration: none; }
+
+    /* ——— Top nav ——— */
+    .nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      height: var(--nav-h);
+      display: flex;
+      align-items: center;
+      transition: background 0.25s ease, border-color 0.25s ease, backdrop-filter 0.25s ease;
+      border-bottom: 1px solid transparent;
+      background: transparent;
+    }
+    .nav.is-solid {
+      background: rgba(22, 53, 40, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom-color: rgba(199, 217, 65, 0.18);
+    }
+    .nav-inner {
+      width: min(100%, var(--max));
+      margin: 0 auto;
+      padding: 0 clamp(1.1rem, 4vw, 2rem);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .nav-logo {
+      width: 132px;
+      height: auto;
+      flex-shrink: 0;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: clamp(0.75rem, 2vw, 1.75rem);
+      list-style: none;
+    }
+    .nav-links a {
+      font-family: "Barlow Condensed", sans-serif;
+      font-style: italic;
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.82);
+      transition: color 0.2s;
+    }
+    .nav-links a:hover,
+    .nav-links a.is-active { color: var(--accent); }
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 0 1.1rem;
+      border-radius: 60px;
+      background: var(--accent);
+      color: var(--surface) !important;
+      font-family: "Outfit", sans-serif !important;
+      font-style: normal !important;
+      font-weight: 600 !important;
+      font-size: 0.88rem !important;
+      letter-spacing: 0 !important;
+      text-transform: none !important;
+    }
+    .nav-cta:hover { filter: brightness(1.05); }
+    .nav-cta-ghost {
+      background: transparent;
+      color: #fff !important;
+      border: 1.5px solid rgba(255, 255, 255, 0.55);
+    }
+    .nav-cta-ghost:hover {
+      filter: none;
+      border-color: var(--accent);
+      color: var(--accent) !important;
+    }
+    .nav-store {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .nav-toggle {
+      display: none;
+      width: 44px; height: 44px;
+      border: 0;
+      background: transparent;
+      color: #fff;
+      cursor: pointer;
+    }
+    .nav-toggle span {
+      display: block;
+      width: 22px; height: 2px;
+      margin: 5px auto;
+      background: currentColor;
+      border-radius: 2px;
+    }
+
+    /* ——— Shared ——— */
+    .wrap { width: min(100%, var(--max)); margin: 0 auto; padding: 0 clamp(1.1rem, 4vw, 2rem); }
+    .eyebrow {
+      font-family: "Barlow Condensed", sans-serif;
+      font-style: italic;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-size: 0.92rem;
+      margin-bottom: 0.7rem;
+    }
+    .h2 {
+      font-family: "Barlow Condensed", sans-serif;
+      font-style: italic;
+      font-weight: 800;
+      font-size: clamp(2.1rem, 5vw, 3.35rem);
+      line-height: 0.98;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      max-width: 16ch;
+      margin-bottom: 0.9rem;
+    }
+    .lead {
+      color: var(--text-muted);
+      font-size: 1.08rem;
+      max-width: 48ch;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
+      min-height: 52px;
+      padding: 0.7rem 1.4rem;
+      border-radius: 60px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s, background 0.2s, border-color 0.2s;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-accent {
+      background: var(--accent);
+      color: var(--surface);
+      box-shadow: 0 10px 28px rgba(199, 217, 65, 0.25);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: #fff;
+      border: 1.5px solid rgba(255, 255, 255, 0.35);
+    }
+    .btn-ghost:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 0.85rem; }
+    .btn svg { width: 20px; height: 20px; }
+
+    /* ——— Hero ——— */
+    .hero {
+      position: relative;
+      min-height: 100svh;
+      display: flex;
+      align-items: flex-end;
+      padding: calc(var(--nav-h) + 2rem) 0 4rem;
+      isolation: isolate;
+      overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      background:
+        url("assets/banner-hero.jpg") right center / cover no-repeat;
+    }
+    .hero-shade {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background:
+        linear-gradient(105deg, rgba(22, 53, 40, 0.94) 0%, rgba(22, 53, 40, 0.78) 38%, rgba(22, 53, 40, 0.28) 62%, rgba(22, 53, 40, 0.45) 100%),
+        linear-gradient(180deg, rgba(22, 53, 40, 0.35) 0%, transparent 30%, rgba(22, 53, 40, 0.55) 100%);
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 32rem) 1fr;
+      gap: clamp(2rem, 5vw, 3.5rem);
+      align-items: end;
+      width: min(100%, var(--max));
+      margin: 0 auto;
+      padding: 0 clamp(1.1rem, 4vw, 2rem);
+    }
+    .hero-brand {
+      width: min(100%, 340px);
+      height: auto;
+      margin-bottom: 1.6rem;
+      animation: rise 0.8s ease-out both;
+    }
+    .hero h1 {
+      font-family: "Barlow Condensed", sans-serif;
+      font-style: italic;
+      font-weight: 800;
+      font-size: clamp(2.7rem, 7vw, 4.5rem);
+      line-height: 0.94;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      max-width: 13ch;
+      margin-bottom: 1rem;
+      animation: rise 0.8s 0.08s ease-out both;
+      text-shadow: 0 2px 24px rgba(0, 0, 0, 0.35);
+    }
+    .hero h1 span { color: var(--accent); }
+    .hero-lead {
+      color: var(--text-muted);
+      font-size: clamp(1.02rem, 2vw, 1.18rem);
+      max-width: 36ch;
+      margin-bottom: 2rem;
+      animation: rise 0.8s 0.16s ease-out both;
+    }
+    .hero .cta-row { animation: rise 0.8s 0.24s ease-out both; }
+
+    /* ——— Sections ——— */
+    section { padding: clamp(4.5rem, 10vw, 7rem) 0; }
+    .section-head { margin-bottom: 2.75rem; }
+
+    #app { background: var(--primary-mid); }
+    .app-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(2rem, 5vw, 4rem);
+      align-items: start;
+    }
+    .app-copy .lead { margin-bottom: 1.75rem; }
+    .app-points {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 1.15rem;
+    }
+    .app-points li {
+      padding-left: 1.15rem;
+      border-left: 3px solid var(--accent);
+    }
+    .app-points strong {
+      display: block;
+      font-family: "Barlow Condensed", sans-serif;
+      font-style: italic;
+      font-weight: 700;
+      font-size: 1.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 0.2rem;
+    }
+    .app-points p { color: var(--text-muted); font-size: 0.98rem; }
+    .app-visual {
+      position: relative;
+      min-height: 360px;
+      overflow: hidden;
+      background:
+        url("assets/banner-hero.jpg") 72% center / cover no-repeat;
+    }
+    .app-visual::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(22, 53, 40, 0.12), rgba(22, 53, 40, 0.4));
+    }
+
+    #como { background: var(--primary-deep); }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: clamp(1.5rem, 3vw, 2.5rem);
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      padding-top: 2rem;
+    }
+    .step-num {
+      font-family: "Barlow Condensed", sans-serif;
+      font-style: italic;
+      font-weight: 800;
+      font-size: 3rem;
+      line-height: 1;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+    .step h3 {
+      font-family: "Barlow Condensed", sans-serif;
+      font-style: italic;
+      font-weight: 700;
+      font-size: 1.45rem;
+      text-transform: uppercase;
+      margin-bottom: 0.55rem;
+    }
+    .step p { color: var(--text-muted); font-size: 0.98rem; max-width: 32ch; }
+
+    #modalidades {
+      background:
+        linear-gradient(180deg, var(--primary) 0%, var(--primary-deep) 100%);
+    }
+    .sport-cards {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+    .sport-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      min-height: 280px;
+      padding: 1.75rem 1rem 1.5rem;
+      border-radius: 24px;
+      background:
+        linear-gradient(165deg, rgba(199, 217, 65, 0.12) 0%, rgba(26, 26, 26, 0.35) 42%, rgba(22, 53, 40, 0.9) 100%);
+      border: 1px solid rgba(199, 217, 65, 0.22);
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+    .sport-card:hover {
+      transform: translateY(-6px);
+      border-color: rgba(199, 217, 65, 0.55);
+      box-shadow: 0 18px 36px rgba(0, 0, 0, 0.28);
+    }
+    .sport-card-icon {
+      width: 72px;
+      height: 72px;
+      margin-bottom: 1.35rem;
+      display: grid;
+      place-items: center;
+      border-radius: 20px;
+      background: rgba(199, 217, 65, 0.14);
+    }
+    .sport-card-icon img {
+      width: 44px;
+      height: 44px;
+      object-fit: contain;
+      filter: brightness(0) saturate(100%) invert(88%) sepia(33%) saturate(668%) hue-rotate(22deg) brightness(102%) contrast(92%);
+    }
+    .sport-card h3 {
+      font-family: "Barlow Condensed", sans-serif;
+      font-style: italic;
+      font-weight: 800;
+      font-size: 1.45rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      line-height: 1.05;
+      margin-bottom: 0.55rem;
+    }
+    .sport-card p {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      line-height: 1.4;
+      max-width: 16ch;
+    }
+
+    #clubes { background: var(--primary-mid); }
+    .club-grid {
+      display: grid;
+      grid-template-columns: minmax(200px, 260px) 1fr;
+      gap: clamp(2rem, 4vw, 3rem);
+      align-items: center;
+    }
+    .club-phone {
+      width: 100%;
+      max-width: 260px;
+      margin: 0 auto;
+      filter: drop-shadow(0 22px 40px rgba(0, 0, 0, 0.4));
+    }
+    .club-phone img { width: 100%; border-radius: 30px; }
+    .club-list {
+      list-style: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .club-list li {
+      display: grid;
+      grid-template-columns: minmax(7rem, 10rem) 1fr;
+      gap: 1rem 1.5rem;
+      padding: 1.25rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      align-items: baseline;
+    }
+    .club-list h3 {
+      font-family: "Barlow Condensed", sans-serif;
+      font-style: italic;
+      font-weight: 700;
+      font-size: 1.3rem;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .club-list p { color: var(--text-muted); font-size: 0.98rem; }
+
+    #baixar {
+      background: var(--primary-deep);
+      text-align: center;
+    }
+    #baixar .h2,
+    #baixar .lead { margin-left: auto; margin-right: auto; }
+    #baixar .cta-row { justify-content: center; margin-top: 1.75rem; }
+    .download-icon {
+      width: 92px; height: 92px;
+      margin: 0 auto 1.4rem;
+      border-radius: 22px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+    }
+
+    footer {
+      padding: 2.5rem 0 3rem;
+      background: #0f1f18;
+      border-top: 1px solid rgba(199, 217, 65, 0.14);
+    }
+    .footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.25rem 2rem;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-brand { width: 140px; }
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem 1.4rem;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+    .footer-links a:hover { color: var(--accent); }
+    .footer-copy {
+      width: 100%;
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.42);
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+
+    @media (max-width: 1100px) and (min-width: 901px) {
+      .sport-cards { grid-template-columns: repeat(3, 1fr); }
+      .sport-card:nth-child(4),
+      .sport-card:nth-child(5) {
+        /* keep balanced row of 2 on second line */
+      }
+    }
+
+    @media (max-width: 900px) {
+      .nav-toggle { display: block; }
+      .nav-links {
+        position: fixed;
+        top: var(--nav-h);
+        left: 0; right: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        padding: 0.75rem 1.25rem 1.25rem;
+        background: rgba(22, 53, 40, 0.97);
+        border-bottom: 1px solid rgba(199, 217, 65, 0.18);
+        transform: translateY(-120%);
+        opacity: 0;
+        pointer-events: none;
+        transition: transform 0.25s ease, opacity 0.25s ease;
+      }
+      .nav.is-open .nav-links {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .nav-links li a {
+        display: block;
+        padding: 0.85rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .nav-store {
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+      .nav-store .nav-cta {
+        display: inline-flex;
+        justify-content: center;
+        width: 100%;
+        padding: 0 1.1rem;
+        border-bottom: 0;
+        min-height: 44px;
+      }
+
+      .hero-grid {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+      .hero-brand { margin-left: auto; margin-right: auto; }
+      .hero h1, .hero-lead { margin-left: auto; margin-right: auto; }
+      .hero .cta-row { justify-content: center; }
+      .hero-shade {
+        background:
+          linear-gradient(180deg, rgba(22, 53, 40, 0.55) 0%, rgba(22, 53, 40, 0.82) 45%, rgba(22, 53, 40, 0.94) 100%);
+      }
+      .hero-bg {
+        background-position: 65% center;
+      }
+
+      .app-layout,
+      .club-grid,
+      .steps { grid-template-columns: 1fr; }
+      .app-visual { min-height: 240px; }
+      .club-list li { grid-template-columns: 1fr; gap: 0.25rem; }
+      .sport-cards {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .sport-card:last-child {
+        grid-column: 1 / -1;
+        max-width: 220px;
+        justify-self: center;
+        width: 100%;
+      }
+      .footer-inner { justify-content: center; text-align: center; }
+      .footer-links { justify-content: center; }
+      .footer-brand { margin: 0 auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+      html { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav" id="nav" aria-label="Principal">
+    <div class="nav-inner">
+      <a href="#inicio" aria-label="Rally Up — início">
+        <img class="nav-logo" src="assets/logo-rallyup.svg" width="132" height="24" alt="Rally Up" />
+      </a>
+      <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="navMenu" aria-label="Abrir menu">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links" id="navMenu">
+        <li><a href="#app" data-nav>O app</a></li>
+        <li><a href="#como" data-nav>Como funciona</a></li>
+        <li><a href="#modalidades" data-nav>Modalidades</a></li>
+        <li><a href="#clubes" data-nav>Clubes</a></li>
+        <li class="nav-store">
+          <a class="nav-cta" href="https://apps.apple.com/br/app/rallyup/id6799449067" target="_blank" rel="noopener noreferrer">App Store</a>
+          <a class="nav-cta nav-cta-ghost" href="https://play.google.com/store/apps/details?id=com.fabricaapps.setmatch" target="_blank" rel="noopener noreferrer">Google Play</a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <header class="hero" id="inicio">
+    <div class="hero-bg" role="img" aria-label="Jogador mostrando o app Rally Up no celular"></div>
+    <div class="hero-shade" aria-hidden="true"></div>
+    <div class="hero-grid">
+      <div>
+        <img class="hero-brand" src="assets/logo-rallyup.svg" width="340" height="62" alt="Rally Up" />
+        <h1>A rede social da <span>quadra</span></h1>
+        <p class="hero-lead">
+          Desafie jogadores, acompanhe rankings, entre em torneios e encontre aulas — tudo no mesmo app.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-accent" href="https://apps.apple.com/br/app/rallyup/id6799449067" target="_blank" rel="noopener noreferrer">
+            App Store
+          </a>
+          <a class="btn btn-ghost" href="https://play.google.com/store/apps/details?id=com.fabricaapps.setmatch" target="_blank" rel="noopener noreferrer">
+            Google Play
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section id="app" aria-labelledby="app-title">
+    <div class="wrap app-layout">
+      <div class="app-copy">
+        <div class="section-head">
+          <p class="eyebrow">O app</p>
+          <h2 class="h2" id="app-title">Feito para quem vive de raquete</h2>
+          <p class="lead">
+            O Rally Up une jogadores e clubes de esportes de raquete. Você monta o perfil, escolhe as modalidades e passa a jogar com gente do seu nível — perto de você ou no seu clube.
+          </p>
+        </div>
+        <ul class="app-points">
+          <li>
+            <strong>Perfil de jogador</strong>
+            <p>Esportes, nível, estatísticas e histórico de partidas em um só lugar.</p>
+          </li>
+          <li>
+            <strong>Perto de mim</strong>
+            <p>Descubra quadras e jogadores na sua região para marcar o próximo jogo.</p>
+          </li>
+          <li>
+            <strong>Feed e mensagens</strong>
+            <p>Acompanhe a comunidade, compartilhe resultados e combine o confronto.</p>
+          </li>
+        </ul>
+      </div>
+      <div class="app-visual" role="img" aria-label="Jogador com o app Rally Up"></div>
+    </div>
+  </section>
+
+  <section id="como" aria-labelledby="como-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Como funciona</p>
+        <h2 class="h2" id="como-title">Do desafio ao placar</h2>
+        <p class="lead">Três passos para subir de nível na quadra — sem planilha, sem grupo de WhatsApp perdido.</p>
+      </div>
+      <div class="steps">
+        <article class="step">
+          <div class="step-num">01</div>
+          <h3>Crie seu perfil</h3>
+          <p>Cadastre modalidades, nível e foto. O app entende o seu jeito de jogar.</p>
+        </article>
+        <article class="step">
+          <div class="step-num">02</div>
+          <h3>Desafie ou entre</h3>
+          <p>Convide alguém, aceite um desafio, entre num ranking ou num torneio do clube.</p>
+        </article>
+        <article class="step">
+          <div class="step-num">03</div>
+          <h3>Jogue e evolua</h3>
+          <p>Registre o placar, suba no ranking e veja suas estatísticas crescerem.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="modalidades" aria-labelledby="mod-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Modalidades</p>
+        <h2 class="h2" id="mod-title">Cinco raquetes. Uma comunidade.</h2>
+        <p class="lead">Do hard court à areia — o Rally Up cobre o circuito que você joga.</p>
+      </div>
+      <ul class="sport-cards">
+        <li class="sport-card">
+          <div class="sport-card-icon">
+            <img src="assets/sports/tenis.png" width="44" height="44" alt="" />
+          </div>
+          <h3>Tênis</h3>
+          <p>Singles, doubles e ladder do clube.</p>
+        </li>
+        <li class="sport-card">
+          <div class="sport-card-icon">
+            <img src="assets/sports/raquetinha.png" width="44" height="44" alt="" />
+          </div>
+          <h3>Raquetinha</h3>
+          <p>Desafios rápidos e ranking local.</p>
+        </li>
+        <li class="sport-card">
+          <div class="sport-card-icon">
+            <img src="assets/sports/padel.png" width="44" height="44" alt="" />
+          </div>
+          <h3>Padel</h3>
+          <p>Duplas, torneios e agenda de quadra.</p>
+        </li>
+        <li class="sport-card">
+          <div class="sport-card-icon">
+            <img src="assets/sports/pickleball.png" width="44" height="44" alt="" />
+          </div>
+          <h3>Pickleball</h3>
+          <p>Encontre parceiros do seu nível.</p>
+        </li>
+        <li class="sport-card">
+          <div class="sport-card-icon">
+            <img src="assets/sports/beachtennis.png" width="44" height="44" alt="" />
+          </div>
+          <h3>Beach tênis</h3>
+          <p>Areia, sol e chaveamento no app.</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="clubes" aria-labelledby="clubes-title">
+    <div class="wrap club-grid">
+      <div class="club-phone">
+        <img src="assets/phone-onboarding.png" width="260" height="565" alt="Tela do Rally Up" loading="lazy" />
+      </div>
+      <div>
+        <div class="section-head">
+          <p class="eyebrow">Para clubes</p>
+          <h2 class="h2" id="clubes-title">Organize o clube no digital</h2>
+          <p class="lead">Dono e membros no mesmo lugar: rankings, torneios, aulas e agenda de quadras.</p>
+        </div>
+        <ul class="club-list">
+          <li>
+            <h3>Rankings</h3>
+            <p>Ladder, níveis e confrontos sugeridos — com pontos atualizados após cada partida.</p>
+          </li>
+          <li>
+            <h3>Torneios</h3>
+            <p>Chaveamento, resultados e acompanhamento em tempo real para a comunidade.</p>
+          </li>
+          <li>
+            <h3>Aulas</h3>
+            <p>Ofereça aulas presenciais ou online e gerencie quem se inscreve.</p>
+          </li>
+          <li>
+            <h3>Agenda</h3>
+            <p>Reserve quadras, bloqueie horários e evite conflito de marcação.</p>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="baixar" aria-labelledby="baixar-title">
+    <div class="wrap">
+      <img class="download-icon" src="assets/app-icon.png" width="92" height="92" alt="Ícone Rally Up" />
+      <p class="eyebrow">Baixar</p>
+      <h2 class="h2" id="baixar-title">Pronto para o próximo rally?</h2>
+      <p class="lead">Disponível para iPhone e Android. Grátis para começar — entre na quadra hoje.</p>
+      <div class="cta-row">
+        <a class="btn btn-accent" href="https://apps.apple.com/br/app/rallyup/id6799449067" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+          App Store
+        </a>
+        <a class="btn btn-ghost" href="https://play.google.com/store/apps/details?id=com.fabricaapps.setmatch" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.18 23.67c.18.08.39.08.58.01L15.5 12 3.76.32A.75.75 0 0 0 3 1v21.98c0 .25.1.48.18.69zM16.3 11.2l-2.5-2.5 5.75-3.32-3.25 5.82zm5.4-5.05L17.2 8.6l3.4 3.4-3.4 3.4 4.5 2.45c.7.38 1.55-.13 1.55-.93V7.08c0-.8-.85-1.31-1.55-.93zM13.8 15.3l2.5-2.5 3.25 5.82-5.75-3.32z"/></svg>
+          Google Play
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap footer-inner">
+      <img class="footer-brand" src="assets/logo-rallyup.svg" width="140" height="26" alt="Rally Up" />
+      <nav class="footer-links" aria-label="Legal">
+        <a href="https://play.google.com/store/apps/details?id=com.fabricaapps.setmatch" target="_blank" rel="noopener noreferrer">Google Play</a>
+        <a href="https://apps.apple.com/br/app/rallyup/id6799449067" target="_blank" rel="noopener noreferrer">App Store</a>
+        <a href="/privacy/">Privacidade</a>
+        <a href="/terms/">Termos</a>
+        <a href="/suporte/">Suporte</a>
+        <a href="mailto:gustavojordaob@jordaob.com.br">Contato</a>
+      </nav>
+      <p class="footer-copy">© 2026 Rally Up. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var nav = document.getElementById('nav');
+      var toggle = document.getElementById('navToggle');
+      var links = document.querySelectorAll('[data-nav]');
+
+      function onScroll() {
+        nav.classList.toggle('is-solid', window.scrollY > 24);
+      }
+      onScroll();
+      window.addEventListener('scroll', onScroll, { passive: true });
+
+      toggle.addEventListener('click', function () {
+        var open = nav.classList.toggle('is-open');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+
+      links.forEach(function (a) {
+        a.addEventListener('click', function () {
+          nav.classList.remove('is-open');
+          toggle.setAttribute('aria-expanded', 'false');
+        });
+      });
+
+      var sections = ['app', 'como', 'modalidades', 'clubes', 'baixar']
+        .map(function (id) { return document.getElementById(id); })
+        .filter(Boolean);
+
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          var id = entry.target.id;
+          document.querySelectorAll('.nav-links a[data-nav]').forEach(function (a) {
+            var href = a.getAttribute('href') || '';
+            a.classList.toggle('is-active', href === '#' + id && !a.classList.contains('nav-cta'));
+          });
+        });
+      }, { rootMargin: '-40% 0px -50% 0px', threshold: 0 });
+
+      sections.forEach(function (s) { observer.observe(s); });
+    })();
+  </script>
+</body>
+</html>

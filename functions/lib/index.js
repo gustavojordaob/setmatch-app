@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.excluirConta = exports.webhookMercadoPagoSetmatch = exports.criarPreferenciaSetmatch = exports.buscarQuadrasMaps = exports.aplicarMovimentacaoRankingsMensal = exports.enviarPushAoCriarNotificacao = exports.expirarPreReservasRanking = exports.atualizarNoticiasManual = exports.atualizarNoticias = exports.stravaSyncToday = exports.stravaDisconnect = exports.stravaExchangeCode = exports.stripeConnectStatus = exports.stripeConnectOnboarding = exports.webhookStripeSetmatch = exports.confirmarCheckoutStripe = exports.criarCheckoutStripe = void 0;
+exports.excluirConta = exports.webhookMercadoPagoSetmatch = exports.criarPreferenciaSetmatch = exports.paginaAbrirRanking = exports.paginaAbrirTorneio = exports.buscarQuadrasMaps = exports.aplicarMovimentacaoRankingsMensal = exports.enviarPushAoCriarNotificacao = exports.expirarPreReservasRanking = exports.atualizarNoticiasManual = exports.atualizarNoticias = exports.stravaSyncToday = exports.stravaDisconnect = exports.stravaExchangeCode = exports.stripeConnectStatus = exports.stripeConnectOnboarding = exports.webhookStripeSetmatch = exports.confirmarCheckoutStripe = exports.criarCheckoutStripe = void 0;
 const app_1 = require("firebase-admin/app");
 const firestore_1 = require("firebase-admin/firestore");
 const auth_1 = require("firebase-admin/auth");
@@ -30,6 +30,10 @@ var aplicarMovimentacaoRankings_1 = require("./aplicarMovimentacaoRankings");
 Object.defineProperty(exports, "aplicarMovimentacaoRankingsMensal", { enumerable: true, get: function () { return aplicarMovimentacaoRankings_1.aplicarMovimentacaoRankingsMensal; } });
 var buscarQuadrasMaps_1 = require("./buscarQuadrasMaps");
 Object.defineProperty(exports, "buscarQuadrasMaps", { enumerable: true, get: function () { return buscarQuadrasMaps_1.buscarQuadrasMaps; } });
+var abrirTorneioShare_1 = require("./abrirTorneioShare");
+Object.defineProperty(exports, "paginaAbrirTorneio", { enumerable: true, get: function () { return abrirTorneioShare_1.paginaAbrirTorneio; } });
+var abrirRankingShare_1 = require("./abrirRankingShare");
+Object.defineProperty(exports, "paginaAbrirRanking", { enumerable: true, get: function () { return abrirRankingShare_1.paginaAbrirRanking; } });
 (0, app_1.initializeApp)();
 (0, v2_1.setGlobalOptions)({ region: 'southamerica-east1' });
 /** Token MP legado — app usa Stripe; mantido por compatibilidade. */

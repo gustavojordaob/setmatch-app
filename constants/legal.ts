@@ -1,6 +1,6 @@
 /** URLs legais públicas (Firebase Hosting) — App Store / Play / LGPD */
 
-export const HOSTING_BASE_URL = 'https://setmatch-app-fabrica.web.app';
+export const HOSTING_BASE_URL = 'https://rallyup.app.br';
 
 export const PRIVACY_PAGE_URL = `${HOSTING_BASE_URL}/privacy`;
 export const TERMS_PAGE_URL = `${HOSTING_BASE_URL}/terms`;

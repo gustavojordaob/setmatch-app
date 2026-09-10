@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -29,6 +30,7 @@ import {
 } from '../../../types/ranking';
 import type { EsporteId } from '../../../constants/esportes';
 import { resumoPromoCurto, textoCicloPagamento } from '../../../utils/checkoutComMeio';
+import { compartilharRankingFora } from '../../../utils/compartilharRanking';
 
 export default function RankingDetailScreen() {
   const router = useRouter();
@@ -114,7 +116,25 @@ export default function RankingDetailScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {ranking?.nome ?? 'Ranking'}
         </Text>
-        <View style={{ width: 26 }} />
+        <TouchableOpacity
+          onPress={() => {
+            if (!ranking) return;
+            void compartilharRankingFora({
+              rankingId: ranking.id,
+              nome: ranking.nome,
+              clubeNome: ranking.clubeNome,
+            }).catch((e: unknown) =>
+              Alert.alert(
+                'Compartilhar',
+                e instanceof Error ? e.message : 'Falha ao compartilhar.'
+              )
+            );
+          }}
+          disabled={!ranking}
+          hitSlop={8}
+        >
+          <Ionicons name="share-outline" size={24} color={Colors.accent} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>

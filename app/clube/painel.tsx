@@ -24,7 +24,7 @@ import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firesto
 import { db } from '../../utils/firebaseConfig';
 import { AccountComplianceLinks } from '../../components/legal/AccountComplianceLinks';
 import { UnreadBadge } from '../../components/ui/UnreadBadge';
-import { useTotalNaoLidas } from '../../hooks/useTotalNaoLidas';
+import { useContagemNaoLidas } from '../../hooks/useTotalNaoLidas';
 import {
   normalizarNiveisConfig,
   type RankingNiveisConfig,
@@ -35,7 +35,8 @@ export default function ClubePainelScreen() {
   const router = useRouter();
   const { user, perfil, signOut } = useAuth();
   const t = useT();
-  const msgsNaoLidas = useTotalNaoLidas();
+  const { mensagens: msgsUnread, notificacoes: notifsUnread, total: badgeSino } =
+    useContagemNaoLidas();
   const recebidas = useSolicitacoesRecebidas();
   const [clubes, setClubes] = useState<ClubeCompleto[]>([]);
   const [torneiosCount, setTorneiosCount] = useState(0);
@@ -132,7 +133,7 @@ export default function ClubePainelScreen() {
             accessibilityLabel={t('nav.notifications')}
           >
             <Ionicons name="notifications-outline" size={22} color={Colors.white} />
-            <UnreadBadge count={msgsNaoLidas} dotOnly />
+            <UnreadBadge count={badgeSino} dotOnly />
           </TouchableOpacity>
           <TouchableOpacity onPress={confirmarLogout} accessibilityLabel={t('perfil.logoutTitle')}>
             <Ionicons name="log-out-outline" size={24} color={Colors.white} />
@@ -156,13 +157,13 @@ export default function ClubePainelScreen() {
         <Action
           icon="notifications-outline"
           label={t('notificacoes.title')}
-          badge={msgsNaoLidas}
+          badge={notifsUnread}
           onPress={() => router.push('/(tabs)/notificacoes')}
         />
         <Action
           icon="chatbubbles-outline"
           label={t('clube.clubMessages')}
-          badge={msgsNaoLidas}
+          badge={msgsUnread}
           onPress={() => router.push('/clube/mensagens')}
         />
 
@@ -219,6 +220,11 @@ export default function ClubePainelScreen() {
             </View>
 
             <Text style={styles.section}>Gerenciar</Text>
+            <Action
+              icon="list-outline"
+              label="Meus rankings"
+              onPress={() => router.push('/clube/rankings')}
+            />
             <Action
               icon="trophy-outline"
               label={t('clube.createRanking')}

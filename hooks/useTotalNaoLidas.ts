@@ -3,20 +3,35 @@ import { useAuth } from './useAuth';
 import { totalNaoLidas, useConversas } from './useConversas';
 import { ouvirNaoLidasCount } from '../services/notificacoes';
 
-/** Mensagens + notificações in-app não lidas (badge do sino). */
-export function useTotalNaoLidas(): number {
+export type ContagemNaoLidas = {
+  mensagens: number;
+  notificacoes: number;
+  total: number;
+};
+
+/** Mensagens e notificações in-app separadas (evita badge falso no chat). */
+export function useContagemNaoLidas(): ContagemNaoLidas {
   const { user } = useAuth();
   const conversas = useConversas();
-  const msgs = totalNaoLidas(conversas, user?.uid);
-  const [notifs, setNotifs] = useState(0);
+  const mensagens = totalNaoLidas(conversas, user?.uid);
+  const [notificacoes, setNotificacoes] = useState(0);
 
   useEffect(() => {
     if (!user?.uid) {
-      setNotifs(0);
+      setNotificacoes(0);
       return;
     }
-    return ouvirNaoLidasCount(user.uid, setNotifs);
+    return ouvirNaoLidasCount(user.uid, setNotificacoes);
   }, [user?.uid]);
 
-  return msgs + notifs;
+  return {
+    mensagens,
+    notificacoes,
+    total: mensagens + notificacoes,
+  };
+}
+
+/** Soma msgs + notifs (badge do sino / BottomNav). */
+export function useTotalNaoLidas(): number {
+  return useContagemNaoLidas().total;
 }

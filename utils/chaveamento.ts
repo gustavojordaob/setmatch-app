@@ -29,21 +29,76 @@ export type SlotInscrito = {
   uid: string;
   nome: string;
   fotoUrl?: string;
+  parceiroUid?: string;
+  parceiroNome?: string;
+  parceiroFoto?: string;
 };
 
-/** Distribui jogadores + byes nos slots (estilo chave de clube). */
+/**
+ * Posições clássicas de cabeça de chave (índices 0-based no draw).
+ * Ex.: tamanho 8 → seeds em 0, 7, 4, 3…
+ */
+export function posicoesCabecaDeChave(tamanho: number, qtd: number): number[] {
+  if (tamanho < 2 || qtd <= 0) return [];
+  const n = Math.min(qtd, tamanho);
+  const candidates = [
+    0,
+    tamanho - 1,
+    Math.floor(tamanho / 2),
+    Math.floor(tamanho / 2) - 1,
+  ];
+  for (let step = 4; step < tamanho; step *= 2) {
+    for (let i = 0; i < step; i++) {
+      candidates.push(Math.floor(((i * 2 + 1) * tamanho) / (step * 2)));
+    }
+  }
+  const out: number[] = [];
+  const used = new Set<number>();
+  for (const raw of candidates) {
+    if (out.length >= n) break;
+    const idx = ((raw % tamanho) + tamanho) % tamanho;
+    if (used.has(idx)) continue;
+    used.add(idx);
+    out.push(idx);
+  }
+  for (let i = 0; i < tamanho && out.length < n; i++) {
+    if (!used.has(i)) {
+      used.add(i);
+      out.push(i);
+    }
+  }
+  return out;
+}
+
+/** Distribui jogadores + byes; cabeças ocupam posições de seed. */
 export function montarSlotsComByes(
   inscritos: SlotInscrito[],
   tamanhoChave: number,
-  sortear: boolean
+  sortear: boolean,
+  cabecasUids?: string[]
 ): (SlotInscrito | null)[] {
-  const size = Math.max(proximaPotenciaDe2(inscritos.length), tamanhoChave);
   const power = proximaPotenciaDe2(Math.max(inscritos.length, 2));
-  const finalSize = Math.max(size, power);
-  const ordered = sortear ? shuffleFisherYates(inscritos) : [...inscritos];
+  const finalSize = Math.max(proximaPotenciaDe2(Math.max(inscritos.length, tamanhoChave)), power);
   const slots: (SlotInscrito | null)[] = Array.from({ length: finalSize }, () => null);
-  ordered.forEach((p, i) => {
-    if (i < finalSize) slots[i] = p;
+
+  const cabecaSet = new Set((cabecasUids ?? []).filter(Boolean));
+  const cabecas = (cabecasUids ?? [])
+    .map((uid) => inscritos.find((p) => p.uid === uid))
+    .filter((p): p is SlotInscrito => !!p);
+  const resto = inscritos.filter((p) => !cabecaSet.has(p.uid));
+  const orderedResto = sortear ? shuffleFisherYates(resto) : [...resto];
+
+  const seedPos = posicoesCabecaDeChave(finalSize, cabecas.length);
+  cabecas.forEach((p, i) => {
+    const idx = seedPos[i];
+    if (idx != null) slots[idx] = p;
   });
+
+  let ri = 0;
+  for (let i = 0; i < finalSize && ri < orderedResto.length; i++) {
+    if (slots[i] == null) {
+      slots[i] = orderedResto[ri++];
+    }
+  }
   return slots;
 }

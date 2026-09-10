@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -14,7 +14,11 @@ import {
 } from '../../hooks/useConversas';
 import { useDesafios } from '../../hooks/useDesafios';
 import { useNotificacoes } from '../../hooks/useNotificacoes';
-import { marcarNotificacaoLida, type NotificacaoApp } from '../../services/notificacoes';
+import {
+  marcarNotificacaoLida,
+  marcarTodasNotificacoesLidas,
+  type NotificacaoApp,
+} from '../../services/notificacoes';
 import { Avatar } from '../../components/ui/Avatar';
 import { UnreadBadge } from '../../components/ui/UnreadBadge';
 import { useT } from '../../hooks/useI18n';
@@ -92,6 +96,15 @@ export default function NotificacoesScreen() {
     });
     return list;
   }, [conversas, user?.uid]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.uid) return;
+      void marcarTodasNotificacoesLidas(user.uid).catch(() => {
+        /* offline / rules */
+      });
+    }, [user?.uid])
+  );
 
   useEffect(() => {
     if (autoAba) return;

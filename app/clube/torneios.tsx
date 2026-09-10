@@ -16,6 +16,7 @@ import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../hooks/useAuth';
 import { listarTorneiosDoDono, type Torneio } from '../../services/torneios';
 import { gerarChaveamento } from '../../services/chaveamentoTorneio';
+import { listarClubesDoDono } from '../../services/clubes';
 
 export default function MeusTorneiosAdminScreen() {
   const router = useRouter();
@@ -23,14 +24,26 @@ export default function MeusTorneiosAdminScreen() {
   const [torneios, setTorneios] = useState<Torneio[]>([]);
   const [loading, setLoading] = useState(true);
   const [liberandoId, setLiberandoId] = useState<string | null>(null);
+  const [clubeIdPadrao, setClubeIdPadrao] = useState<string | undefined>();
 
   const reload = useCallback(() => {
     if (!user) return;
     setLoading(true);
-    void listarTorneiosDoDono(user.uid)
-      .then(setTorneios)
+    void Promise.all([listarTorneiosDoDono(user.uid), listarClubesDoDono(user.uid)])
+      .then(([ts, clubes]) => {
+        setTorneios(ts);
+        setClubeIdPadrao(clubes[0]?.id ?? ts[0]?.clubeId);
+      })
       .finally(() => setLoading(false));
   }, [user]);
+
+  function irCriarTorneio() {
+    if (clubeIdPadrao) {
+      router.push({ pathname: '/clube/torneio-novo', params: { clubeId: clubeIdPadrao } });
+    } else {
+      router.push('/clube/torneio-novo');
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -115,7 +128,7 @@ export default function MeusTorneiosAdminScreen() {
               <Text style={styles.empty}>Nenhum torneio criado ainda.</Text>
               <Button
                 label="Criar torneio"
-                onPress={() => router.push('/clube/torneio-novo')}
+                onPress={irCriarTorneio}
               />
             </View>
           }
@@ -124,7 +137,7 @@ export default function MeusTorneiosAdminScreen() {
               <Button
                 label="Criar novo torneio"
                 variant="outline"
-                onPress={() => router.push('/clube/torneio-novo')}
+                onPress={irCriarTorneio}
               />
             ) : null
           }
@@ -165,15 +178,28 @@ export default function MeusTorneiosAdminScreen() {
                     onPress={() => liberarChave(item)}
                   />
                 ) : (
-                  <TouchableOpacity
-                    onPress={() => router.push(`/torneio/${item.id}`)}
-                  >
-                    <Ionicons
-                      name="chevron-forward"
-                      size={20}
-                      color={Colors.accent}
-                    />
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push({
+                          pathname: '/clube/torneio-editar',
+                          params: { id: item.id },
+                        })
+                      }
+                      hitSlop={8}
+                    >
+                      <Ionicons name="create-outline" size={22} color={Colors.accent} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => router.push(`/torneio/${item.id}`)}
+                    >
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color={Colors.accent}
+                      />
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
             );
