@@ -1,3 +1,5 @@
+import { formatMoneyBR } from './mascaras';
+
 /** Desconto 0–100% e preço final (arredonda 2 casas). */
 
 export function clampDescontoPercent(p?: number | null): number {
@@ -47,10 +49,12 @@ export function textoPromoMeio(regras: RegrasPrecoPagamento): string {
   const pix = clampDescontoPercent(regras.descontoPixPercent);
   const card = clampDescontoPercent(regras.descontoCartaoPercent);
   if (regras.permitePix !== false && pix > 0) {
-    parts.push(`PIX −${pix}% → R$ ${valorComDesconto(regras.valor, pix).toFixed(2)}`);
+    parts.push(`PIX −${pix}% → ${formatMoneyBR(valorComDesconto(regras.valor, pix))}`);
   }
   if (regras.permiteCartao !== false && card > 0) {
-    parts.push(`Cartão −${card}% → R$ ${valorComDesconto(regras.valor, card).toFixed(2)}`);
+    parts.push(
+      `Cartão −${card}% → ${formatMoneyBR(valorComDesconto(regras.valor, card))}`
+    );
   }
   return parts.join(' · ');
 }

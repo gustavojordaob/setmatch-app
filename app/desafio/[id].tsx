@@ -29,8 +29,10 @@ import {
 import { ESPORTES, type EsporteId } from '../../constants/esportes';
 import { labelFormato, type FormatoPartidaId } from '../../constants/formatosPartida';
 import {
+  draftParaSets,
   quantosSetsVisiveis,
   rotuloSet,
+  statusPlacarProgressivo,
   validarPlacarPartida,
 } from '../../utils/placarTorneio';
 
@@ -127,14 +129,7 @@ export default function DesafioDetalheScreen() {
     }, [carregar])
   );
 
-  const setsParciais = useMemo(
-    () =>
-      setsDraft.map((s) => ({
-        j1: Number(s.j1) || 0,
-        j2: Number(s.j2) || 0,
-      })),
-    [setsDraft]
-  );
+  const setsParciais = useMemo(() => draftParaSets(setsDraft), [setsDraft]);
   const nSets = quantosSetsVisiveis(d?.formato, setsParciais);
 
   async function setStatus(status: 'aceito' | 'recusado') {
@@ -322,7 +317,7 @@ export default function DesafioDetalheScreen() {
           <View style={styles.box}>
             <Text style={styles.boxTitle}>Registrar placar</Text>
             <Text style={styles.hint}>
-              Formato: {labelFormato(d.formato)} · fotos + placar por set (mesma regra do torneio)
+              Formato: {labelFormato(d.formato)} · {statusPlacarProgressivo(d.formato, setsParciais)}
             </Text>
 
             <View style={styles.placarHeader}>
@@ -356,6 +351,7 @@ export default function DesafioDetalheScreen() {
                     onChangeText={(t) =>
                       setSetsDraft((prev) => {
                         const next = [...prev];
+                        while (next.length <= idx) next.push({ j1: '', j2: '' });
                         next[idx] = {
                           ...(next[idx] ?? { j1: '', j2: '' }),
                           j1: t.replace(/\D/g, '').slice(0, 2),
@@ -374,6 +370,7 @@ export default function DesafioDetalheScreen() {
                     onChangeText={(t) =>
                       setSetsDraft((prev) => {
                         const next = [...prev];
+                        while (next.length <= idx) next.push({ j1: '', j2: '' });
                         next[idx] = {
                           ...(next[idx] ?? { j1: '', j2: '' }),
                           j2: t.replace(/\D/g, '').slice(0, 2),

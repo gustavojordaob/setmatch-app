@@ -554,6 +554,15 @@ export async function criarReservaRanking(input: {
   desafiadoParceiroNome?: string;
   desafiadoParceiroFoto?: string;
 }): Promise<{ reservaId: string; desafioId: string }> {
+  const rankingSnap = await getDoc(doc(db, 'rankings', input.rankingId));
+  if (rankingSnap.exists()) {
+    const { assertEtapaJogosAberta } = await import('./rankings');
+    const { normalizarEtapaMes } = await import('../types/ranking');
+    assertEtapaJogosAberta(
+      normalizarEtapaMes(rankingSnap.data()?.etapa as import('../types/ranking').RankingEtapaMes)
+    );
+  }
+
   if (await jaMarcouComAdversario({
     rankingId: input.rankingId,
     uidA: input.desafiante,

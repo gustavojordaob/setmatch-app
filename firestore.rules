@@ -22,13 +22,21 @@ service cloud.firestore {
       return isAuth() && userDoc().role == 'professor';
     }
 
+    function isAdminTemporario() {
+      return isAuth() && userDoc().role == 'admin_temporario';
+    }
+
     function isAdminOuProfessor() {
-      return isAdminClube() || isProfessor();
+      return isAdminClube() || isProfessor() || isAdminTemporario();
     }
 
     function isDonoClube(clubeId) {
       return isAuth()
-        && get(/databases/$(database)/documents/clubes/$(clubeId)).data.donoUid == request.auth.uid;
+        && (
+          get(/databases/$(database)/documents/clubes/$(clubeId)).data.donoUid == request.auth.uid
+          || request.auth.uid in get(/databases/$(database)/documents/clubes/$(clubeId)).data
+            .get('adminsTemporariosUids', [])
+        );
     }
 
     // Bump de V/D/torneios após placar (adversário ou organizador) — só esses campos
@@ -59,7 +67,7 @@ service cloud.firestore {
           && request.resource.data.get('role', 'jogador')
             == resource.data.get('role', 'jogador')
           && request.resource.data.get('role', 'jogador')
-            in ['jogador', 'professor', 'admin_clube']
+            in ['jogador', 'professor', 'admin_clube', 'admin_temporario']
         );
 
       // Tokens Strava — só Admin SDK (Cloud Functions); cliente não lê/escreve
@@ -358,6 +366,25 @@ service cloud.firestore {
 
     match /config/{docId} {
       allow read: if isAuth() && docId == 'noticiasSync';
+      allow write: if false;
+    }
+
+    // Convites de admin temporário — leitura/escrita só via Cloud Functions (Admin SDK)
+    match /adminsTemporarios/{id} {
+      allow read: if isAuth()
+        && (request.auth.uid == resource.data.donoUid
+            || request.auth.uid == resource.data.get('uid', ''));
+      allow write: if false;
+    }
+
+    // Ledger Asaas — só o dono lê; escritas só via Cloud Functions (Admin SDK)
+    match /saldosFinanceiros/{uid} {
+      allow read: if isAuth() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /transferencias/{id} {
+      allow read: if isAuth() && request.auth.uid == resource.data.donoUid;
       allow write: if false;
     }
 

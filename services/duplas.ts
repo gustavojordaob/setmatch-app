@@ -360,11 +360,17 @@ export async function marcarPagamentoInscricaoTorneio(input: {
 
   const todos = await getDocs(collection(db, 'torneios', input.torneioId, 'inscritos'));
 
-  // Capitão: doc uid, uid__cat, ou campo uid
+  // Capitão: doc uid, uid__cat, ou campo uid — só inscrição completa
   for (const d of todos.docs) {
     const raw = d.data();
+    const completa =
+      Boolean(raw.nome) ||
+      Boolean(raw.criadoEm) ||
+      Boolean(raw.status) ||
+      raw.inscritoPorOrganizador === true;
+    if (!completa) continue;
     const capitao = String(raw.uid ?? d.id.split('__')[0]);
-    if (capitao === input.uid || d.id === input.uid) {
+    if (capitao === input.uid || d.id === input.uid || d.id.startsWith(`${input.uid}__`)) {
       await updateDoc(d.ref, {
         pago: true,
         pagamentoId: input.pagamentoId,

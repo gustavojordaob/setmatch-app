@@ -20,7 +20,38 @@ export type NotificacaoTipo =
   | 'chave_torneio'
   | 'convite_dupla'
   | 'pagamento'
+  | 'ranking'
   | 'sistema';
+
+/** Notifica vários uids (dedupe) — push via criarNotificacao. */
+export async function notificarVarios(input: {
+  uids: string[];
+  tipo: NotificacaoTipo;
+  titulo: string;
+  corpo: string;
+  rota?: string;
+  refId?: string;
+}): Promise<void> {
+  const seen = new Set<string>();
+  await Promise.all(
+    input.uids.map(async (uid) => {
+      if (!uid || seen.has(uid)) return;
+      seen.add(uid);
+      try {
+        await criarNotificacao({
+          paraUid: uid,
+          tipo: input.tipo,
+          titulo: input.titulo,
+          corpo: input.corpo,
+          rota: input.rota,
+          refId: input.refId,
+        });
+      } catch (e) {
+        console.warn('[notif] varios', uid, e);
+      }
+    })
+  );
+}
 
 export interface NotificacaoApp {
   id: string;

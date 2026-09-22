@@ -66,6 +66,9 @@ interface AuthContextValue {
     cidade: string;
     estado?: string;
     telefone: string;
+    cep?: string;
+    bairro?: string;
+    rua?: string;
   }) => Promise<void>;
 }
 
@@ -193,9 +196,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [ensureUsuarioDoc, loadPerfil]);
 
   const onboardingComplete = useMemo(() => !!perfil?.onboardingOk, [perfil?.onboardingOk]);
-  /** Painel admin: dono de clube OU professor. */
+  /** Painel admin: dono de clube, professor ou admin temporário. */
   const isAdminClube = useMemo(
-    () => perfil?.role === 'admin_clube' || perfil?.role === 'professor',
+    () =>
+      perfil?.role === 'admin_clube' ||
+      perfil?.role === 'professor' ||
+      perfil?.role === 'admin_temporario',
     [perfil?.role]
   );
 
@@ -316,7 +322,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const saveAdminOnboarding = useCallback(
-    async (data: { nome: string; cidade: string; estado?: string; telefone: string }) => {
+    async (data: {
+      nome: string;
+      cidade: string;
+      estado?: string;
+      telefone: string;
+      cep?: string;
+      bairro?: string;
+      rua?: string;
+    }) => {
       if (!user) throw new Error('Usuário não autenticado.');
       // Não altera role — conta admin já criada pela equipe Rally Up
       await updateDoc(doc(db, 'usuarios', user.uid), {
@@ -324,6 +338,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         cidade: data.cidade.trim(),
         estado: data.estado?.trim() ?? '',
         telefone: data.telefone.trim(),
+        cep: data.cep?.trim() ?? '',
+        bairro: data.bairro?.trim() ?? '',
+        rua: data.rua?.trim() ?? '',
         role: perfil?.role ?? 'admin_clube',
         onboardingOk: true,
         ultimoAcesso: serverTimestamp(),

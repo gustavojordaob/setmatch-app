@@ -8,6 +8,25 @@ import { wipeSetmatchUser } from './deleteAccount';
 import { syncPagamentoAprovado } from './pagamentosSync';
 
 export {
+  convidarAdminTemporario,
+  listarPerfisAdminTemporario,
+  concluirAcessoAdminTemporario,
+  revogarAdminTemporario,
+  listarAdminsTemporariosDono,
+} from './adminsTemporariosHandlers';
+
+export {
+  criarCheckoutAsaas,
+  confirmarCheckoutAsaas,
+  webhookAsaasSetmatch,
+  salvarChavePixDono,
+  transferirSaldoPix,
+  liberarPagamentoDono,
+  consultarSaldoFinanceiro,
+} from './asaasHandlers';
+
+/** @deprecated Stripe removido — use Asaas. Mantidos só para não quebrar URLs antigas. */
+export {
   criarCheckoutStripe,
   confirmarCheckoutStripe,
   webhookStripeSetmatch,
@@ -32,7 +51,7 @@ export { paginaAbrirRanking } from './abrirRankingShare';
 initializeApp();
 setGlobalOptions({ region: 'southamerica-east1' });
 
-/** Token MP legado — app usa Stripe; mantido por compatibilidade. */
+/** Token MP legado — app usa Asaas; mantido por compatibilidade. */
 const mpAccessToken = defineString('MP_ACCESS_TOKEN', { default: '' });
 const db = getFirestore();
 
@@ -60,7 +79,7 @@ export const criarPreferenciaSetmatch = onRequest(
       const token = mpAccessToken.value();
       if (!token) {
         res.status(503).json({
-          error: 'MP desativado. Use Stripe (criarCheckoutStripe).',
+          error: 'MP desativado. Use Asaas (criarCheckoutAsaas).',
         });
         return;
       }

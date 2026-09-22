@@ -21,7 +21,13 @@
   ],
   "hosting": {
     "public": "dist-web",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "!assets/node_modules/**",
+      "!assets/node_modules/**/**"
+    ],
     "headers": [
       {
         "source": "**",

@@ -2,11 +2,14 @@ import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -25,6 +28,7 @@ import { db } from '../../utils/firebaseConfig';
 import { AccountComplianceLinks } from '../../components/legal/AccountComplianceLinks';
 import { UnreadBadge } from '../../components/ui/UnreadBadge';
 import { useContagemNaoLidas } from '../../hooks/useTotalNaoLidas';
+import { adminLogoutPath } from '../../utils/adminWeb';
 import {
   normalizarNiveisConfig,
   type RankingNiveisConfig,
@@ -35,6 +39,8 @@ export default function ClubePainelScreen() {
   const router = useRouter();
   const { user, perfil, signOut } = useAuth();
   const t = useT();
+  const { width } = useWindowDimensions();
+  const isWebDesktop = Platform.OS === 'web' && width >= 900;
   const { mensagens: msgsUnread, notificacoes: notifsUnread, total: badgeSino } =
     useContagemNaoLidas();
   const recebidas = useSolicitacoesRecebidas();
@@ -82,7 +88,7 @@ export default function ClubePainelScreen() {
         text: t('perfil.logout'),
         style: 'destructive',
         onPress: () => {
-          void signOut().then(() => router.replace('/onboarding'));
+          void signOut().then(() => router.replace(adminLogoutPath()));
         },
       },
     ]);
@@ -120,55 +126,40 @@ export default function ClubePainelScreen() {
     }
   }
 
-  return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>
-          {perfil?.role === 'professor' ? t('clube.professorPanel') : t('clube.panelTitle')}
-        </Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={styles.headerIcon}
-            onPress={() => router.push('/(tabs)/notificacoes')}
-            accessibilityLabel={t('nav.notifications')}
-          >
-            <Ionicons name="notifications-outline" size={22} color={Colors.white} />
-            <UnreadBadge count={badgeSino} dotOnly />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={confirmarLogout} accessibilityLabel={t('perfil.logoutTitle')}>
-            <Ionicons name="log-out-outline" size={24} color={Colors.white} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
+  const content = (
       <ScrollView
-        contentContainerStyle={styles.body}
+        contentContainerStyle={[styles.body, isWebDesktop && styles.bodyDesktop]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={carregar} tintColor={Colors.accent} />}
       >
         <Text style={styles.hello}>{t('clube.hello', { name: perfil?.nome ?? '' })}</Text>
         {perfil?.setmatchId ? (
           <Text style={styles.idHint}>{t('clube.yourId', { id: perfil.setmatchId })}</Text>
         ) : null}
-        <Button
-          label={t('clube.editMyProfile')}
-          variant="outline"
-          onPress={() => router.push('/perfil/editar')}
-        />
-        <Action
-          icon="notifications-outline"
-          label={t('notificacoes.title')}
-          badge={notifsUnread}
-          onPress={() => router.push('/(tabs)/notificacoes')}
-        />
-        <Action
-          icon="chatbubbles-outline"
-          label={t('clube.clubMessages')}
-          badge={msgsUnread}
-          onPress={() => router.push('/clube/mensagens')}
-        />
+
+        {!isWebDesktop ? (
+          <>
+            <Button
+              label={t('clube.editMyProfile')}
+              variant="outline"
+              onPress={() => router.push('/perfil/editar')}
+            />
+            <Action
+              icon="notifications-outline"
+              label={t('notificacoes.title')}
+              badge={notifsUnread}
+              onPress={() => router.push('/(tabs)/notificacoes')}
+            />
+            <Action
+              icon="chatbubbles-outline"
+              label={t('clube.clubMessages')}
+              badge={msgsUnread}
+              onPress={() => router.push('/clube/mensagens')}
+            />
+          </>
+        ) : null}
 
         {!clube && !loading ? (
-          <View style={styles.card}>
+          <View style={[styles.card, isWebDesktop && styles.cardWide]}>
             <Text style={styles.cardTitle}>
               {perfil?.role === 'professor' ? t('clube.spaceProfessor') : t('clube.registerClub')}
             </Text>
@@ -177,19 +168,21 @@ export default function ClubePainelScreen() {
                 ? t('clube.professorHint')
                 : t('clube.registerClubHint')}
             </Text>
-            <Button
-              label={t('clube.publishClasses')}
-              onPress={() => router.push('/clube/aulas-publicar')}
-            />
-            {perfil?.role !== 'professor' ? (
-              <Button label={t('clube.createMyClub')} onPress={() => router.push('/clube/novo')} />
-            ) : (
+            <View style={isWebDesktop ? styles.rowActions : undefined}>
               <Button
-                label={t('clube.registerLocalOptional')}
-                variant="outline"
-                onPress={() => router.push('/clube/novo')}
+                label={t('clube.publishClasses')}
+                onPress={() => router.push('/clube/aulas-publicar')}
               />
-            )}
+              {perfil?.role !== 'professor' ? (
+                <Button label={t('clube.createMyClub')} onPress={() => router.push('/clube/novo')} />
+              ) : (
+                <Button
+                  label={t('clube.registerLocalOptional')}
+                  variant="outline"
+                  onPress={() => router.push('/clube/novo')}
+                />
+              )}
+            </View>
           </View>
         ) : null}
 
@@ -197,7 +190,7 @@ export default function ClubePainelScreen() {
 
         {clube ? (
           <>
-            <View style={styles.card}>
+            <View style={[styles.card, isWebDesktop && styles.cardWide]}>
               <Text style={styles.cardTitle}>{clube.nome}</Text>
               <Text style={styles.cardSub}>
                 {[clube.endereco, clube.bairro, clube.cidade, clube.estado]
@@ -212,84 +205,161 @@ export default function ClubePainelScreen() {
                 <Stat n={torneiosCount} label={t('trofeu.tournaments')} />
                 <Stat n={recebidas.length} label="Solicitações" />
               </View>
-              <Button
-                label="Editar clube"
-                variant="outline"
-                onPress={() => router.push({ pathname: '/clube/editar', params: { id: clube.id } })}
-              />
+              <View style={isWebDesktop ? styles.rowActions : undefined}>
+                <Button
+                  label="Editar clube"
+                  variant="outline"
+                  onPress={() =>
+                    router.push({ pathname: '/clube/editar', params: { id: clube.id } })
+                  }
+                />
+                {isWebDesktop ? (
+                  <>
+                    <Button
+                      label={t('clube.createTournament')}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/clube/torneio-novo',
+                          params: { clubeId: clube.id },
+                        })
+                      }
+                    />
+                    <Button
+                      label={t('clube.createRanking')}
+                      variant="outline"
+                      onPress={() =>
+                        router.push({
+                          pathname: '/clube/ranking-novo',
+                          params: { clubeId: clube.id },
+                        })
+                      }
+                    />
+                  </>
+                ) : null}
+              </View>
             </View>
 
-            <Text style={styles.section}>Gerenciar</Text>
-            <Action
-              icon="list-outline"
-              label="Meus rankings"
-              onPress={() => router.push('/clube/rankings')}
-            />
-            <Action
-              icon="trophy-outline"
-              label={t('clube.createRanking')}
-              onPress={() =>
-                router.push({
-                  pathname: '/clube/ranking-novo',
-                  params: { clubeId: clube.id },
-                })
-              }
-            />
-            <Action
-              icon="calendar-outline"
-              label={t('clube.myTournaments')}
-              onPress={() => router.push('/clube/torneios')}
-            />
-            <Action
-              icon="tennisball-outline"
-              label="Agenda de quadras"
-              onPress={() =>
-                router.push({
-                  pathname: '/clube/agenda',
-                  params: { clubeId: clube.id },
-                })
-              }
-            />
-            <Action
-              icon="add-circle-outline"
-              label={t('clube.createTournament')}
-              onPress={() =>
-                router.push({
-                  pathname: '/clube/torneio-novo',
-                  params: { clubeId: clube.id },
-                })
-              }
-            />
-            <Action
-              icon="school-outline"
-              label="Regras gerais de aulas"
-              onPress={() => router.push('/clube/aulas-regras')}
-            />
-            <Action
-              icon="videocam-outline"
-              label={t('clube.publishClasses')}
-              onPress={() => router.push('/clube/aulas-publicar')}
-            />
-            <Action
-              icon="fitness-outline"
-              label="Modalidades (trio, beach…)"
-              onPress={() => router.push('/clube/aulas-modalidades')}
-            />
-            <Action
-              icon="people-outline"
-              label={t('clube.studentsDiscount')}
-              onPress={() => router.push('/clube/alunos')}
-            />
-            <Action
-              icon="cash-outline"
-              label={t('clube.financeiro')}
-              onPress={() => router.push('/clube/financeiro')}
-            />
-            <Action
-              icon="mail-outline"
-              label={t('clube.notifyTournament')}
-              onPress={() => router.push('/clube/torneio-mensagens')}
-            />
+            {isWebDesktop ? (
+              <View style={styles.quickGrid}>
+                <QuickCard
+                  icon="list-outline"
+                  title="Rankings"
+                  sub="Lista e regras"
+                  onPress={() => router.push('/clube/rankings')}
+                />
+                <QuickCard
+                  icon="trophy-outline"
+                  title="Torneios"
+                  sub="Chaves e inscrições"
+                  onPress={() => router.push('/clube/torneios')}
+                />
+                <QuickCard
+                  icon="tennisball-outline"
+                  title="Agenda"
+                  sub="Quadras e horários"
+                  onPress={() =>
+                    router.push({ pathname: '/clube/agenda', params: { clubeId: clube.id } })
+                  }
+                />
+                <QuickCard
+                  icon="videocam-outline"
+                  title="Aulas"
+                  sub="Publicar e modalidades"
+                  onPress={() => router.push('/clube/aulas-publicar')}
+                />
+                <QuickCard
+                  icon="people-outline"
+                  title="Alunos"
+                  sub="Descontos e matrículas"
+                  onPress={() => router.push('/clube/alunos')}
+                />
+                <QuickCard
+                  icon="cash-outline"
+                  title="Financeiro"
+                  sub="Saldos e saques"
+                  onPress={() => router.push('/clube/financeiro')}
+                />
+              </View>
+            ) : (
+              <>
+                <Text style={styles.section}>Gerenciar</Text>
+                <Action
+                  icon="list-outline"
+                  label="Meus rankings"
+                  onPress={() => router.push('/clube/rankings')}
+                />
+                <Action
+                  icon="trophy-outline"
+                  label={t('clube.createRanking')}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/clube/ranking-novo',
+                      params: { clubeId: clube.id },
+                    })
+                  }
+                />
+                <Action
+                  icon="calendar-outline"
+                  label={t('clube.myTournaments')}
+                  onPress={() => router.push('/clube/torneios')}
+                />
+                <Action
+                  icon="tennisball-outline"
+                  label="Agenda de quadras"
+                  onPress={() =>
+                    router.push({
+                      pathname: '/clube/agenda',
+                      params: { clubeId: clube.id },
+                    })
+                  }
+                />
+                <Action
+                  icon="add-circle-outline"
+                  label={t('clube.createTournament')}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/clube/torneio-novo',
+                      params: { clubeId: clube.id },
+                    })
+                  }
+                />
+                <Action
+                  icon="school-outline"
+                  label="Regras gerais de aulas"
+                  onPress={() => router.push('/clube/aulas-regras')}
+                />
+                <Action
+                  icon="videocam-outline"
+                  label={t('clube.publishClasses')}
+                  onPress={() => router.push('/clube/aulas-publicar')}
+                />
+                <Action
+                  icon="fitness-outline"
+                  label="Modalidades (trio, beach…)"
+                  onPress={() => router.push('/clube/aulas-modalidades')}
+                />
+                <Action
+                  icon="people-outline"
+                  label={t('clube.studentsDiscount')}
+                  onPress={() => router.push('/clube/alunos')}
+                />
+                <Action
+                  icon="cash-outline"
+                  label={t('clube.financeiro')}
+                  onPress={() => router.push('/clube/financeiro')}
+                />
+                <Action
+                  icon="people-outline"
+                  label="Admin temporário"
+                  onPress={() => router.push('/clube/admins-temporarios')}
+                />
+                <Action
+                  icon="mail-outline"
+                  label={t('clube.notifyTournament')}
+                  onPress={() => router.push('/clube/torneio-mensagens')}
+                />
+              </>
+            )}
 
             {recebidas.length > 0 ? (
               <>
@@ -321,6 +391,33 @@ export default function ClubePainelScreen() {
 
         <AccountComplianceLinks onLogout={confirmarLogout} />
       </ScrollView>
+  );
+
+  if (isWebDesktop) {
+    return <View style={styles.safe}>{content}</View>;
+  }
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <View style={styles.header}>
+        <Text style={styles.title}>
+          {perfil?.role === 'professor' ? t('clube.professorPanel') : t('clube.panelTitle')}
+        </Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerIcon}
+            onPress={() => router.push('/(tabs)/notificacoes')}
+            accessibilityLabel={t('nav.notifications')}
+          >
+            <Ionicons name="notifications-outline" size={22} color={Colors.white} />
+            <UnreadBadge count={badgeSino} dotOnly />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={confirmarLogout} accessibilityLabel={t('perfil.logoutTitle')}>
+            <Ionicons name="log-out-outline" size={24} color={Colors.white} />
+          </TouchableOpacity>
+        </View>
+      </View>
+      {content}
     </SafeAreaView>
   );
 }
@@ -355,6 +452,28 @@ function Action({
   );
 }
 
+function QuickCard({
+  icon,
+  title,
+  sub,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  sub: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable style={styles.quickCard} onPress={onPress}>
+      <View style={styles.quickIcon}>
+        <Ionicons name={icon} size={22} color={Colors.textOnAccent} />
+      </View>
+      <Text style={styles.quickTitle}>{title}</Text>
+      <Text style={styles.quickSub}>{sub}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   header: {
@@ -376,6 +495,7 @@ const styles = StyleSheet.create({
   },
   title: { color: Colors.accent, fontSize: 24, fontWeight: 'bold', flex: 1 },
   body: { padding: 20, gap: 12, paddingBottom: 40 },
+  bodyDesktop: { paddingHorizontal: 32, paddingTop: 24, paddingBottom: 48, maxWidth: 1100 },
   hello: { color: Colors.textPrimary, fontSize: 16, marginBottom: 4 },
   idHint: { color: Colors.accent, fontSize: 13, fontWeight: '700', marginBottom: 10 },
   card: {
@@ -385,6 +505,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
   },
+  cardWide: { padding: 24, borderRadius: 20 },
   cardTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: 'bold' },
   cardSub: { color: Colors.textSecondary, fontSize: 13 },
   stats: { flexDirection: 'row', gap: 12, marginVertical: 8 },
@@ -409,6 +530,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   actionTxt: { flex: 1, color: Colors.textPrimary, fontWeight: '600' },
+  rowActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+    marginTop: 8,
+  },
+  quickCard: {
+    width: '31%',
+    minWidth: 200,
+    flexGrow: 1,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    gap: 6,
+  },
+  quickIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  quickTitle: { color: Colors.white, fontSize: 16, fontWeight: '700' },
+  quickSub: { color: Colors.textSecondary, fontSize: 13 },
   solRow: {
     flexDirection: 'row',
     alignItems: 'center',

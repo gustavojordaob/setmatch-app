@@ -15,9 +15,29 @@ import { Colors } from '../../constants/colors';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../hooks/useAuth';
 import { useMeusPagamentos } from '../../hooks/usePagamentos';
-import { iniciarCheckoutStripe } from '../../utils/stripeCheckout';
 import { pagarComEscolhaDeMeio } from '../../utils/checkoutComMeio';
+import { formatMoneyBR } from '../../utils/mascaras';
 import type { PagamentoDoc } from '../../types/pagamento';
+
+type FiltroPeriodo = 'mes' | '3meses' | 'todos' | 'pendentes';
+
+function criadoMs(p: PagamentoDoc): number {
+  return (p.criadoEm?.seconds ?? 0) * 1000;
+}
+
+function noMesAtual(ms: number): boolean {
+  if (!ms) return true; // sem data → mostra no mês (cobranças recentes)
+  const d = new Date(ms);
+  const agora = new Date();
+  return d.getFullYear() === agora.getFullYear() && d.getMonth() === agora.getMonth();
+}
+
+function nosUltimosMeses(ms: number, n: number): boolean {
+  if (!ms) return true;
+  const limite = new Date();
+  limite.setMonth(limite.getMonth() - n);
+  return ms >= limite.getTime();
+}
 
 export default function MeusPagamentosScreen() {
   const router = useRouter();
@@ -25,46 +45,72 @@ export default function MeusPagamentosScreen() {
   const { perfil } = useAuth();
   const { pagamentos, loading } = useMeusPagamentos();
   const [paying, setPaying] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<FiltroPeriodo>('mes');
 
-  const lista = useMemo(
+  const base = useMemo(
     () => (clubeId ? pagamentos.filter((p) => p.clubeId === clubeId) : pagamentos),
     [pagamentos, clubeId]
   );
 
+  const lista = useMemo(() => {
+    const sorted = [...base].sort((a, b) => criadoMs(b) - criadoMs(a));
+    return sorted.filter((p) => {
+      const ms = criadoMs(p);
+      if (filtro === 'mes') return noMesAtual(ms);
+      if (filtro === '3meses') return nosUltimosMeses(ms, 3);
+      if (filtro === 'pendentes') {
+        return (
+          p.status === 'aguardando_pagamento' ||
+          p.status === 'pendente' ||
+          p.status === 'atrasado' ||
+          p.status === 'recusado'
+        );
+      }
+      return true;
+    });
+  }, [base, filtro]);
+
+  function irTorneios() {
+    router.replace({ pathname: '/(tabs)/trofeu', params: { aba: 'torneios' } });
+  }
+
   async function pagar(p: PagamentoDoc) {
     setPaying(p.id);
     try {
-      const r = p.meioPagamento
-        ? await iniciarCheckoutStripe({
-            pagamentoId: p.id,
-            titulo: `${p.tipo} · ${p.clubeNome}`,
-            valor: p.valor,
-            ciclo: p.ciclo,
-            meio: p.meioPagamento,
-            permitePix: p.meioPagamento === 'pix',
-            permiteCartao: p.meioPagamento === 'cartao',
-            descontoPercent: p.descontoPercent,
-            valorBase: p.valorBase,
-          })
-        : await pagarComEscolhaDeMeio({
-            pagamentoId: p.id,
-            titulo: `${p.tipo} · ${p.clubeNome}`,
-            ciclo: p.ciclo,
-            regras: {
-              valor: p.valorBase ?? p.valor,
-              permitePix: true,
-              permiteCartao: true,
-              ciclo: p.ciclo,
-            },
-          });
-      if (r === 'cancelado' || r === 'abortado') {
-        Alert.alert('Pagamento', 'Checkout fechado. Você pode tentar de novo.');
+      const r = await pagarComEscolhaDeMeio({
+        pagamentoId: p.id,
+        titulo: `${p.tipo} · ${p.clubeNome}`,
+        ciclo: p.ciclo,
+        regras: {
+          valor: p.valorBase ?? p.valor,
+          permitePix: true,
+          permiteCartao: true,
+          descontoPixPercent:
+            p.descontoPercent && p.meioPagamento === 'pix' ? p.descontoPercent : undefined,
+          descontoCartaoPercent:
+            p.descontoPercent && p.meioPagamento === 'cartao'
+              ? p.descontoPercent
+              : undefined,
+          ciclo: p.ciclo,
+        },
+      });
+      if (r === 'abortado') {
+        /* usuário cancelou o alerta de meio */
+      } else if (r === 'cancelado') {
+        Alert.alert(
+          'Pagamento',
+          'Checkout fechado. Se você concluiu o pagamento, o status atualiza em instantes. Senão, toque em Pagar outra vez.'
+        );
       } else if (r === 'aprovado') {
-        Alert.alert('Pagamento', 'Pagamento confirmado!');
+        Alert.alert('Pagamento', 'Pagamento confirmado!', [
+          { text: 'Ver torneios', onPress: irTorneios },
+        ]);
+        irTorneios();
       } else {
         Alert.alert(
           'Pagamento',
-          'Se pagou com PIX/cartão, o status atualiza em instantes via Stripe.'
+          'Se pagou com PIX/cartão, o status atualiza em instantes via Stripe.',
+          [{ text: 'Ver torneios', onPress: irTorneios }]
         );
       }
     } catch (e: unknown) {
@@ -76,6 +122,13 @@ export default function MeusPagamentosScreen() {
 
   const podePagar = (s: string) =>
     s === 'aguardando_pagamento' || s === 'pendente' || s === 'atrasado' || s === 'recusado';
+
+  const chips: { id: FiltroPeriodo; label: string }[] = [
+    { id: 'mes', label: 'Este mês' },
+    { id: '3meses', label: '3 meses' },
+    { id: 'pendentes', label: 'Pendentes' },
+    { id: 'todos', label: 'Todos' },
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -95,6 +148,20 @@ export default function MeusPagamentosScreen() {
         </View>
       ) : null}
 
+      <View style={styles.filtros}>
+        {chips.map((c) => (
+          <TouchableOpacity
+            key={c.id}
+            style={[styles.chip, filtro === c.id && styles.chipOn]}
+            onPress={() => setFiltro(c.id)}
+          >
+            <Text style={[styles.chipTxt, filtro === c.id && styles.chipTxtOn]}>
+              {c.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {loading ? (
         <ActivityIndicator color={Colors.accent} style={{ marginTop: 24 }} />
       ) : (
@@ -103,7 +170,11 @@ export default function MeusPagamentosScreen() {
           keyExtractor={(i) => i.id}
           contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}
           ListEmptyComponent={
-            <Text style={styles.empty}>Você ainda não tem cobranças abertas.</Text>
+            <Text style={styles.empty}>
+              {filtro === 'mes'
+                ? 'Nenhum pagamento neste mês. Use o filtro para ver mais.'
+                : 'Nenhuma cobrança neste filtro.'}
+            </Text>
           }
           renderItem={({ item }) => (
             <View style={styles.card}>
@@ -111,7 +182,7 @@ export default function MeusPagamentosScreen() {
                 {item.tipo.toUpperCase()} · {item.clubeNome}
               </Text>
               <Text style={styles.meta}>
-                R$ {item.valor.toFixed(2)} ·{' '}
+                {formatMoneyBR(item.valor)} ·{' '}
                 {item.ciclo === 'mensal'
                   ? 'mensal (cartão = recorrente)'
                   : 'pagamento único'}{' '}
@@ -171,6 +242,24 @@ const styles = StyleSheet.create({
   idLabel: { color: Colors.textSecondary, fontSize: 12 },
   idValue: { color: Colors.accent, fontSize: 22, fontWeight: '900', letterSpacing: 1 },
   idHint: { color: Colors.textSecondary, fontSize: 12 },
+  filtros: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 60,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  chipOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  chipTxt: { color: Colors.textPrimary, fontWeight: '600', fontSize: 13 },
+  chipTxtOn: { color: Colors.textOnAccent },
   card: {
     backgroundColor: Colors.surface,
     borderRadius: 16,

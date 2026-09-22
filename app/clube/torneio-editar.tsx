@@ -17,11 +17,14 @@ import { Colors } from '../../constants/colors';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { ButtonFooter } from '../../components/ui/ButtonFooter';
+import {
+  EnderecoLocalForm,
+  type EnderecoFormValue,
+} from '../../components/torneio/EnderecoLocalForm';
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../utils/firebaseConfig';
 import {
   atualizarDadosTorneio,
-  type Torneio,
 } from '../../services/torneios';
 import {
   DEFINICOES_CHAVE,
@@ -31,11 +34,17 @@ import {
   type EstruturaMataId,
   type FormatoPartidaTorneioId,
 } from '../../constants/chaveamentosTorneio';
-import { maskDateBR, maskTimeHHMM } from '../../utils/mascaras';
+import { maskDateBR, maskTimeHHMM, maskMoneyBR, parseMoneyBR, toMoneyInputBR } from '../../utils/mascaras';
+import { INTERVALOS_JOGO_OPCOES, parseListaQuadras } from '../../utils/agendaTorneio';
 import {
   labelComposicao,
   type ComposicaoId,
 } from '../../constants/composicao';
+import {
+  buscarEnderecoPorCep,
+  cepCompleto,
+  formatarCepDigitando,
+} from '../../utils/viacep';
 
 export default function TorneioEditarScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -46,22 +55,56 @@ export default function TorneioEditarScreen() {
   const [nome, setNome] = useState('');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
-  const [local, setLocal] = useState('');
+  const [enderecoForm, setEnderecoForm] = useState<EnderecoFormValue>({
+    localNome: '',
+    cep: '',
+    endereco: '',
+    bairro: '',
+    cidade: '',
+    estado: '',
+  });
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const [descricao, setDescricao] = useState('');
   const [horarioPadrao, setHorarioPadrao] = useState('');
   const [quadraNome, setQuadraNome] = useState('');
+  const [intervaloJogosMin, setIntervaloJogosMin] = useState(60);
+  const [quadrasTexto, setQuadrasTexto] = useState('');
+  const [atribuirQuadrasAoSortear, setAtribuirQuadrasAoSortear] = useState(false);
   const [resultadoSoOrganizador, setResultadoSoOrganizador] = useState(false);
   const [cobrar, setCobrar] = useState(false);
-  const [valor, setValor] = useState('0');
+  const [valor, setValor] = useState(toMoneyInputBR(0));
   const [regrasPag, setRegrasPag] = useState('');
   const [prazo, setPrazo] = useState('');
-  const [descontoMultiCat, setDescontoMultiCat] = useState('0');
+  const [descontoMultiCat, setDescontoMultiCat] = useState(toMoneyInputBR(0));
   const [composicao, setComposicao] = useState<ComposicaoId>('simples');
   const [formatoPartidaId, setFormatoPartidaId] =
     useState<FormatoPartidaTorneioId>('melhor_de_3_stb');
   const [estruturaMata, setEstruturaMata] = useState<EstruturaMataId>(8);
   const [definicaoChave, setDefinicaoChave] = useState<DefinicaoChaveId>('sorteio');
 
+  async function onCepChange(raw: string) {
+    const masked = formatarCepDigitando(raw);
+    setEnderecoForm((prev) => ({ ...prev, cep: masked }));
+    if (!cepCompleto(masked)) return;
+    setBuscandoCep(true);
+    try {
+      const end = await buscarEnderecoPorCep(masked);
+      if (!end) {
+        Alert.alert('CEP', 'CEP não encontrado. Complete o endereço manualmente.');
+        return;
+      }
+      setEnderecoForm((prev) => ({
+        ...prev,
+        cep: masked,
+        cidade: end.localidade,
+        estado: end.uf,
+        bairro: end.bairro || prev.bairro,
+        endereco: end.logradouro || prev.endereco,
+      }));
+    } finally {
+      setBuscandoCep(false);
+    }
+  }
   useEffect(() => {
     if (!id) return;
     void (async () => {
@@ -82,10 +125,27 @@ export default function TorneioEditarScreen() {
         setNome(String(raw.nome ?? ''));
         setDataInicio(String(raw.dataInicio ?? ''));
         setDataFim(String(raw.dataFim ?? ''));
-        setLocal(String(raw.local ?? ''));
+        setEnderecoForm({
+          localNome: String(raw.local ?? ''),
+          cep: String(raw.cep ?? ''),
+          endereco: String(raw.endereco ?? ''),
+          bairro: String(raw.bairro ?? ''),
+          cidade: String(raw.cidade ?? ''),
+          estado: String(raw.estado ?? ''),
+        });
         setDescricao(String(raw.descricao ?? ''));
         setHorarioPadrao(String(raw.horarioPadrao ?? ''));
         setQuadraNome(String(raw.quadraNome ?? ''));
+        setIntervaloJogosMin(Number(raw.intervaloJogosMin) || 60);
+        setQuadrasTexto(
+          Array.isArray(raw.quadrasDisponiveis)
+            ? (raw.quadrasDisponiveis as unknown[])
+                .map((q) => String(q ?? '').trim())
+                .filter(Boolean)
+                .join('\n')
+            : ''
+        );
+        setAtribuirQuadrasAoSortear(Boolean(raw.atribuirQuadrasAoSortear));
         setResultadoSoOrganizador(Boolean(raw.resultadoSoOrganizador));
         setComposicao((raw.composicao as ComposicaoId) || 'simples');
         setFormatoPartidaId(
@@ -95,10 +155,10 @@ export default function TorneioEditarScreen() {
         setDefinicaoChave((raw.definicaoChave as DefinicaoChaveId) || 'sorteio');
         const pag = raw.pagamento as Torneio['pagamento'] | undefined;
         setCobrar(Boolean(pag?.ativo));
-        setValor(String(pag?.valor ?? 0));
+        setValor(toMoneyInputBR(Number(pag?.valor ?? 0)));
         setRegrasPag(String(pag?.regras ?? ''));
         setPrazo(String(pag?.prazoPagamento ?? ''));
-        setDescontoMultiCat(String(pag?.descontoMultiCategoriaValor ?? 0));
+        setDescontoMultiCat(toMoneyInputBR(Number(pag?.descontoMultiCategoriaValor ?? 0)));
       } finally {
         setLoading(false);
       }
@@ -107,17 +167,42 @@ export default function TorneioEditarScreen() {
 
   async function onSalvar() {
     if (!id) return;
+    if (!enderecoForm.localNome.trim()) {
+      Alert.alert('Torneio', 'Informe o nome do clube / local.');
+      return;
+    }
+    if (!cepCompleto(enderecoForm.cep)) {
+      Alert.alert('Torneio', 'Informe um CEP válido.');
+      return;
+    }
+    if (
+      !enderecoForm.cidade.trim() ||
+      !enderecoForm.estado.trim() ||
+      !enderecoForm.endereco.trim() ||
+      !enderecoForm.bairro.trim()
+    ) {
+      Alert.alert('Torneio', 'Complete o endereço (rua, bairro, cidade e UF).');
+      return;
+    }
     setSaving(true);
     try {
-      const valorNum = Number(String(valor).replace(',', '.')) || 0;
+      const valorNum = parseMoneyBR(valor);
       await atualizarDadosTorneio(id, {
         nome,
         dataInicio,
         dataFim,
-        local,
+        local: enderecoForm.localNome.trim(),
+        cep: enderecoForm.cep.trim(),
+        endereco: enderecoForm.endereco.trim(),
+        bairro: enderecoForm.bairro.trim(),
+        cidade: enderecoForm.cidade.trim(),
+        estado: enderecoForm.estado.trim().toUpperCase(),
         descricao,
         horarioPadrao,
         quadraNome,
+        intervaloJogosMin,
+        quadrasDisponiveis: parseListaQuadras(quadrasTexto),
+        atribuirQuadrasAoSortear,
         resultadoSoOrganizador,
         composicao,
         formatoPartidaId,
@@ -132,8 +217,7 @@ export default function TorneioEditarScreen() {
           permiteCartao: true,
           descontoPixPercent: 0,
           descontoCartaoPercent: 0,
-          descontoMultiCategoriaValor:
-            Number(String(descontoMultiCat).replace(',', '.')) || 0,
+          descontoMultiCategoriaValor: parseMoneyBR(descontoMultiCat),
         },
       });
       Alert.alert('Torneio', 'Alterações salvas. Categorias e chaves: na tela do torneio.');
@@ -181,7 +265,12 @@ export default function TorneioEditarScreen() {
           keyboardType="number-pad"
           maxLength={10}
         />
-        <Input label="Local" value={local} onChangeText={setLocal} />
+        <EnderecoLocalForm
+          value={enderecoForm}
+          onChange={setEnderecoForm}
+          buscandoCep={buscandoCep}
+          onCepChange={(t) => void onCepChange(t)}
+        />
         <Input
           label="Descrição"
           value={descricao}
@@ -196,7 +285,47 @@ export default function TorneioEditarScreen() {
           keyboardType="number-pad"
           maxLength={5}
         />
-        <Input label="Quadra (opcional)" value={quadraNome} onChangeText={setQuadraNome} />
+        <Input label="Quadra ref. (opcional)" value={quadraNome} onChangeText={setQuadraNome} />
+        <Text style={styles.section}>Espaçamento entre jogos</Text>
+        <Text style={styles.hint}>
+          No sorteio e na redistribuição da agenda (1h, 2h…).
+        </Text>
+        <View style={styles.chips}>
+          {INTERVALOS_JOGO_OPCOES.map((op) => (
+            <TouchableOpacity
+              key={op.min}
+              style={[styles.chip, intervaloJogosMin === op.min && styles.chipOn]}
+              onPress={() => setIntervaloJogosMin(op.min)}
+            >
+              <Text
+                style={[styles.chipTxt, intervaloJogosMin === op.min && styles.chipTxtOn]}
+              >
+                {op.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.switchRow}>
+          <Text style={styles.switchLabel}>Sortear quadras nos jogos</Text>
+          <Switch
+            value={atribuirQuadrasAoSortear}
+            onValueChange={setAtribuirQuadrasAoSortear}
+            trackColor={{ true: Colors.accent, false: Colors.surface }}
+          />
+        </View>
+        <Text style={styles.hint}>
+          Desligado = sem quadra até você preencher na hora. Ligado = distribui a lista
+          abaixo ao sortear.
+        </Text>
+        {atribuirQuadrasAoSortear ? (
+          <Input
+            label="Quadras (uma por linha)"
+            value={quadrasTexto}
+            onChangeText={setQuadrasTexto}
+            placeholder={'Quadra 1\nQuadra 2'}
+            multiline
+          />
+        ) : null}
 
         <Text style={styles.section}>Composição padrão (categorias podem sobrescrever)</Text>
         <View style={styles.chips}>
@@ -233,7 +362,10 @@ export default function TorneioEditarScreen() {
           Ex.: &quot;2 sets + STB&quot; abre o super tiebreak até 10 quando fica 1–1.
         </Text>
 
-        <Text style={styles.section}>Tamanho da chave (mata-mata)</Text>
+        <Text style={styles.section}>Fase inicial da chave</Text>
+        <Text style={styles.hint}>
+          Ex.: Semifinal (4) = começa nas semis (até 4 vagas na chave).
+        </Text>
         <View style={styles.chips}>
           {ESTRUTURAS_MATA.map((e) => (
             <TouchableOpacity
@@ -293,8 +425,9 @@ export default function TorneioEditarScreen() {
             <Input
               label="Valor (R$)"
               value={valor}
-              onChangeText={setValor}
-              keyboardType="decimal-pad"
+              onChangeText={(t) => setValor(maskMoneyBR(t))}
+              keyboardType="number-pad"
+              placeholder="0,00"
             />
             <Input
               label="Prazo pagamento"
@@ -313,8 +446,9 @@ export default function TorneioEditarScreen() {
             <Input
               label="Desconto 2ª+ categoria (R$)"
               value={descontoMultiCat}
-              onChangeText={setDescontoMultiCat}
-              keyboardType="decimal-pad"
+              onChangeText={(t) => setDescontoMultiCat(maskMoneyBR(t))}
+              keyboardType="number-pad"
+              placeholder="0,00"
             />
           </>
         ) : null}

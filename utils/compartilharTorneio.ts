@@ -34,6 +34,11 @@ async function baixarBannerLocal(
   }
 }
 
+/**
+ * Compartilha torneio. No WhatsApp o preview do banner vem do og:image do link.
+ * No Android NÃO anexar arquivo — isso impede o unfurl do link.
+ * No iOS anexa o banner quando der (além do texto/link).
+ */
 export async function compartilharTorneioFora(input: {
   torneioId: string;
   nome: string;
@@ -41,25 +46,26 @@ export async function compartilharTorneioFora(input: {
   bannerUrl?: string | null;
 }): Promise<void> {
   const link = linkExternoTorneio(input.torneioId);
+  // URL sozinha na última linha → WhatsApp gera preview (og:image).
   const mensagem =
-    `Torneio ${input.nome} · ${input.clubeNome}\n\n` +
-    `Abra no Rally Up (só pelo app):\n${link}`;
+    `Torneio ${input.nome} · ${input.clubeNome}\n` +
+    `Abra no Rally Up (só pelo app):\n` +
+    `${link}`;
 
-  let localBanner: string | null = null;
-  if (input.bannerUrl?.startsWith('http')) {
-    localBanner = await baixarBannerLocal(input.bannerUrl, input.torneioId);
-  }
-
-  // iOS: Share com arquivo local anexa a foto + texto/link.
-  // Android: Share nativo não anexa arquivo de forma confiável; o link
-  // https://rallyup.app.br/abrir/torneio?id=… carrega og:image (banner) no WhatsApp.
-  if (localBanner && Platform.OS === 'ios') {
-    await Share.share({
-      message: mensagem,
-      title: input.nome,
-      url: localBanner,
-    });
-    return;
+  if (Platform.OS === 'ios' && input.bannerUrl?.startsWith('http')) {
+    const localBanner = await baixarBannerLocal(input.bannerUrl, input.torneioId);
+    if (localBanner) {
+      try {
+        await Share.share({
+          message: mensagem,
+          title: input.nome,
+          url: localBanner,
+        });
+        return;
+      } catch {
+        /* cai no share só com texto */
+      }
+    }
   }
 
   await Share.share({

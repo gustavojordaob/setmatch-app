@@ -4,8 +4,8 @@ export type NivelAtividade = 'iniciante' | 'intermediario' | 'avancado';
 
 export type Genero = 'masculino' | 'feminino' | 'outro' | 'prefiro_nao_dizer';
 
-/** jogador = app comum · admin_clube = dono de academia · professor = instrutor */
-export type UserRole = 'jogador' | 'admin_clube' | 'professor';
+/** jogador = app comum · admin_clube = dono · professor · admin_temporario = acesso temporário ao painel */
+export type UserRole = 'jogador' | 'admin_clube' | 'professor' | 'admin_temporario';
 
 export type TipoAdmin = 'clube' | 'professor';
 

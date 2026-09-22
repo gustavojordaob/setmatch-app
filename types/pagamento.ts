@@ -42,6 +42,8 @@ export interface PagamentoDoc {
   uid: string;
   setmatchId: string;
   nome: string;
+  /** E-mail do pagador (Asaas Checkout exige no customerData). */
+  email?: string;
   telefone?: string;
   tipo: TipoPagamento;
   clubeId: string;
@@ -51,10 +53,27 @@ export interface PagamentoDoc {
   rankingNome?: string;
   torneioId?: string;
   torneioNome?: string;
+  /** Categoria do torneio (quando inscrição por categoria). */
+  categoriaId?: string;
+  categoriaNome?: string;
+  /** Esporte / modalidade (torneio, ranking ou aula). */
+  esporte?: string;
   /** Aula online publicada (`aulasPublicadas/{id}`) — legado; vídeo online não é mais cobrado */
   aulaPublicadaId?: string;
   aulaTitulo?: string;
   valor: number;
+  /** Valor bruto cobrado do jogador (igual a valor na maioria dos casos). */
+  valorBruto?: number;
+  /** Líquido creditado ao dono após tarifa Asaas (+ antecipação se cartão). */
+  valorLiquidoDono?: number;
+  /** Tarifa Asaas descontada (bruto − líquido), já inclui antecipação se ativa. */
+  taxaAsaas?: number;
+  /** true = já pode sair no PIX do dono; false = cartão aguardando RECEIVED/antecipação. */
+  liberadoParaSaque?: boolean;
+  /** Asaas: cobrança antecipada. */
+  anticipated?: boolean;
+  estimatedCreditDate?: string;
+  creditDate?: string;
   ciclo: CicloPagamento;
   status: StatusPagamento;
   /** Meio escolhido no checkout (para auditoria / promo). */
@@ -67,6 +86,11 @@ export interface PagamentoDoc {
   sandboxInitPoint?: string;
   stripeSessionId?: string;
   stripeSubscriptionId?: string;
+  asaasCheckoutId?: string;
+  asaasPaymentId?: string;
+  asaasSubscriptionId?: string;
+  modalidadeNome?: string;
+  saldoCreditado?: boolean;
   vigenteAte?: { seconds: number };
   liberadoPeloAdmin?: boolean;
   criadoEm?: { seconds: number };

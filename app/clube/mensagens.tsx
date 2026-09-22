@@ -1,16 +1,42 @@
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { Radius } from '../../constants/radius';
 import { useAuth } from '../../hooks/useAuth';
 import { naoLidasDaConversa, useConversas } from '../../hooks/useConversas';
 import { UnreadBadge } from '../../components/ui/UnreadBadge';
+
+type FiltroMsg = 'todas' | 'nao_lidas';
 
 export default function ClubeMensagensScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const conversas = useConversas().filter((c) => c.tipo === 'clube');
+  const [busca, setBusca] = useState('');
+  const [filtro, setFiltro] = useState<FiltroMsg>('todas');
+
+  const filtradas = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    return conversas.filter((c) => {
+      const unread = naoLidasDaConversa(c, user?.uid);
+      if (filtro === 'nao_lidas' && unread <= 0) return false;
+      const outro = c.participantes.find((p) => p !== user?.uid);
+      const nome = ((outro && c.nomes?.[outro]) || 'Jogador').toLowerCase();
+      const preview = String(c.ultimoTexto ?? '').toLowerCase();
+      if (!q) return true;
+      return nome.includes(q) || preview.includes(q);
+    });
+  }, [conversas, busca, filtro, user?.uid]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -23,13 +49,53 @@ export default function ClubeMensagensScreen() {
           <Ionicons name="notifications-outline" size={24} color={Colors.accent} />
         </TouchableOpacity>
       </View>
+
+      <View style={styles.searchBox}>
+        <Ionicons name="search" size={18} color={Colors.textSecondary} />
+        <TextInput
+          style={styles.searchInput}
+          value={busca}
+          onChangeText={setBusca}
+          placeholder="Filtrar por jogador…"
+          placeholderTextColor={Colors.textSecondary}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {busca ? (
+          <TouchableOpacity onPress={() => setBusca('')} hitSlop={8}>
+            <Ionicons name="close-circle" size={18} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      <View style={styles.chips}>
+        {(
+          [
+            { id: 'todas' as const, label: 'Todas' },
+            { id: 'nao_lidas' as const, label: 'Não lidas' },
+          ] as const
+        ).map((c) => (
+          <TouchableOpacity
+            key={c.id}
+            style={[styles.chip, filtro === c.id && styles.chipOn]}
+            onPress={() => setFiltro(c.id)}
+          >
+            <Text style={[styles.chipTxt, filtro === c.id && styles.chipTxtOn]}>
+              {c.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <FlatList
-        data={conversas}
+        data={filtradas}
         keyExtractor={(c) => c.id}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <Text style={styles.empty}>
-            Quando jogadores enviarem mensagem ao clube, elas aparecem aqui.
+            {busca || filtro === 'nao_lidas'
+              ? 'Nenhuma conversa neste filtro.'
+              : 'Quando jogadores enviarem mensagem ao clube, elas aparecem aqui.'}
           </Text>
         }
         renderItem={({ item }) => {
@@ -70,6 +136,44 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   title: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 18 },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 14,
+    minHeight: 44,
+  },
+  searchInput: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 15,
+    paddingVertical: 10,
+  },
+  chips: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  chipOn: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  chipTxt: { color: Colors.textSecondary, fontWeight: '700', fontSize: 13 },
+  chipTxtOn: { color: Colors.textOnAccent },
   list: { padding: 20 },
   empty: { color: Colors.textSecondary, textAlign: 'center', marginTop: 40 },
   row: {

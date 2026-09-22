@@ -89,7 +89,7 @@ export function ChaveamentoBracket({
         </View>
       </View>
       <Text style={styles.hint}>
-        Oitavas → Quartas → Semi → Final. Toque no confronto para o placar.
+        Oitavas → Quartas → Semi → Final. Toque no confronto para placar ou W.O.
       </Text>
 
       <ScrollView
@@ -133,6 +133,7 @@ export function ChaveamentoBracket({
                           styles.card,
                           { top },
                           c.status === 'pronto' && styles.cardPronto,
+                          c.status === 'bye' && podeTocar && styles.cardBye,
                           c.status === 'finalizado' && styles.cardDone,
                           noCaminho && styles.cardHighlight,
                         ]}
@@ -168,6 +169,9 @@ export function ChaveamentoBracket({
                           me={highlightUid === c.j2Uid}
                         />
                         <Text style={styles.placar}>{placarLabel(c)}</Text>
+                        {c.status === 'bye' && podeTocar ? (
+                          <Text style={styles.woHint}>Toque · W.O.</Text>
+                        ) : null}
                         {agenda ? (
                           <Text style={styles.agenda} numberOfLines={1}>
                             {agenda}
@@ -302,6 +306,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.accent,
     borderWidth: 1.5,
   },
+  cardBye: {
+    borderColor: 'rgba(199,217,65,0.55)',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+  },
   cardDone: { opacity: 0.95 },
   cardHighlight: {
     shadowColor: Colors.accent,
@@ -330,6 +339,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     textAlign: 'right',
+  },
+  woHint: {
+    color: Colors.accent,
+    fontSize: 9,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   agenda: {
     color: Colors.accent,

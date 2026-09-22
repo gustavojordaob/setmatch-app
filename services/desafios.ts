@@ -14,7 +14,7 @@ import { db } from '../utils/firebaseConfig';
 import type { EsporteId } from '../constants/esportes';
 import type { FormatoPartidaId } from '../constants/formatosPartida';
 import { criarPost } from './feed';
-import { criarNotificacao } from './notificacoes';
+import { criarNotificacao, notificarVarios } from './notificacoes';
 
 export type DesafioStatus = 'pendente' | 'aceito' | 'recusado' | 'finalizado';
 
@@ -74,13 +74,22 @@ export async function criarDesafio(input: {
 
   if (!input.silencioso && input.desafiado && input.desafiado !== input.desafiante) {
     const isRanking = Boolean(input.rankingId);
-    void criarNotificacao({
-      paraUid: input.desafiado,
+    const uids = [
+      input.desafiado,
+      input.desafiadoParceiroUid,
+      input.desafianteParceiroUid,
+    ].filter((u): u is string => Boolean(u) && u !== input.desafiante);
+
+    const titulo = isRanking ? 'Jogo de ranking lançado' : 'Jogo amistoso lançado';
+    const corpo = isRanking
+      ? `${input.desafianteNome} lançou um jogo${input.rankingNome ? ` em ${input.rankingNome}` : ''}${input.dataSugerida ? ` · ${input.dataSugerida}` : ''}. Confirme.`
+      : `${input.desafianteNome} te desafiou${input.quadra ? ` · ${input.quadra}` : ''}.`;
+
+    void notificarVarios({
+      uids,
       tipo: isRanking ? 'reserva_ranking' : 'desafio',
-      titulo: isRanking ? 'Horário de ranking' : 'Novo desafio',
-      corpo: isRanking
-        ? `${input.desafianteNome} marcou horário${input.rankingNome ? ` em ${input.rankingNome}` : ''}${input.dataSugerida ? ` · ${input.dataSugerida}` : ''}. Confirme a reserva.`
-        : `${input.desafianteNome} te desafiou${input.quadra ? ` · ${input.quadra}` : ''}.`,
+      titulo,
+      corpo,
       rota: `/desafio/${ref.id}`,
       refId: ref.id,
     }).catch((e) => console.warn('[desafio] notif', e));
@@ -102,6 +111,31 @@ export async function atualizarStatusDesafio(
 
   if (!snap.exists()) return;
   const raw = snap.data();
+  const desafiante = String(raw.desafiante ?? '');
+  const desafiadoNome = String(raw.desafiadoNome ?? 'Adversário');
+  const rankingId = String(raw.rankingId ?? '');
+  const isRanking = Boolean(rankingId);
+
+  if (status === 'aceito' && desafiante) {
+    void criarNotificacao({
+      paraUid: desafiante,
+      tipo: isRanking ? 'reserva_ranking' : 'desafio',
+      titulo: isRanking ? 'Jogo de ranking confirmado' : 'Amistoso confirmado',
+      corpo: `${desafiadoNome} aceitou o jogo. Combinem horário e registrem o placar.`,
+      rota: `/desafio/${id}`,
+      refId: id,
+    }).catch((e) => console.warn('[desafio] notif aceito', e));
+  } else if (status === 'recusado' && desafiante) {
+    void criarNotificacao({
+      paraUid: desafiante,
+      tipo: isRanking ? 'reserva_ranking' : 'desafio',
+      titulo: isRanking ? 'Jogo de ranking recusado' : 'Desafio recusado',
+      corpo: `${desafiadoNome} recusou o jogo.`,
+      rota: `/desafio/${id}`,
+      refId: id,
+    }).catch((e) => console.warn('[desafio] notif recusado', e));
+  }
+
   const reservaId = String(raw.reservaId ?? '');
   const clubeId = String(raw.clubeId ?? '');
   if (!reservaId || !clubeId) return;

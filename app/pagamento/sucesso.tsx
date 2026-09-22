@@ -1,25 +1,24 @@
-import { StyleSheet, Text, View, Linking } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useEffect } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 
+/** Ponte pós-Stripe: não fica nesta tela — vai direto para Torneios. */
 export default function PagamentoSucessoScreen() {
-  const { session_id } = useLocalSearchParams<{ session_id?: string }>();
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace({
+      pathname: '/(tabs)/trofeu',
+      params: { aba: 'torneios' },
+    });
+  }, [router]);
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.box}>
-        <Text style={styles.title}>Pagamento recebido</Text>
-        <Text style={styles.sub}>
-          Pode voltar ao app Rally Up. O status atualiza em Meus pagamentos.
-        </Text>
-        {session_id ? <Text style={styles.meta}>Sessão: {session_id}</Text> : null}
-        <Text
-          style={styles.link}
-          onPress={() => void Linking.openURL('setmatch://pagamentos')}
-        >
-          Abrir Rally Up
-        </Text>
+        <ActivityIndicator color={Colors.accent} size="large" />
       </View>
     </SafeAreaView>
   );
@@ -27,9 +26,5 @@ export default function PagamentoSucessoScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background, justifyContent: 'center' },
-  box: { padding: 28, gap: 12 },
-  title: { color: Colors.accent, fontSize: 24, fontWeight: 'bold' },
-  sub: { color: Colors.textPrimary, fontSize: 16, lineHeight: 22 },
-  meta: { color: Colors.textSecondary, fontSize: 12 },
-  link: { color: Colors.accent, fontWeight: 'bold', marginTop: 16, fontSize: 16 },
+  box: { alignItems: 'center', padding: 28 },
 });

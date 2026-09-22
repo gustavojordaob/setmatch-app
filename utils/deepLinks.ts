@@ -5,6 +5,8 @@ import * as Linking from 'expo-linking';
  * Exemplos:
  * - setmatch://torneio/abc123
  * - setmatch://ranking/abc123
+ * - setmatch://pagamento/sucesso
+ * - setmatch://pagamentos
  * - https://rallyup.app.br/abrir/torneio?id=abc123
  * - https://rallyup.app.br/abrir/ranking?id=abc123
  */
@@ -20,6 +22,29 @@ export function rotaFromIncomingUrl(url: string | null | undefined): string | nu
     const host = (parsed.hostname || '').replace(/^\//, '');
     const rawPath = (parsed.path || '').replace(/^\//, '');
     const combined = `${host}/${rawPath}`.replace(/\/+/g, '/');
+
+    // Pós-Stripe → aba Torneios (sem tela intermediária)
+    if (
+      host === 'pagamento' ||
+      rawPath.startsWith('pagamento/') ||
+      combined.includes('pagamento/sucesso') ||
+      combined.includes('pagamento/cancelado')
+    ) {
+      return '/(tabs)/trofeu?aba=torneios';
+    }
+    if (host === 'pagamentos' || rawPath === 'pagamentos') {
+      return '/pagamentos';
+    }
+    if (host === 'trofeu' || rawPath.startsWith('trofeu')) {
+      return '/(tabs)/trofeu';
+    }
+
+    if (host === 'clube' || rawPath.startsWith('clube/')) {
+      const rest = host === 'clube' ? rawPath : rawPath.slice('clube/'.length);
+      const seg = rest.split('/')[0];
+      if (seg === 'financeiro') return '/clube/financeiro';
+      if (seg === 'painel') return '/clube/painel';
+    }
 
     if (host === 'torneio' || host === 'ranking') {
       const id = rawPath.split('/')[0] || idQuery;

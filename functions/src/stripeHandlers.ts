@@ -10,7 +10,7 @@ const stripeWebhookSecret = defineString('STRIPE_WEBHOOK_SECRET', { default: '' 
 /** Comissão Rally Up em % (0–100). 0 = sem taxa de plataforma. */
 const feePercent = defineString('STRIPE_PLATFORM_FEE_PERCENT', { default: '0' });
 
-const HOSTING = 'https://setmatch-app-fabrica.web.app';
+const HOSTING = 'https://rallyup.app.br';
 const FN_OPTS = { cors: true, region: 'southamerica-east1' as const };
 
 function db() {
@@ -197,7 +197,24 @@ export const criarCheckoutStripe = onRequest(FN_OPTS, async (req, res) => {
       session = await stripe.checkout.sessions.create(params);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (paymentMethodTypes.includes('pix') && /pix/i.test(msg)) {
+      // PIX falhou (conta/config Stripe) — NÃO cair silenciosamente em cartão
+      // se o usuário pediu só PIX.
+      if (meioNorm === 'pix' && /pix/i.test(msg)) {
+        console.error('[stripe] PIX indisponível', msg);
+        res.status(400).json({
+          error:
+            'PIX ainda não está liberado nesta conta Stripe (invite-only no Brasil). Escolha Cartão no próximo passo, ou ative o PIX no Dashboard Stripe → Pagamentos → Formas de pagamento.',
+          code: 'PIX_UNAVAILABLE',
+          detail: msg.slice(0, 200),
+        });
+        return;
+      }
+      // Ambos: se PIX falhar, tenta só cartão
+      if (
+        meioNorm === 'ambos' &&
+        paymentMethodTypes.includes('pix') &&
+        /pix/i.test(msg)
+      ) {
         params.payment_method_types = paymentMethodTypes.filter((t) => t !== 'pix');
         if (!params.payment_method_types?.length) {
           params.payment_method_types = ['card'];

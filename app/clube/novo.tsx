@@ -12,19 +12,25 @@ import { Button } from '../../components/ui/Button';
 import { ButtonFooter } from '../../components/ui/ButtonFooter';
 import { useAuth } from '../../hooks/useAuth';
 import { criarClube } from '../../services/clubes';
+import {
+  buscarEnderecoPorCep,
+  cepCompleto,
+  formatarCepDigitando,
+} from '../../utils/viacep';
 
 export default function NovoClubeAdminScreen() {
   const router = useRouter();
   const { user, perfil, refreshPerfil } = useAuth();
   const [nome, setNome] = useState('');
   const [cidade, setCidade] = useState(perfil?.cidade ?? '');
-  const [bairro, setBairro] = useState('');
+  const [bairro, setBairro] = useState(perfil?.bairro ?? '');
   const [estado, setEstado] = useState(perfil?.estado ?? '');
-  const [cep, setCep] = useState('');
-  const [endereco, setEndereco] = useState('');
+  const [cep, setCep] = useState(perfil?.cep ?? '');
+  const [endereco, setEndereco] = useState(perfil?.rua ?? '');
   const [telefone, setTelefone] = useState('');
   const [descricao, setDescricao] = useState('');
   const [esportes, setEsportes] = useState<EsporteId[]>(['tenis']);
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const [loading, setLoading] = useState(false);
 
   function toggle(id: EsporteId) {
@@ -33,9 +39,40 @@ export default function NovoClubeAdminScreen() {
     );
   }
 
+  async function onCepChange(raw: string) {
+    const masked = formatarCepDigitando(raw);
+    setCep(masked);
+    if (!cepCompleto(masked)) return;
+    setBuscandoCep(true);
+    try {
+      const end = await buscarEnderecoPorCep(masked);
+      if (!end) {
+        Alert.alert('CEP', 'CEP não encontrado. Complete o endereço manualmente.');
+        return;
+      }
+      setCidade(end.localidade);
+      setEstado(end.uf);
+      if (end.bairro) setBairro(end.bairro);
+      if (end.logradouro) setEndereco(end.logradouro);
+    } finally {
+      setBuscandoCep(false);
+    }
+  }
+
   async function salvar() {
-    if (!user || !nome.trim() || !cidade.trim() || esportes.length === 0) {
-      Alert.alert('Clube', 'Preencha nome, cidade e ao menos um esporte.');
+    if (!user || !nome.trim() || esportes.length === 0) {
+      Alert.alert('Clube', 'Preencha nome e ao menos um esporte.');
+      return;
+    }
+    if (!cepCompleto(cep)) {
+      Alert.alert('Clube', 'Informe um CEP válido.');
+      return;
+    }
+    if (!cidade.trim() || !estado.trim() || !endereco.trim() || !bairro.trim()) {
+      Alert.alert(
+        'Clube',
+        'Complete o endereço (rua, bairro, cidade e UF). O CEP preenche o que faltar.'
+      );
       return;
     }
     setLoading(true);
@@ -73,13 +110,41 @@ export default function NovoClubeAdminScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <Input label="Nome do clube" value={nome} onChangeText={setNome} placeholder="Arena Tennis SP" />
-        <Input label="Endereço" value={endereco} onChangeText={setEndereco} placeholder="Rua, número" />
+        <Input
+          label="CEP"
+          value={cep}
+          onChangeText={(t) => void onCepChange(t)}
+          keyboardType="number-pad"
+          placeholder="00000-000"
+        />
+        {buscandoCep ? <Text style={styles.hint}>Buscando endereço…</Text> : null}
+        <Input
+          label="Endereço"
+          value={endereco}
+          onChangeText={setEndereco}
+          placeholder="Rua, número"
+        />
         <Input label="Bairro" value={bairro} onChangeText={setBairro} />
         <Input label="Cidade" value={cidade} onChangeText={setCidade} />
-        <Input label="UF" value={estado} onChangeText={setEstado} maxLength={2} autoCapitalize="characters" />
-        <Input label="CEP" value={cep} onChangeText={setCep} keyboardType="number-pad" />
-        <Input label="Telefone / WhatsApp" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" />
-        <Input label="Descrição" value={descricao} onChangeText={setDescricao} placeholder="Quadras, horários…" />
+        <Input
+          label="UF"
+          value={estado}
+          onChangeText={setEstado}
+          maxLength={2}
+          autoCapitalize="characters"
+        />
+        <Input
+          label="Telefone / WhatsApp"
+          value={telefone}
+          onChangeText={setTelefone}
+          keyboardType="phone-pad"
+        />
+        <Input
+          label="Descrição"
+          value={descricao}
+          onChangeText={setDescricao}
+          placeholder="Quadras, horários…"
+        />
         <Text style={styles.label}>Esportes do clube</Text>
         <View style={styles.chips}>
           {ESPORTES.map((e) => {
@@ -119,6 +184,7 @@ const styles = StyleSheet.create({
   },
   title: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 18 },
   body: { padding: 20, gap: 14, paddingBottom: 24 },
+  hint: { color: Colors.textSecondary, fontSize: 13, marginTop: -6 },
   label: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 16 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {

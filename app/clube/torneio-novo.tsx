@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -35,6 +35,10 @@ import {
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { ButtonFooter } from '../../components/ui/ButtonFooter';
+import {
+  EnderecoLocalForm,
+  type EnderecoFormValue,
+} from '../../components/torneio/EnderecoLocalForm';
 import { useAuth } from '../../hooks/useAuth';
 import { listarClubesDoDono } from '../../services/clubes';
 import {
@@ -42,13 +46,28 @@ import {
   criarTorneioCompleto,
   novaCategoriaId,
 } from '../../services/torneios';
-import { maskDateBR, maskTimeHHMM } from '../../utils/mascaras';
+import { maskDateBR, maskTimeHHMM, maskMoneyBR, parseMoneyBR, toMoneyInputBR } from '../../utils/mascaras';
+import { INTERVALOS_JOGO_OPCOES, parseListaQuadras } from '../../utils/agendaTorneio';
 import {
   uploadBannerTorneio,
   uploadLogoTorneio,
 } from '../../utils/uploadFoto';
+import {
+  buscarEnderecoPorCep,
+  cepCompleto,
+  formatarCepDigitando,
+} from '../../utils/viacep';
 
 type CatDraft = { nome: string; composicao: ComposicaoId };
+
+const ENDERECO_VAZIO: EnderecoFormValue = {
+  localNome: '',
+  cep: '',
+  endereco: '',
+  bairro: '',
+  cidade: '',
+  estado: '',
+};
 
 export default function TorneioNovoScreen() {
   const { clubeId } = useLocalSearchParams<{ clubeId: string }>();
@@ -59,9 +78,13 @@ export default function TorneioNovoScreen() {
   const [composicaoPadrao, setComposicaoPadrao] = useState<ComposicaoId>('simples');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
-  const [local, setLocal] = useState('');
+  const [enderecoForm, setEnderecoForm] = useState<EnderecoFormValue>(ENDERECO_VAZIO);
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const [horarioPadrao, setHorarioPadrao] = useState('');
   const [quadraNome, setQuadraNome] = useState('');
+  const [intervaloJogosMin, setIntervaloJogosMin] = useState(60);
+  const [quadrasTexto, setQuadrasTexto] = useState('');
+  const [atribuirQuadrasAoSortear, setAtribuirQuadrasAoSortear] = useState(false);
   const [formatoChaves, setFormatoChaves] = useState<FormatoChavesId>('simples');
   const [definicaoChave, setDefinicaoChave] = useState<DefinicaoChaveId>('sorteio');
   const [estruturaMata, setEstruturaMata] = useState<EstruturaMataId>(16);
@@ -71,14 +94,14 @@ export default function TorneioNovoScreen() {
   const [formatoPartida, setFormatoPartida] =
     useState<FormatoPartidaTorneioId>('melhor_de_3_stb');
   const [cobrar, setCobrar] = useState(true);
-  const [valor, setValor] = useState('80.00');
+  const [valor, setValor] = useState(toMoneyInputBR(80));
   const [prazo, setPrazo] = useState('');
   const [regras, setRegras] = useState(
     'Inscrição via PIX ou cartão. Pagamento até a data limite.'
   );
   const [descontoPix, setDescontoPix] = useState('0');
   const [descontoCartao, setDescontoCartao] = useState('0');
-  const [descontoMultiCat, setDescontoMultiCat] = useState('20');
+  const [descontoMultiCat, setDescontoMultiCat] = useState(toMoneyInputBR(20));
   const [resultadoSoOrganizador, setResultadoSoOrganizador] = useState(false);
   const [loading, setLoading] = useState(false);
   const [logoLocal, setLogoLocal] = useState<string | null>(null);
@@ -92,6 +115,51 @@ export default function TorneioNovoScreen() {
 
   const formatosJogo = useMemo(() => formatosPartidaPorEsporte(esporte), [esporte]);
 
+  useEffect(() => {
+    if (!user?.uid) return;
+    void (async () => {
+      try {
+        const clubes = await listarClubesDoDono(user.uid);
+        const clube =
+          (clubeId ? clubes.find((c) => c.id === clubeId) : undefined) ?? clubes[0];
+        if (!clube) return;
+        setEnderecoForm((prev) => ({
+          localNome: prev.localNome || clube.nome || '',
+          cep: prev.cep || clube.cep || '',
+          endereco: prev.endereco || clube.endereco || '',
+          bairro: prev.bairro || clube.bairro || '',
+          cidade: prev.cidade || clube.cidade || '',
+          estado: prev.estado || clube.estado || '',
+        }));
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [user?.uid, clubeId]);
+
+  async function onCepChange(raw: string) {
+    const masked = formatarCepDigitando(raw);
+    setEnderecoForm((prev) => ({ ...prev, cep: masked }));
+    if (!cepCompleto(masked)) return;
+    setBuscandoCep(true);
+    try {
+      const end = await buscarEnderecoPorCep(masked);
+      if (!end) {
+        Alert.alert('CEP', 'CEP não encontrado. Complete o endereço manualmente.');
+        return;
+      }
+      setEnderecoForm((prev) => ({
+        ...prev,
+        cep: masked,
+        cidade: end.localidade,
+        estado: end.uf,
+        bairro: end.bairro || prev.bairro,
+        endereco: end.logradouro || prev.endereco,
+      }));
+    } finally {
+      setBuscandoCep(false);
+    }
+  }
   async function pickImage(kind: 'logo' | 'banner') {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
@@ -135,7 +203,7 @@ export default function TorneioNovoScreen() {
       Alert.alert('Torneio', 'Informe o nome do torneio.');
       return;
     }
-    const v = Number(String(valor).replace(',', '.')) || 0;
+    const v = parseMoneyBR(valor);
     if (cobrar && v <= 0) {
       Alert.alert('Torneio', 'Informe o valor da inscrição.');
       return;
@@ -150,6 +218,26 @@ export default function TorneioNovoScreen() {
       Alert.alert('Torneio', 'Informe ao menos uma categoria.');
       return;
     }
+    if (!enderecoForm.localNome.trim()) {
+      Alert.alert('Torneio', 'Informe o nome do clube / local (visível aos jogadores).');
+      return;
+    }
+    if (!cepCompleto(enderecoForm.cep)) {
+      Alert.alert('Torneio', 'Informe um CEP válido do local.');
+      return;
+    }
+    if (
+      !enderecoForm.cidade.trim() ||
+      !enderecoForm.estado.trim() ||
+      !enderecoForm.endereco.trim() ||
+      !enderecoForm.bairro.trim()
+    ) {
+      Alert.alert(
+        'Torneio',
+        'Complete o endereço (rua, bairro, cidade e UF). O CEP preenche o que faltar.'
+      );
+      return;
+    }
     setLoading(true);
     try {
       const clubes = await listarClubesDoDono(user.uid);
@@ -162,16 +250,23 @@ export default function TorneioNovoScreen() {
       const id = await criarTorneioCompleto({
         clubeId: clube.id,
         clubeNome: clube.nome,
-        cidade: clube.cidade,
+        cidade: enderecoForm.cidade.trim() || clube.cidade,
         donoUid: user.uid,
         nome,
         esporte,
         composicao: composicaoPadrao,
         dataInicio,
         dataFim,
-        local,
+        local: enderecoForm.localNome.trim(),
+        cep: enderecoForm.cep.trim(),
+        endereco: enderecoForm.endereco.trim(),
+        bairro: enderecoForm.bairro.trim(),
+        estado: enderecoForm.estado.trim().toUpperCase(),
         horarioPadrao,
         quadraNome,
+        intervaloJogosMin,
+        quadrasDisponiveis: parseListaQuadras(quadrasTexto),
+        atribuirQuadrasAoSortear,
         formatoChaves,
         definicaoChave,
         estruturaMata,
@@ -206,10 +301,7 @@ export default function TorneioNovoScreen() {
             100,
             Math.max(0, Number(String(descontoCartao).replace(',', '.')) || 0)
           ),
-          descontoMultiCategoriaValor: Math.max(
-            0,
-            Number(String(descontoMultiCat).replace(',', '.')) || 0
-          ),
+          descontoMultiCategoriaValor: Math.max(0, parseMoneyBR(descontoMultiCat)),
         },
         resultadoSoOrganizador,
       });
@@ -309,11 +401,11 @@ export default function TorneioNovoScreen() {
             />
           </View>
         </View>
-        <Input
-          label="Localização"
-          value={local}
-          onChangeText={setLocal}
-          placeholder="Clube / cidade"
+        <EnderecoLocalForm
+          value={enderecoForm}
+          onChange={setEnderecoForm}
+          buscandoCep={buscandoCep}
+          onCepChange={(t) => void onCepChange(t)}
         />
 
         <View style={styles.row2}>
@@ -329,15 +421,50 @@ export default function TorneioNovoScreen() {
           </View>
           <View style={{ flex: 1.15 }}>
             <Input
-              label="Quadra (opcional)"
+              label="Quadra ref. (opc.)"
               value={quadraNome}
               onChangeText={setQuadraNome}
               placeholder="Ex: Quadra 1"
             />
           </View>
         </View>
+        <Text style={styles.label}>Espaçamento entre jogos</Text>
         <Text style={[styles.label, { marginTop: -4, opacity: 0.75, fontSize: 12 }]}>
-          Horário e quadra são definidos por você — jogadores não reservam na agenda.
+          Usado ao sortear a chave e ao redistribuir agenda (você define 1h, 2h…).
+        </Text>
+        <View style={styles.chips}>
+          {INTERVALOS_JOGO_OPCOES.map((op) => (
+            <Chip
+              key={op.min}
+              label={op.label}
+              on={intervaloJogosMin === op.min}
+              onPress={() => setIntervaloJogosMin(op.min)}
+            />
+          ))}
+        </View>
+        <View style={styles.switchRow}>
+          <Text style={styles.switchLabel}>Sortear quadras nos jogos</Text>
+          <Switch
+            value={atribuirQuadrasAoSortear}
+            onValueChange={setAtribuirQuadrasAoSortear}
+            trackColor={{ true: Colors.accent, false: Colors.surface }}
+          />
+        </View>
+        <Text style={[styles.label, { marginTop: -4, opacity: 0.75, fontSize: 12 }]}>
+          Desligado = jogos sem quadra (você coloca na hora). Ligado = distribui as
+          quadras abaixo no sorteio.
+        </Text>
+        {atribuirQuadrasAoSortear ? (
+          <Input
+            label="Quadras (uma por linha)"
+            value={quadrasTexto}
+            onChangeText={setQuadrasTexto}
+            placeholder={'Quadra 1\nQuadra 2\nQuadra 3'}
+            multiline
+          />
+        ) : null}
+        <Text style={[styles.label, { marginTop: -4, opacity: 0.75, fontSize: 12 }]}>
+          Horário e quadra de cada jogo saem no sorteio — jogadores não reservam na agenda.
         </Text>
 
         <Text style={styles.label}>Categorias (simples e duplas separadas)</Text>
@@ -465,7 +592,10 @@ export default function TorneioNovoScreen() {
           </>
         ) : (
           <>
-            <Text style={styles.label}>Tamanho da chave (mata)</Text>
+            <Text style={styles.label}>Fase inicial da chave</Text>
+            <Text style={styles.hint}>
+              Ex.: Semifinal (4) = torneio já começa nas semis (até 4 vagas).
+            </Text>
             <View style={styles.chips}>
               {ESTRUTURAS_MATA.map((e) => (
                 <Chip
@@ -522,7 +652,13 @@ export default function TorneioNovoScreen() {
         </View>
         {cobrar ? (
           <>
-            <Input title="Valor (R$)" value={valor} onChangeText={setValor} keyboardType="decimal-pad" />
+            <Input
+              title="Valor (R$)"
+              value={valor}
+              onChangeText={(t) => setValor(maskMoneyBR(t))}
+              keyboardType="number-pad"
+              placeholder="0,00"
+            />
             <Input
               title="Desconto PIX (%)"
               value={descontoPix}
@@ -543,9 +679,9 @@ export default function TorneioNovoScreen() {
             <Input
               label="Desconto 2ª+ categoria (R$)"
               value={descontoMultiCat}
-              onChangeText={setDescontoMultiCat}
-              keyboardType="decimal-pad"
-              placeholder="Ex: 20"
+              onChangeText={(t) => setDescontoMultiCat(maskMoneyBR(t))}
+              keyboardType="number-pad"
+              placeholder="0,00"
             />
             <Text style={styles.promoHint}>
               A partir da 2ª categoria do mesmo jogador, abate esse valor da inscrição.

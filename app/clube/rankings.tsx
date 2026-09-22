@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +14,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { Colors } from '../../constants/colors';
 import { Button } from '../../components/ui/Button';
+import {
+  FiltroNomeData,
+  passaFiltroNomeData,
+  toMs,
+  type FiltroNomeDataState,
+} from '../../components/ui/FiltroNomeData';
 import { useAuth } from '../../hooks/useAuth';
 import { listarClubesDoDono } from '../../services/clubes';
 import { compartilharRankingFora } from '../../utils/compartilharRanking';
@@ -23,7 +29,15 @@ import type { Ranking } from '../../types/ranking';
 
 type RankingAdmin = Pick<
   Ranking,
-  'id' | 'nome' | 'clubeId' | 'clubeNome' | 'cidade' | 'esporte' | 'totalMembros' | 'donoUid'
+  | 'id'
+  | 'nome'
+  | 'clubeId'
+  | 'clubeNome'
+  | 'cidade'
+  | 'esporte'
+  | 'totalMembros'
+  | 'donoUid'
+  | 'criadoEm'
 >;
 
 export default function MeusRankingsAdminScreen() {
@@ -32,6 +46,25 @@ export default function MeusRankingsAdminScreen() {
   const [items, setItems] = useState<RankingAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [clubeId, setClubeId] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<FiltroNomeDataState>({
+    nome: '',
+    dataDe: '',
+    dataAte: '',
+  });
+
+  const lista = useMemo(() => {
+    return items
+      .filter((r) =>
+        passaFiltroNomeData({
+          nome: r.nome,
+          buscaNome: filtro.nome,
+          dataMs: toMs(r.criadoEm),
+          dataDeTxt: filtro.dataDe,
+          dataAteTxt: filtro.dataAte,
+        })
+      )
+      .sort((a, b) => toMs(b.criadoEm) - toMs(a.criadoEm));
+  }, [items, filtro]);
 
   const reload = useCallback(() => {
     if (!user) return;
@@ -56,6 +89,7 @@ export default function MeusRankingsAdminScreen() {
             esporte: (raw.esporte as EsporteId) ?? 'tenis',
             totalMembros: Number(raw.totalMembros ?? 0),
             donoUid: String(raw.donoUid ?? ''),
+            criadoEm: raw.criadoEm as { seconds: number } | undefined,
           });
         });
         if (cid) {
@@ -74,11 +108,14 @@ export default function MeusRankingsAdminScreen() {
               esporte: (raw.esporte as EsporteId) ?? 'tenis',
               totalMembros: Number(raw.totalMembros ?? 0),
               donoUid: String(raw.donoUid ?? ''),
+              criadoEm: raw.criadoEm as { seconds: number } | undefined,
             });
           });
         }
         setItems(
-          Array.from(map.values()).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+          Array.from(map.values()).sort(
+            (a, b) => toMs(b.criadoEm) - toMs(a.criadoEm)
+          )
         );
       } finally {
         setLoading(false);
@@ -118,25 +155,37 @@ export default function MeusRankingsAdminScreen() {
         Abra para ver a tabela, editar regras/níveis e compartilhar o link do app.
       </Text>
 
+      <FiltroNomeData
+        value={filtro}
+        onChange={setFiltro}
+        nomePlaceholder="Buscar ranking por nome…"
+      />
+
       {loading ? (
         <ActivityIndicator color={Colors.accent} style={{ marginTop: 24 }} />
       ) : (
         <FlatList
-          data={items}
+          data={lista}
           keyExtractor={(r) => r.id}
           contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}
           ListEmptyComponent={
             <View style={styles.emptyBox}>
-              <Text style={styles.empty}>Nenhum ranking criado ainda.</Text>
-              <Button
-                label="Criar ranking"
-                onPress={() =>
-                  router.push({
-                    pathname: '/clube/ranking-novo',
-                    params: clubeId ? { clubeId } : {},
-                  })
-                }
-              />
+              <Text style={styles.empty}>
+                {items.length === 0
+                  ? 'Nenhum ranking criado ainda.'
+                  : 'Nenhum ranking neste filtro.'}
+              </Text>
+              {items.length === 0 ? (
+                <Button
+                  label="Criar ranking"
+                  onPress={() =>
+                    router.push({
+                      pathname: '/clube/ranking-novo',
+                      params: clubeId ? { clubeId } : {},
+                    })
+                  }
+                />
+              ) : null}
             </View>
           }
           ListFooterComponent={

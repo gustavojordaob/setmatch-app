@@ -41,6 +41,7 @@ export function useTorneios(esporte: EsporteId) {
               donoUid: String(raw.donoUid ?? ''),
               status: (raw.status as Torneio['status']) ?? 'aberto',
               totalInscritos: Number(raw.totalInscritos ?? 0),
+              inscricoesEncerradas: Boolean(raw.inscricoesEncerradas),
               pagamento: raw.pagamento
                 ? {
                     ativo: Boolean((raw.pagamento as { ativo?: boolean }).ativo),

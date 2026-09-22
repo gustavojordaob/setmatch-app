@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -32,7 +32,9 @@ import { abrirOuCriarConversaClube, enviarMensagem } from '../../services/mensag
 import { registrarInteresseAulas } from '../../services/torneios';
 import { criarRegistroPagamento, solicitarAulas } from '../../services/pagamentos';
 import { pagarComEscolhaDeMeio, resumoPromoCurto } from '../../utils/checkoutComMeio';
+import { formatMoneyBR } from '../../utils/mascaras';
 import { useTorneios } from '../../hooks/useTorneios';
+import { useConfrontosTorneio } from '../../hooks/useConfrontosTorneio';
 import { useAuth } from '../../hooks/useAuth';
 import { useEsporte } from '../../contexts/EsporteContext';
 import { EsporteSwitcher } from '../../components/EsporteSwitcher';
@@ -51,9 +53,30 @@ const TAB_PAD_BOTTOM = TAB_BAR_CLEARANCE;
 const PREVIEW_MEUS = 3;
 const PREVIEW_PROXIMOS = 3;
 type Aba = 'rankings' | 'torneios';
+type FiltroRanking = 'meus' | 'explorar' | 'pendentes';
+type FiltroTorneio = 'meus' | 'andamento' | 'abertos' | 'encerrados';
+
+function labelStatusTorneio(status: string): string {
+  if (status === 'em_andamento') return 'Em andamento';
+  if (status === 'finalizado') return 'Encerrado';
+  return 'Inscrições / vai começar';
+}
+
+/** Converte dataInicio (DD/MM/AAAA ou ISO) em ms — sem data vai para o fim. */
+function dataTorneioMs(dataInicio?: string): number {
+  const s = (dataInicio || '').trim();
+  if (!s) return Number.MAX_SAFE_INTEGER;
+  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (br) {
+    return new Date(Number(br[3]), Number(br[2]) - 1, Number(br[1])).getTime();
+  }
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
+}
 
 export default function TrofeuScreen() {
   const router = useRouter();
+  const { aba: abaParam } = useLocalSearchParams<{ aba?: string }>();
   const t = useT();
   const { user, perfil } = useAuth();
   const msgsNaoLidas = useTotalNaoLidas();
@@ -61,13 +84,22 @@ export default function TrofeuScreen() {
   const { clubeAtivo, clubeAtivoId } = useClube();
   const { meus, proximos, loading } = useRankings();
   const { torneios, loading: loadingTorneios } = useTorneios(esporteAtivo);
+  const { torneios: meusTorneiosInsc } = useConfrontosTorneio();
   const minhasSol = useMinhasSolicitacoes();
   const recebidas = useSolicitacoesRecebidas();
   const [busca, setBusca] = useState('');
   const [enviando, setEnviando] = useState<string | null>(null);
-  const [aba, setAba] = useState<Aba>('rankings');
+  const [aba, setAba] = useState<Aba>(
+    abaParam === 'torneios' ? 'torneios' : 'rankings'
+  );
+  const [filtroRanking, setFiltroRanking] = useState<FiltroRanking>('meus');
+  const [filtroTorneio, setFiltroTorneio] = useState<FiltroTorneio>('meus');
   const [rankingDupla, setRankingDupla] = useState<Ranking | null>(null);
   const [parceiroBusca, setParceiroBusca] = useState('');
+
+  useEffect(() => {
+    if (abaParam === 'torneios') setAba('torneios');
+  }, [abaParam]);
 
   const esporteNome = t(`esporte.${esporteAtivo}`);
   const minhaCidade = (perfil?.cidade ?? '').toLowerCase();
@@ -121,6 +153,41 @@ export default function TrofeuScreen() {
     });
   }, [torneios, busca, minhaCidade, clubeAtivoId]);
 
+  const inscritosTorneioIds = useMemo(() => {
+    const set = new Set<string>();
+    meusTorneiosInsc.forEach((i) => {
+      if (i.esporte && i.esporte !== esporteAtivo) return;
+      set.add(i.torneioId);
+    });
+    return set;
+  }, [meusTorneiosInsc, esporteAtivo]);
+
+  const torneiosPorFiltro = useMemo(() => {
+    const list = torneiosFiltrados.filter((tr) => {
+      const inscrito = inscritosTorneioIds.has(tr.id);
+      if (filtroTorneio === 'meus') return inscrito;
+      if (filtroTorneio === 'andamento') return tr.status === 'em_andamento';
+      if (filtroTorneio === 'abertos') {
+        return (
+          tr.status === 'aberto' &&
+          !tr.inscricoesEncerradas &&
+          !inscrito
+        );
+      }
+      if (filtroTorneio === 'encerrados') return tr.status === 'finalizado';
+      return true;
+    });
+    // Mais próximo → mais longe (dataInicio)
+    return [...list].sort(
+      (a, b) => dataTorneioMs(a.dataInicio) - dataTorneioMs(b.dataInicio)
+    );
+  }, [torneiosFiltrados, filtroTorneio, inscritosTorneioIds]);
+
+  const pendentesRanking = useMemo(
+    () =>
+      proximosFiltrados.filter((r) => statusPorRanking.get(r.id) === 'pendente'),
+    [proximosFiltrados, statusPorRanking]
+  );
   async function handleSolicitar(r: Ranking, buscaParceiro?: string) {
     if (!user || !perfil) return;
     if (r.composicao === 'dupla' && !buscaParceiro?.trim()) {
@@ -190,7 +257,7 @@ export default function TrofeuScreen() {
         Alert.alert(
           'Solicitação + pagamento',
           [
-            `Taxa R$ ${r.pagamento.valor.toFixed(2)} (${r.pagamento.ciclo === 'mensal' ? 'mensal' : 'única'}).`,
+            `Taxa ${formatMoneyBR(r.pagamento.valor)} (${r.pagamento.ciclo === 'mensal' ? 'mensal' : 'única'}).`,
             r.pagamento.ciclo === 'mensal'
               ? 'Cartão = cobrança automática todo mês. PIX = só este mês.'
               : 'Pagamento único.',
@@ -313,7 +380,7 @@ export default function TrofeuScreen() {
         Alert.alert(
           'Aulas',
           [
-            `Mensalidade R$ ${Number(aulas.valorMensal).toFixed(2)}.`,
+            `Mensalidade ${formatMoneyBR(Number(aulas.valorMensal))}.`,
             'Cartão = cobrança automática todo mês (assinatura). PIX = só este mês.',
             promo || '',
             'O admin também pode liberar no painel.',
@@ -436,13 +503,41 @@ export default function TrofeuScreen() {
                 </View>
               ) : null}
 
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipRow}
+              >
+                {(
+                  [
+                    ['meus', `Meus (${meusEsporte.length})`],
+                    ['explorar', `Explorar (${proximosFiltrados.length})`],
+                    ['pendentes', `Pendentes (${pendentesRanking.length})`],
+                  ] as const
+                ).map(([id, label]) => (
+                  <TouchableOpacity
+                    key={id}
+                    style={[styles.chip, filtroRanking === id && styles.chipOn]}
+                    onPress={() => setFiltroRanking(id)}
+                  >
+                    <Text style={[styles.chipTxt, filtroRanking === id && styles.chipTxtOn]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
               {loading ? (
                 <ActivityIndicator color={Colors.accent} style={{ marginTop: 24 }} />
-              ) : (
+              ) : filtroRanking === 'meus' ? (
                 <>
-                  {meusEsporte.length > 0 ? (
+                  <Text style={styles.section}>Meus rankings · {esporteNome}</Text>
+                  {meusEsporte.length === 0 ? (
+                    <Text style={styles.empty}>
+                      Você ainda não entrou em nenhum ranking deste esporte.
+                    </Text>
+                  ) : (
                     <>
-                      <Text style={styles.section}>Meus rankings · {esporteNome}</Text>
                       {meusEsporte.slice(0, PREVIEW_MEUS).map((r) => (
                         <View key={r.id} style={{ marginBottom: 8 }}>
                           <RankingConnectedCard
@@ -473,10 +568,52 @@ export default function TrofeuScreen() {
                         </TouchableOpacity>
                       ) : null}
                     </>
-                  ) : null}
-
+                  )}
+                </>
+              ) : filtroRanking === 'pendentes' ? (
+                <>
+                  <Text style={styles.section}>Solicitações pendentes · {esporteNome}</Text>
+                  {pendentesRanking.length === 0 ? (
+                    <Text style={styles.empty}>Nenhuma solicitação pendente.</Text>
+                  ) : (
+                    pendentesRanking.map((r) => (
+                      <View key={r.id} style={styles.clubeCard}>
+                        <TouchableOpacity
+                          style={styles.clubeInfo}
+                          onPress={() => router.push(`/ranking/${r.id}`)}
+                        >
+                          <View style={styles.clubeTituloRow}>
+                            {r.clubeLogoUrl ? (
+                              <Image
+                                source={{ uri: r.clubeLogoUrl }}
+                                style={styles.clubeLogo}
+                              />
+                            ) : (
+                              <View style={styles.clubeLogoFallback}>
+                                <Text style={styles.clubeLogoFallbackTxt}>
+                                  {r.clubeNome.charAt(0).toUpperCase()}
+                                </Text>
+                              </View>
+                            )}
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={styles.clubeNome} numberOfLines={2}>
+                                {r.nome}
+                              </Text>
+                              <Text style={styles.clubeMeta} numberOfLines={1}>
+                                {r.clubeNome} · {r.cidade}
+                              </Text>
+                              <Text style={styles.statusBadge}>Aguardando aprovação</Text>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  )}
+                </>
+              ) : (
+                <>
                   <Text style={styles.section}>
-                    {t('trofeu.rankings')} · {esporteNome}
+                    Para entrar · {esporteNome}
                   </Text>
                   {proximosFiltrados.length === 0 ? (
                     <Text style={styles.empty}>{t('trofeu.noActiveRanking')}</Text>
@@ -565,49 +702,104 @@ export default function TrofeuScreen() {
             </>
           ) : loadingTorneios ? (
             <ActivityIndicator color={Colors.accent} style={{ marginTop: 24 }} />
-          ) : torneiosFiltrados.length === 0 ? (
-            <Text style={styles.empty}>{t('trofeu.noTournamentYet')}</Text>
           ) : (
             <>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipRow}
+              >
+                {(
+                  [
+                    ['meus', 'Meus'],
+                    ['andamento', 'Em andamento'],
+                    ['abertos', 'Para se inscrever'],
+                    ['encerrados', 'Encerrados'],
+                  ] as const
+                ).map(([id, label]) => (
+                  <TouchableOpacity
+                    key={id}
+                    style={[styles.chip, filtroTorneio === id && styles.chipOn]}
+                    onPress={() => setFiltroTorneio(id)}
+                  >
+                    <Text style={[styles.chipTxt, filtroTorneio === id && styles.chipTxtOn]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
               <Text style={styles.section}>
-                {t('trofeu.tournaments')} · {esporteNome}
+                {filtroTorneio === 'meus'
+                  ? `Meus torneios · ${esporteNome}`
+                  : filtroTorneio === 'andamento'
+                    ? `Em andamento · ${esporteNome}`
+                    : filtroTorneio === 'abertos'
+                      ? `Abertos para inscrição · ${esporteNome}`
+                      : `Encerrados · ${esporteNome}`}
               </Text>
-              {torneiosFiltrados.map((tr) => (
-                <TouchableOpacity
-                  key={tr.id}
-                  style={styles.torneioCard}
-                  onPress={() => router.push(`/torneio/${tr.id}`)}
-                >
-                  {tr.bannerUrl ? (
-                    <Image source={{ uri: tr.bannerUrl }} style={styles.torneioBanner} />
-                  ) : null}
-                  <View style={styles.clubeTituloRow}>
-                    {tr.logoUrl || tr.clubeLogoUrl ? (
-                      <Image
-                        source={{ uri: tr.logoUrl || tr.clubeLogoUrl }}
-                        style={styles.clubeLogo}
-                      />
-                    ) : (
-                      <View style={styles.clubeLogoFallback}>
-                        <Text style={styles.clubeLogoFallbackTxt}>
-                          {tr.clubeNome.charAt(0).toUpperCase()}
-                        </Text>
+              {torneiosPorFiltro.length === 0 ? (
+                <Text style={styles.empty}>
+                  {filtroTorneio === 'meus'
+                    ? 'Você ainda não está inscrito em nenhum torneio deste esporte.'
+                    : filtroTorneio === 'abertos'
+                      ? 'Nenhum torneio aberto para inscrição agora.'
+                      : t('trofeu.noTournamentYet')}
+                </Text>
+              ) : (
+                torneiosPorFiltro.map((tr) => {
+                  const inscrito = inscritosTorneioIds.has(tr.id);
+                  return (
+                    <TouchableOpacity
+                      key={tr.id}
+                      style={styles.torneioCard}
+                      onPress={() => router.push(`/torneio/${tr.id}`)}
+                    >
+                      {tr.bannerUrl ? (
+                        <Image source={{ uri: tr.bannerUrl }} style={styles.torneioBanner} />
+                      ) : null}
+                      <View style={styles.clubeTituloRow}>
+                        {tr.logoUrl || tr.clubeLogoUrl ? (
+                          <Image
+                            source={{ uri: tr.logoUrl || tr.clubeLogoUrl }}
+                            style={styles.clubeLogo}
+                          />
+                        ) : (
+                          <View style={styles.clubeLogoFallback}>
+                            <Text style={styles.clubeLogoFallbackTxt}>
+                              {tr.clubeNome.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.clubeNome} numberOfLines={2}>
+                            {tr.nome}
+                          </Text>
+                          <Text style={styles.clubeMeta} numberOfLines={1}>
+                            {tr.local || tr.clubeNome} · {tr.cidade}
+                          </Text>
+                        </View>
                       </View>
-                    )}
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.clubeNome} numberOfLines={2}>
-                        {tr.nome}
+                      <Text style={styles.clubeMembros}>
+                        {tr.dataInicio || 'Datas a definir'} · {tr.totalInscritos} inscrito
+                        {tr.totalInscritos === 1 ? '' : 's'}
                       </Text>
-                      <Text style={styles.clubeMeta} numberOfLines={1}>
-                        {tr.clubeNome} · {tr.cidade}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={styles.clubeMembros}>
-                    {tr.dataInicio || 'Datas a definir'} · {tr.status}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                      <View style={styles.badgeRow}>
+                        <Text style={styles.statusBadge}>{labelStatusTorneio(tr.status)}</Text>
+                        {inscrito ? (
+                          <Text style={[styles.statusBadge, styles.statusBadgeInsc]}>
+                            Inscrito
+                          </Text>
+                        ) : tr.status === 'aberto' && !tr.inscricoesEncerradas ? (
+                          <Text style={[styles.statusBadge, styles.statusBadgeOpen]}>
+                            Disponível
+                          </Text>
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </>
           )}
         </ScrollView>
@@ -775,6 +967,30 @@ const styles = StyleSheet.create({
   tabOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   tabTxt: { color: Colors.textPrimary, fontWeight: '700' },
   tabTxtOn: { color: Colors.textOnAccent },
+  chipRow: { gap: 8, paddingVertical: 4, marginBottom: 4 },
+  chip: {
+    borderRadius: Radius.pill,
+    borderWidth: 1.5,
+    borderColor: Colors.white,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  chipOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  chipTxt: { color: Colors.textPrimary, fontWeight: '700', fontSize: 13 },
+  chipTxtOn: { color: Colors.textOnAccent },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  statusBadge: {
+    color: Colors.accent,
+    fontWeight: '800',
+    fontSize: 11,
+    backgroundColor: Colors.surface,
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.pill,
+  },
+  statusBadgeInsc: { color: Colors.textOnAccent, backgroundColor: Colors.accent },
+  statusBadgeOpen: { color: Colors.textPrimary },
   section: {
     color: Colors.textPrimary,
     fontWeight: 'bold',

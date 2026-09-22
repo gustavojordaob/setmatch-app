@@ -1,12 +1,13 @@
 import { FORMATOS_PARTIDA } from '../constants/formatosPartida';
 
 export type SetPlacar = { j1: number; j2: number };
+export type SetDraft = { j1: string; j2: string };
 
 /** Regras internas normalizadas a partir de qualquer id de formato (torneio/ranking/desafio). */
 export type RegrasPlacar = {
-  /** Quantos “jogos” (sets/games) precisa vencer para fechar. */
+  /** Quantos sets/game precisa vencer para fechar (melhor de N → ceil(N/2)). */
   setsParaVencer: number;
-  /** Se true e setsParaVencer===2, o 3º jogo é super TB (não set completo). */
+  /** Se true, o jogo decisivo empatado vira super TB (não set completo). */
   temSuperTiebreak: boolean;
   tiebreakAte: number;
   /** Partida de um único placar (pro set, TB, game 11/8/15…). */
@@ -22,7 +23,6 @@ export type RegrasPlacar = {
 export function regrasPlacarPorFormato(formatoId?: string | null): RegrasPlacar {
   const id = String(formatoId ?? '').trim();
 
-  // IDs canônicos do desafio
   const base = FORMATOS_PARTIDA.find((f) => f.id === id);
   if (base) {
     if (
@@ -68,9 +68,9 @@ export function regrasPlacarPorFormato(formatoId?: string | null): RegrasPlacar 
     };
   }
 
-  // IDs extras de torneio/ranking
   switch (id) {
     case 'tres_sets_de_3':
+      // Melhor de 3 (quem vencer 2), games curtos até 3
       return { setsParaVencer: 2, temSuperTiebreak: false, tiebreakAte: 7, unicoPlacar: false };
     case 'dois_sets_de_3':
       return {
@@ -120,7 +120,7 @@ export function regrasPlacarPorFormato(formatoId?: string | null): RegrasPlacar 
         unicoPlacar: false,
       };
     default:
-      // fallback: melhor de 3 + STB (padrão Rally Up)
+      // fallback: 2 sets + STB (padrão Rally Up)
       return {
         setsParaVencer: 2,
         temSuperTiebreak: true,
@@ -146,6 +146,31 @@ export function setsVencidos(sets: SetPlacar[]): { j1: number; j2: number } {
   return { j1, j2 };
 }
 
+/**
+ * Só conta sets já decididos (sem empate), do início até o primeiro incompleto.
+ * Ignora 0–0 / vazios no fim do draft — evita travar a progressive UI.
+ */
+export function setsDecididos(sets: SetPlacar[]): SetPlacar[] {
+  const out: SetPlacar[] = [];
+  for (const s of sets) {
+    if (vencedorDoSet(s) == null) break;
+    out.push(s);
+  }
+  return out;
+}
+
+/** Converte draft de inputs (string) → placares numéricos (vazio = 0). */
+export function draftParaSets(draft: SetDraft[]): SetPlacar[] {
+  return draft.map((s) => ({
+    j1: Math.max(0, Math.floor(Number(s.j1) || 0)),
+    j2: Math.max(0, Math.floor(Number(s.j2) || 0)),
+  }));
+}
+
+/**
+ * Quantos campos de set mostrar no formulário.
+ * Progressive: abre o próximo set até alguém atingir `setsParaVencer`.
+ */
 export function quantosSetsVisiveis(
   formatoId: string | undefined,
   setsParciais: SetPlacar[]
@@ -155,29 +180,26 @@ export function quantosSetsVisiveis(
   if (r.setsFixos) return r.setsFixos;
 
   const need = r.setsParaVencer;
-  const won = setsVencidos(setsParciais.slice(0, need === 3 ? 5 : 3));
+  const maxSets = need * 2 - 1; // melhor de 3 → 3; melhor de 5 → 5
+  const decided = setsDecididos(setsParciais);
+  const won = setsVencidos(decided);
 
-  // melhor de 5 + STB: se 2–2, abre 5º como STB
-  if (r.temSuperTiebreak && need === 3) {
-    if (won.j1 >= 3 || won.j2 >= 3) return Math.max(won.j1 + won.j2, 3);
-    if (won.j1 === 2 && won.j2 === 2) return 5;
-    return Math.min(5, Math.max(3, won.j1 + won.j2 + 1));
+  // Partida já fechada
+  if (won.j1 >= need || won.j2 >= need) {
+    return Math.max(need, decided.length);
   }
 
-  if (r.temSuperTiebreak && need === 2) {
-    if (won.j1 >= 1 && won.j2 >= 1) return 3;
-    return 2;
+  // Super TB no lugar do set decisivo
+  if (r.temSuperTiebreak) {
+    const empatados = need - 1; // 1–1 (md3) ou 2–2 (md5)
+    if (won.j1 === empatados && won.j2 === empatados) {
+      return decided.length + 1; // abre o STB
+    }
   }
 
-  if (need === 3) {
-    if (won.j1 >= 3 || won.j2 >= 3) return Math.max(won.j1 + won.j2, 3);
-    return Math.min(5, Math.max(3, won.j1 + won.j2 + 1));
-  }
-
-  // melhor de 3 clássico
-  if (won.j1 >= 2 || won.j2 >= 2) return Math.max(2, won.j1 + won.j2);
-  if (won.j1 === 1 && won.j2 === 1) return 3;
-  return 2;
+  // Ainda em andamento: mostra decididos + 1 slot vazio (mínimo = need na abertura)
+  const proximo = decided.length + 1;
+  return Math.min(maxSets, Math.max(need, proximo));
 }
 
 export function precisaSuperTiebreak(
@@ -186,15 +208,9 @@ export function precisaSuperTiebreak(
 ): boolean {
   const r = regrasPlacarPorFormato(formatoId);
   if (!r.temSuperTiebreak) return false;
-  if (r.setsParaVencer === 2) {
-    const won = setsVencidos(sets.slice(0, 2));
-    return won.j1 === 1 && won.j2 === 1;
-  }
-  if (r.setsParaVencer === 3) {
-    const won = setsVencidos(sets.slice(0, 4));
-    return won.j1 === 2 && won.j2 === 2;
-  }
-  return false;
+  const need = r.setsParaVencer;
+  const won = setsVencidos(setsDecididos(sets).slice(0, need * 2 - 2));
+  return won.j1 === need - 1 && won.j2 === need - 1;
 }
 
 export function rotuloSet(
@@ -204,10 +220,37 @@ export function rotuloSet(
 ): string {
   const r = regrasPlacarPorFormato(formatoId);
   if (r.unicoPlacar) return r.rotuloUnico ?? 'Placar';
-  if (precisaSuperTiebreak(formatoId, sets) && index === (r.setsParaVencer === 3 ? 4 : 2)) {
+  const stbIndex = r.setsParaVencer * 2 - 2; // 2 (md3) ou 4 (md5)
+  if (precisaSuperTiebreak(formatoId, sets) && index === stbIndex) {
     return `Super tiebreak (até ${r.tiebreakAte})`;
   }
   return `Set ${index + 1}`;
+}
+
+/** Texto de status no modal (ex.: "Sets 2–1 · informe o 4º set"). */
+export function statusPlacarProgressivo(
+  formatoId: string | undefined,
+  sets: SetPlacar[]
+): string {
+  const r = regrasPlacarPorFormato(formatoId);
+  if (r.unicoPlacar) return r.rotuloUnico ?? 'Informe o placar';
+  if (r.setsFixos) return `Informe os ${r.setsFixos} sets`;
+
+  const decided = setsDecididos(sets);
+  const won = setsVencidos(decided);
+  const need = r.setsParaVencer;
+
+  if (won.j1 >= need || won.j2 >= need) {
+    return `Sets ${won.j1}–${won.j2} · partida definida`;
+  }
+  if (r.temSuperTiebreak && won.j1 === need - 1 && won.j2 === need - 1) {
+    return `Sets ${won.j1}–${won.j2} · super tiebreak até ${r.tiebreakAte}`;
+  }
+  if (decided.length === 0) {
+    return `Melhor de ${need * 2 - 1} · quem vencer ${need} sets`;
+  }
+  const nVis = quantosSetsVisiveis(formatoId, sets);
+  return `Sets ${won.j1}–${won.j2} · informe o ${nVis}º set`;
 }
 
 /** Valida placar e devolve lado vencedor. */
@@ -224,7 +267,10 @@ export function validarPlacarTorneio(input: {
 
   for (let i = 0; i < sets.length; i++) {
     if (sets[i].j1 === sets[i].j2) {
-      return { ok: false, erro: `${rotuloSet(input.formatoId, i, sets)} não pode empatar.` };
+      return {
+        ok: false,
+        erro: `${rotuloSet(input.formatoId, i, sets)} não pode empatar — preencha o placar.`,
+      };
     }
   }
 
@@ -245,10 +291,10 @@ export function validarPlacarTorneio(input: {
   }
 
   if (r.setsFixos) {
-    const won = setsVencidos(sets.slice(0, r.setsFixos));
     if (sets.length < r.setsFixos) {
       return { ok: false, erro: `Informe os ${r.setsFixos} sets.` };
     }
+    const won = setsVencidos(sets.slice(0, r.setsFixos));
     if (won.j1 === won.j2) {
       return { ok: false, erro: 'Empate em sets — informe placares diferentes.' };
     }
@@ -259,49 +305,31 @@ export function validarPlacarTorneio(input: {
     };
   }
 
-  const won = setsVencidos(sets);
   const need = r.setsParaVencer;
+  const decided = setsDecididos(sets);
+  const won = setsVencidos(decided);
 
-  if (r.temSuperTiebreak && need === 2) {
-    const s1 = vencedorDoSet(sets[0]);
-    const s2 = vencedorDoSet(sets[1]);
-    if (!s1 || !s2) return { ok: false, erro: 'Preencha os 2 primeiros sets.' };
-    if (s1 === s2) return { ok: true, vencedor: s1, sets: sets.slice(0, 2) };
-    if (sets.length < 3) {
-      return {
-        ok: false,
-        erro: `Empate 1–1: informe o super tiebreak (até ${r.tiebreakAte}).`,
-      };
-    }
-    const stb = sets[2];
-    if (Math.max(stb.j1, stb.j2) < r.tiebreakAte) {
-      return {
-        ok: false,
-        erro: `Super tiebreak: alguém precisa chegar a ${r.tiebreakAte} pontos.`,
-      };
-    }
-    const w = vencedorDoSet(stb);
-    if (!w) return { ok: false, erro: 'Super tiebreak inválido.' };
-    return { ok: true, vencedor: w, sets: sets.slice(0, 3) };
-  }
-
-  if (r.temSuperTiebreak && need === 3) {
-    if (won.j1 >= 3 || won.j2 >= 3) {
+  if (r.temSuperTiebreak) {
+    const empatados = need - 1;
+    if (won.j1 >= need || won.j2 >= need) {
       return {
         ok: true,
         vencedor: won.j1 > won.j2 ? 'j1' : 'j2',
-        sets,
+        sets: decided,
       };
     }
-    const beforeStb = setsVencidos(sets.slice(0, 4));
-    if (beforeStb.j1 === 2 && beforeStb.j2 === 2) {
-      if (sets.length < 5) {
+    if (won.j1 === empatados && won.j2 === empatados) {
+      const stbIdx = decided.length;
+      if (sets.length <= stbIdx) {
         return {
           ok: false,
-          erro: `Empate 2–2: informe o super tiebreak (até ${r.tiebreakAte}).`,
+          erro: `Empate ${empatados}–${empatados}: informe o super tiebreak (até ${r.tiebreakAte}).`,
         };
       }
-      const stb = sets[4];
+      const stb = sets[stbIdx];
+      if (stb.j1 === stb.j2) {
+        return { ok: false, erro: 'Super tiebreak não pode empatar.' };
+      }
       if (Math.max(stb.j1, stb.j2) < r.tiebreakAte) {
         return {
           ok: false,
@@ -310,18 +338,18 @@ export function validarPlacarTorneio(input: {
       }
       const w = vencedorDoSet(stb);
       if (!w) return { ok: false, erro: 'Super tiebreak inválido.' };
-      return { ok: true, vencedor: w, sets: sets.slice(0, 5) };
+      return { ok: true, vencedor: w, sets: [...decided, stb] };
     }
     return {
       ok: false,
-      erro: `É preciso vencer ${need} sets para fechar o confronto.`,
+      erro: statusPlacarProgressivo(input.formatoId, sets),
     };
   }
 
   if (won.j1 < need && won.j2 < need) {
     return {
       ok: false,
-      erro: `É preciso vencer ${need} sets para fechar o confronto.`,
+      erro: statusPlacarProgressivo(input.formatoId, sets),
     };
   }
   if (won.j1 === won.j2) {
@@ -330,7 +358,7 @@ export function validarPlacarTorneio(input: {
   return {
     ok: true,
     vencedor: won.j1 > won.j2 ? 'j1' : 'j2',
-    sets,
+    sets: decided,
   };
 }
 

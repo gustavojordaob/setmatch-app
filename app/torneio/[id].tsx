@@ -24,6 +24,7 @@ import { Radius } from '../../constants/radius';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { ChaveamentoBracket } from '../../components/torneio/ChaveamentoBracket';
+import { GruposTorneioPainel } from '../../components/torneio/GruposTorneioPainel';
 import { useAuth } from '../../hooks/useAuth';
 import {
   atualizarAgendaTorneio,
@@ -31,17 +32,23 @@ import {
   atualizarMidiaTorneio,
   encerrarInscricoesTorneio,
   excluirTorneio,
+  cancelarInscricaoTorneio,
   inscreverTorneio,
   inscreverTorneioPorOrganizador,
   jaInscrito,
   novaCategoriaId,
   ouvirInscritosTorneio,
+  sincronizarTotalInscritos,
   type CategoriaTorneio,
   type CampeaoCategoria,
   type InscricaoTorneio,
   type Torneio,
 } from '../../services/torneios';
 import { compartilharTorneioFora } from '../../utils/compartilharTorneio';
+import {
+  qtdByesNecessarios,
+  tamanhoChaveEfetivo,
+} from '../../utils/chaveamento';
 import {
   uploadBannerTorneio,
   uploadLogoTorneio,
@@ -50,9 +57,23 @@ import {
   gerarChaveamento,
   ouvirConfrontos,
   registrarResultadoConfronto,
+  registrarWO,
+  trocarSlotsChave,
   atualizarAgendaConfronto,
+  aplicarHorarioPadraoConfrontos,
+  detectarConflitosAgendaConfronto,
+  remarcarConfrontosPendentes,
   type ConfrontoTorneio,
 } from '../../services/chaveamentoTorneio';
+import {
+  gerarFaseGrupos,
+  tentarPromoverClassificados,
+} from '../../services/gruposTorneio';
+import { maskDateBR, maskTimeHHMM, isDateBRCompleta, formatMoneyBR } from '../../utils/mascaras';
+import {
+  INTERVALOS_JOGO_OPCOES,
+  parseListaQuadras,
+} from '../../utils/agendaTorneio';
 import { pagarComEscolhaDeMeio, resumoPromoCurto } from '../../utils/checkoutComMeio';
 import { abrirOuCriarConversaClube, enviarMensagem } from '../../services/mensagens';
 import type { EsporteId } from '../../constants/esportes';
@@ -64,13 +85,25 @@ import {
 import { buscarUsuarioPorEmailOuId } from '../../services/duplas';
 import { Input } from '../../components/ui/Input';
 import {
+  draftParaSets,
   quantosSetsVisiveis,
   rotuloSet,
+  statusPlacarProgressivo,
   validarPlacarTorneio,
 } from '../../utils/placarTorneio';
+import { labelFormatoPartidaTorneio } from '../../constants/chaveamentosTorneio';
 
 function emptySetsDraft(): { j1: string; j2: string }[] {
   return Array.from({ length: 5 }, () => ({ j1: '', j2: '' }));
+}
+
+function ensureDraftSlots(
+  prev: { j1: string; j2: string }[],
+  idx: number
+): { j1: string; j2: string }[] {
+  const next = [...prev];
+  while (next.length <= idx) next.push({ j1: '', j2: '' });
+  return next;
 }
 
 export default function TorneioDetailScreen() {
@@ -104,11 +137,34 @@ export default function TorneioDetailScreen() {
   const [compartilhando, setCompartilhando] = useState(false);
   const [modalCabecas, setModalCabecas] = useState(false);
   const [cabecasSel, setCabecasSel] = useState<string[]>([]);
+  const [byeSel, setByeSel] = useState<string[]>([]);
+  /** sorteio | ordem | montar */
+  const [modoChave, setModoChave] = useState<'sorteio' | 'ordem' | 'montar'>('sorteio');
+  const [slotsManuais, setSlotsManuais] = useState<(string | null)[]>([]);
+  const [pickerSlot, setPickerSlot] = useState<number | null>(null);
   const [refazerChave, setRefazerChave] = useState(false);
+  const [modoEditarChave, setModoEditarChave] = useState(false);
+  const [swapOrigem, setSwapOrigem] = useState<{
+    confrontoId: string;
+    slot: 'j1' | 'j2';
+    nome: string;
+  } | null>(null);
   const [excluindo, setExcluindo] = useState(false);
   const [orgBuscaJogador, setOrgBuscaJogador] = useState('');
   const [orgBuscaParceiro, setOrgBuscaParceiro] = useState('');
   const [cadastrandoOrg, setCadastrandoOrg] = useState(false);
+  const [agendaRapida, setAgendaRapida] = useState(false);
+  const [agendaDrafts, setAgendaDrafts] = useState<
+    Record<string, { hora: string; quadra: string }>
+  >({});
+  const [salvandoAgendaId, setSalvandoAgendaId] = useState<string | null>(null);
+  const [aplicandoPadrao, setAplicandoPadrao] = useState(false);
+  const [novaDataRemarc, setNovaDataRemarc] = useState('');
+  const [novaHoraRemarc, setNovaHoraRemarc] = useState('');
+  const [remarcando, setRemarcando] = useState(false);
+  const [intervaloJogosMin, setIntervaloJogosMin] = useState(60);
+  const [quadrasTexto, setQuadrasTexto] = useState('');
+  const [atribuirQuadras, setAtribuirQuadras] = useState(false);
   const insets = useSafeAreaInsets();
 
   async function reloadTorneio() {
@@ -120,6 +176,16 @@ export default function TorneioDetailScreen() {
     const quadraNome = raw.quadraNome ? String(raw.quadraNome) : undefined;
     setEvHora(horarioPadrao ?? '');
     setEvQuadra(quadraNome ?? '');
+    setIntervaloJogosMin(Number(raw.intervaloJogosMin) || 60);
+    setAtribuirQuadras(Boolean(raw.atribuirQuadrasAoSortear));
+    setQuadrasTexto(
+      Array.isArray(raw.quadrasDisponiveis)
+        ? (raw.quadrasDisponiveis as unknown[])
+            .map((q) => String(q ?? '').trim())
+            .filter(Boolean)
+            .join('\n')
+        : ''
+    );
     setTorneio({
       id: snap.id,
       clubeId: String(raw.clubeId ?? ''),
@@ -134,13 +200,35 @@ export default function TorneioDetailScreen() {
       dataFim: raw.dataFim ? String(raw.dataFim) : undefined,
       descricao: raw.descricao ? String(raw.descricao) : undefined,
       local: raw.local ? String(raw.local) : undefined,
+      cep: raw.cep ? String(raw.cep) : undefined,
+      endereco: raw.endereco ? String(raw.endereco) : undefined,
+      bairro: raw.bairro ? String(raw.bairro) : undefined,
+      estado: raw.estado ? String(raw.estado) : undefined,
       horarioPadrao,
       quadraNome,
+      intervaloJogosMin: Number(raw.intervaloJogosMin) || 60,
+      quadrasDisponiveis: Array.isArray(raw.quadrasDisponiveis)
+        ? (raw.quadrasDisponiveis as unknown[])
+            .map((q) => String(q ?? '').trim())
+            .filter(Boolean)
+        : undefined,
+      atribuirQuadrasAoSortear: Boolean(raw.atribuirQuadrasAoSortear),
       donoUid: String(raw.donoUid ?? ''),
       status: (raw.status as Torneio['status']) ?? 'aberto',
       totalInscritos: Number(raw.totalInscritos ?? 0),
       estruturaMata: raw.estruturaMata != null ? (Number(raw.estruturaMata) as Torneio['estruturaMata']) : undefined,
       definicaoChave: raw.definicaoChave as Torneio['definicaoChave'],
+      formatoChaves: raw.formatoChaves as Torneio['formatoChaves'],
+      gruposConfig: raw.gruposConfig
+        ? {
+            qtdGrupos: Number((raw.gruposConfig as { qtdGrupos?: number }).qtdGrupos) || 2,
+            jogadoresPorGrupo:
+              Number((raw.gruposConfig as { jogadoresPorGrupo?: number }).jogadoresPorGrupo) || 4,
+            classificadosPorGrupo:
+              Number((raw.gruposConfig as { classificadosPorGrupo?: number }).classificadosPorGrupo) ||
+              2,
+          }
+        : undefined,
       campeaoUid: raw.campeaoUid ? String(raw.campeaoUid) : undefined,
       campeaoNome: raw.campeaoNome ? String(raw.campeaoNome) : undefined,
       campeoesPorCategoria: (() => {
@@ -232,6 +320,87 @@ export default function TorneioDetailScreen() {
     return ouvirInscritosTorneio(id, setInscritos);
   }, [id]);
 
+  const totalConfirmadosReais = useMemo(
+    () =>
+      inscritos.filter((i) => !i.status || i.status === 'confirmado').length,
+    [inscritos]
+  );
+
+  const souDonoSync = Boolean(user && torneio && user.uid === torneio.donoUid);
+
+  // Corrige contador desatualizado (só o dono pode gravar; UI já usa a lista real)
+  useEffect(() => {
+    if (!id || !torneio || !souDonoSync) return;
+    const gravado = Number(torneio.totalInscritos ?? 0);
+    if (gravado === totalConfirmadosReais) return;
+    void sincronizarTotalInscritos(id)
+      .then((n) => {
+        setTorneio((prev) => (prev ? { ...prev, totalInscritos: n } : prev));
+      })
+      .catch((e) => console.warn('[torneio] sync totalInscritos', e));
+  }, [id, souDonoSync, torneio, totalConfirmadosReais]);
+
+  // Mantém flag local sincronizada com a lista em tempo real (após exclusão/reentrada)
+  useEffect(() => {
+    if (!user?.uid) {
+      setInscrito(false);
+      return;
+    }
+    setInscrito(inscritos.some((i) => i.uid === user.uid));
+  }, [inscritos, user?.uid]);
+
+  // Repara inscrição presa em "pagamento pendente" após Stripe já aprovado
+  // (docs multi-categoria uid__cat não eram liberados pelo CF antigo).
+  useEffect(() => {
+    if (!id || !user?.uid || inscritos.length === 0) return;
+    const pendentes = inscritos.filter(
+      (i) =>
+        i.uid === user.uid &&
+        i.status === 'aguardando_pagamento' &&
+        !i.pago
+    );
+    if (pendentes.length === 0) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { collection, getDocs, query, where, limit } = await import(
+          'firebase/firestore'
+        );
+        const { db } = await import('../../utils/firebaseConfig');
+        const snap = await getDocs(
+          query(
+            collection(db, 'pagamentos'),
+            where('uid', '==', user.uid),
+            limit(40)
+          )
+        );
+        if (cancelled) return;
+        const ok = snap.docs.find((d) => {
+          const raw = d.data();
+          if (String(raw.torneioId || '') !== id) return false;
+          const s = String(raw.status || '');
+          return s === 'aprovado' || s === 'liberado_admin';
+        });
+        if (!ok) return;
+        const { marcarPagamentoInscricaoTorneio } = await import(
+          '../../services/duplas'
+        );
+        await marcarPagamentoInscricaoTorneio({
+          torneioId: id,
+          uid: user.uid,
+          pagamentoId: ok.id,
+        });
+      } catch (e) {
+        console.warn('[torneio] reparar inscrição pós-pago', e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, user?.uid, inscritos]);
+
   useEffect(() => {
     if (!id) return;
     return ouvirConfrontos(id, setConfrontos);
@@ -274,11 +443,11 @@ export default function TorneioDetailScreen() {
   );
   const inscritoNaCategoriaSel = useMemo(
     () =>
-      minhasInscricoes.some(
-        (i) =>
-          (i.categoriaId && i.categoriaId === categoriaSel) ||
-          (!i.categoriaId && categorias.length === 0)
-      ),
+      minhasInscricoes.some((i) => {
+        const cat = (i.categoriaId || '').trim();
+        if (categoriaSel) return cat === categoriaSel;
+        return !cat && categorias.length === 0;
+      }),
     [minhasInscricoes, categoriaSel, categorias.length]
   );
   const inscritosFiltrados = useMemo(() => {
@@ -300,6 +469,15 @@ export default function TorneioDetailScreen() {
     () => (chaveVisivel ? confrontosFiltrados : []),
     [chaveVisivel, confrontosFiltrados]
   );
+  const confrontosGrupo = useMemo(
+    () => confrontosVisiveis.filter((c) => (c.fase ?? 'mata') === 'grupo'),
+    [confrontosVisiveis]
+  );
+  const confrontosMata = useMemo(
+    () => confrontosVisiveis.filter((c) => (c.fase ?? 'mata') === 'mata'),
+    [confrontosVisiveis]
+  );
+  const ehGruposMata = torneio?.formatoChaves === 'grupos_mata';
 
   async function onCompartilhar() {
     if (!torneio) return;
@@ -367,6 +545,7 @@ export default function TorneioDetailScreen() {
         nome: perfil.nome,
         fotoUrl: perfil.fotoUrl,
         telefone: perfil.telefone,
+        email: perfil.email || user.email || undefined,
         setmatchId: perfil.setmatchId,
         categoriaId: categoriaSel || undefined,
         parceiroUid,
@@ -407,12 +586,12 @@ export default function TorneioDetailScreen() {
         const valorPago = result.valorCobrando ?? torneio.pagamento.valor;
         const descExtra =
           (result.descontoMultiCategoriaAplicado ?? 0) > 0
-            ? `Desconto 2ª categoria: −R$ ${result.descontoMultiCategoriaAplicado!.toFixed(2)}`
+            ? `Desconto 2ª categoria: −${formatMoneyBR(result.descontoMultiCategoriaAplicado!)}`
             : '';
         Alert.alert(
           'Quase lá',
           [
-            `Pague R$ ${valorPago.toFixed(2)} para confirmar a inscrição.`,
+            `Pague ${formatMoneyBR(valorPago)} para confirmar a inscrição.`,
             descExtra,
             resumoPromoCurto(torneio.pagamento) || '',
           ]
@@ -422,19 +601,27 @@ export default function TorneioDetailScreen() {
             {
               text: 'Pagar agora',
               onPress: () =>
-                void pagarComEscolhaDeMeio({
-                  pagamentoId: result.pagamentoId!,
-                  titulo: `Inscrição · ${torneio.nome}`,
-                  ciclo: 'unico',
-                  regras: {
-                    valor: valorPago,
-                    permitePix: torneio.pagamento!.permitePix,
-                    permiteCartao: torneio.pagamento!.permiteCartao,
-                    descontoPixPercent: torneio.pagamento!.descontoPixPercent,
-                    descontoCartaoPercent: torneio.pagamento!.descontoCartaoPercent,
+                void (async () => {
+                  const r = await pagarComEscolhaDeMeio({
+                    pagamentoId: result.pagamentoId!,
+                    titulo: `Inscrição · ${torneio.nome}`,
                     ciclo: 'unico',
-                  },
-                }),
+                    regras: {
+                      valor: valorPago,
+                      permitePix: torneio.pagamento!.permitePix,
+                      permiteCartao: torneio.pagamento!.permiteCartao,
+                      descontoPixPercent: torneio.pagamento!.descontoPixPercent,
+                      descontoCartaoPercent: torneio.pagamento!.descontoCartaoPercent,
+                      ciclo: 'unico',
+                    },
+                  });
+                  if (r === 'aprovado' || r === 'pendente') {
+                    router.replace({
+                      pathname: '/(tabs)/trofeu',
+                      params: { aba: 'torneios' },
+                    });
+                  }
+                })(),
             },
             { text: 'OK' },
           ]
@@ -457,10 +644,103 @@ export default function TorneioDetailScreen() {
     }
   }
 
+  async function onTapSlotEdicao(c: ConfrontoTorneio) {
+    if (!torneio || !souDono) return;
+    if (c.status === 'finalizado') {
+      Alert.alert('Chave', 'Jogo já finalizado — use W.O. só antes ou refaça.');
+      return;
+    }
+    const escolherSlot = (): Promise<'j1' | 'j2' | null> =>
+      new Promise((resolve) => {
+        const ops: { text: string; onPress?: () => void; style?: 'cancel' }[] = [];
+        if (c.j1Uid) {
+          ops.push({ text: c.j1Nome || 'Jogador 1', onPress: () => resolve('j1') });
+        }
+        if (c.j2Uid) {
+          ops.push({ text: c.j2Nome || 'Jogador 2', onPress: () => resolve('j2') });
+        }
+        if (ops.length === 0) {
+          resolve(null);
+          return;
+        }
+        if (ops.length === 1) {
+          resolve(c.j1Uid ? 'j1' : 'j2');
+          return;
+        }
+        ops.push({ text: 'Cancelar', style: 'cancel', onPress: () => resolve(null) });
+        Alert.alert('Qual jogador mover?', `${c.labelRodada}`, ops);
+      });
+
+    const slot = await escolherSlot();
+    if (!slot) return;
+    const nome = slot === 'j1' ? c.j1Nome : c.j2Nome;
+    if (!swapOrigem) {
+      setSwapOrigem({ confrontoId: c.id, slot, nome });
+      Alert.alert('Mover na chave', `Selecione o destino de ${nome}.`);
+      return;
+    }
+    if (swapOrigem.confrontoId === c.id && swapOrigem.slot === slot) {
+      setSwapOrigem(null);
+      return;
+    }
+    try {
+      await trocarSlotsChave({
+        torneioId: torneio.id,
+        a: { confrontoId: swapOrigem.confrontoId, slot: swapOrigem.slot },
+        b: { confrontoId: c.id, slot },
+      });
+      setSwapOrigem(null);
+      await reloadTorneio();
+      Alert.alert('Chave', `${swapOrigem.nome} ↔ ${nome}`);
+    } catch (e: unknown) {
+      Alert.alert('Chave', e instanceof Error ? e.message : 'Falha ao trocar');
+    }
+  }
+
   async function onGerarChave(opts?: { forcar?: boolean }) {
     if (!torneio || !user) return;
+
+    // Grupos + mata: gera fase de grupos direto (sorteio nos grupos)
+    if (torneio.formatoChaves === 'grupos_mata') {
+      const cat = categorias.find((c) => c.id === categoriaSel);
+      const cfg = torneio.gruposConfig ?? {
+        qtdGrupos: 2,
+        jogadoresPorGrupo: 4,
+        classificadosPorGrupo: 2,
+      };
+      setGerando(true);
+      try {
+        const r = await gerarFaseGrupos({
+          torneioId: torneio.id,
+          categoriaId: cat?.id,
+          categoriaNome: cat?.nome,
+          gruposConfig: cfg,
+          sortear: torneio.definicaoChave !== 'manual',
+          forcar: Boolean(opts?.forcar),
+        });
+        await reloadTorneio();
+        Alert.alert(
+          'Grupos liberados',
+          `${r.grupos} grupo(s) · ${r.jogos} jogo(s). Classificam ${cfg.classificadosPorGrupo} por grupo; ao terminar todos, a chave é gerada.`
+        );
+      } catch (e: unknown) {
+        Alert.alert('Grupos', e instanceof Error ? e.message : 'Falha ao gerar.');
+      } finally {
+        setGerando(false);
+      }
+      return;
+    }
+
     setRefazerChave(Boolean(opts?.forcar));
     setCabecasSel([]);
+    setByeSel([]);
+    const confirmados = inscritosFiltrados.filter(
+      (i) => !i.status || i.status === 'confirmado'
+    );
+    const tam = tamanhoChaveEfetivo(confirmados.length, torneio.estruturaMata);
+    setSlotsManuais(Array.from({ length: tam }, () => null));
+    setModoChave(torneio.definicaoChave === 'manual' ? 'ordem' : 'sorteio');
+    setPickerSlot(null);
     setModalCabecas(true);
   }
 
@@ -468,6 +748,25 @@ export default function TorneioDetailScreen() {
     if (!torneio || !user) return;
     const cat = categorias.find((c) => c.id === categoriaSel);
     const catLabel = cat ? ` (${cat.nome})` : '';
+    const confirmados = inscritosFiltrados.filter(
+      (i) => !i.status || i.status === 'confirmado'
+    );
+    const nByes = qtdByesNecessarios(confirmados.length, torneio.estruturaMata);
+
+    if (modoChave === 'montar') {
+      const preenchidos = slotsManuais.filter(Boolean).length;
+      if (preenchidos !== confirmados.length) {
+        Alert.alert(
+          'Chave',
+          `Coloque todos os ${confirmados.length} inscritos na chave (posições vazias = bye). Agora: ${preenchidos}.`
+        );
+        return;
+      }
+    } else if (byeSel.length > nByes) {
+      Alert.alert('Chave', `Só há ${nByes} bye(s) nesta chave.`);
+      return;
+    }
+
     setGerando(true);
     setModalCabecas(false);
     try {
@@ -475,18 +774,24 @@ export default function TorneioDetailScreen() {
         torneioId: torneio.id,
         donoUid: user.uid,
         estruturaMata: torneio.estruturaMata,
-        sortear: torneio.definicaoChave !== 'manual',
+        sortear: modoChave === 'sorteio',
         categoriaId: cat?.id,
         categoriaNome: cat?.nome,
-        cabecasUids: cabecasSel,
+        cabecasUids: modoChave === 'montar' ? undefined : cabecasSel,
+        byeUids: modoChave === 'montar' ? undefined : byeSel,
+        slotsManuais: modoChave === 'montar' ? slotsManuais : undefined,
         forcar: refazerChave,
       });
       await reloadTorneio();
       Alert.alert(
         'Chave liberada',
         `${n} jogadores na chave${catLabel}${
-          cabecasSel.length ? ` · ${cabecasSel.length} cabeça(s)` : ''
-        }. Byes entram se a chave não estiver completa.`
+          modoChave === 'montar'
+            ? ' · montagem manual'
+            : cabecasSel.length
+              ? ` · ${cabecasSel.length} cabeça(s)`
+              : ''
+        }${byeSel.length && modoChave !== 'montar' ? ` · ${byeSel.length} bye(s)` : ''}.`
       );
     } catch (e: unknown) {
       Alert.alert('Chave', e instanceof Error ? e.message : 'Falha ao gerar.');
@@ -620,22 +925,60 @@ export default function TorneioDetailScreen() {
     );
   }
 
+  async function executarWO(vencedorUid: string) {
+    if (!edit || !user || !torneio || !vencedorUid) return;
+    const nome =
+      vencedorUid === edit.j1Uid
+        ? edit.j1Nome
+        : vencedorUid === edit.j2Uid
+          ? edit.j2Nome
+          : 'Jogador';
+    Alert.alert('W.O.', `${nome} avança por W.O.?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Confirmar',
+        onPress: () =>
+          void (async () => {
+            if (!edit || !user || !torneio) return;
+            setSalvandoPlacar(true);
+            try {
+              await registrarWO({
+                torneioId: torneio.id,
+                confrontoId: edit.id,
+                vencedorUid,
+                registradoPor: user.uid,
+                esporte: torneio.esporte,
+              });
+              setEdit(null);
+              await reloadTorneio();
+              Alert.alert('W.O.', `${nome} avançou.`);
+            } catch (e: unknown) {
+              Alert.alert('W.O.', e instanceof Error ? e.message : 'Falha');
+            } finally {
+              setSalvandoPlacar(false);
+            }
+          })(),
+      },
+    ]);
+  }
+
   function abrirPlacar(c: ConfrontoTorneio) {
-    if (c.status === 'bye') return;
     if (c.status === 'finalizado') {
       Alert.alert('Confronto', 'Este jogo já foi finalizado.');
       return;
     }
 
-    // Admin pode abrir horário mesmo fora da fase de placar
-    if (souDono && c.status !== 'pronto') {
+    // Organizador: abre placar/agenda/W.O. mesmo em bye ou aguardando
+    if (souDono) {
       setEdit(c);
       setEditHora(c.dataHoraInicio ?? '');
       setEditQuadra(c.quadraNome ?? '');
-      setVencedor('j1');
+      setVencedor(c.j1Uid ? 'j1' : c.j2Uid ? 'j2' : 'j1');
       setSetsDraft(emptySetsDraft());
       return;
     }
+
+    if (c.status === 'bye') return;
 
     if (c.status !== 'pronto') {
       Alert.alert(
@@ -670,19 +1013,237 @@ export default function TorneioDetailScreen() {
 
   async function salvarAgendaConfronto() {
     if (!edit || !torneio || !souDono) return;
-    setSalvandoAgenda(true);
-    try {
-      await atualizarAgendaConfronto(torneio.id, edit.id, {
-        dataHoraInicio: editHora,
-        quadraNome: editQuadra,
-      });
-      Alert.alert('Agenda', 'Horário do confronto atualizado.');
-      if (edit.status !== 'pronto') setEdit(null);
-    } catch (e: unknown) {
-      Alert.alert('Agenda', e instanceof Error ? e.message : 'Falha ao salvar.');
-    } finally {
-      setSalvandoAgenda(false);
+    const salvar = async () => {
+      setSalvandoAgenda(true);
+      try {
+        await atualizarAgendaConfronto(torneio.id, edit.id, {
+          dataHoraInicio: editHora,
+          quadraNome: editQuadra,
+        });
+        Alert.alert('Agenda', 'Horário do confronto atualizado.');
+        // Mantém modal aberto em bye/aguardando para o organizador poder dar W.O.
+      } catch (e: unknown) {
+        Alert.alert('Agenda', e instanceof Error ? e.message : 'Falha ao salvar.');
+      } finally {
+        setSalvandoAgenda(false);
+      }
+    };
+
+    const conflitos = detectarConflitosAgendaConfronto(
+      confrontos,
+      edit.id,
+      editHora
+    );
+    if (conflitos.length > 0) {
+      const linhas = conflitos
+        .slice(0, 4)
+        .map(
+          (c) =>
+            `• ${c.jogadorNome}: ${c.labelRodada}${
+              c.categoriaNome ? ` (${c.categoriaNome})` : ''
+            } — ${c.j1Nome} vs ${c.j2Nome}`
+        )
+        .join('\n');
+      Alert.alert(
+        'Conflito de horário',
+        `Mesmo horário em outra categoria/jogo:\n${linhas}\n\nSalvar mesmo assim?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Salvar mesmo', style: 'destructive', onPress: () => void salvar() },
+        ]
+      );
+      return;
     }
+    await salvar();
+  }
+
+  function draftAgenda(c: ConfrontoTorneio) {
+    return (
+      agendaDrafts[c.id] ?? {
+        hora: c.dataHoraInicio ?? '',
+        quadra: c.quadraNome ?? '',
+      }
+    );
+  }
+
+  function setDraftAgenda(
+    id: string,
+    patch: Partial<{ hora: string; quadra: string }>,
+    base: ConfrontoTorneio
+  ) {
+    setAgendaDrafts((prev) => ({
+      ...prev,
+      [id]: {
+        hora: patch.hora ?? prev[id]?.hora ?? base.dataHoraInicio ?? '',
+        quadra: patch.quadra ?? prev[id]?.quadra ?? base.quadraNome ?? '',
+      },
+    }));
+  }
+
+  async function salvarAgendaRapida(c: ConfrontoTorneio) {
+    if (!torneio || !souDono) return;
+    const d = draftAgenda(c);
+    const salvar = async () => {
+      setSalvandoAgendaId(c.id);
+      try {
+        await atualizarAgendaConfronto(torneio.id, c.id, {
+          dataHoraInicio: d.hora,
+          quadraNome: d.quadra,
+        });
+        setAgendaDrafts((prev) => {
+          const next = { ...prev };
+          delete next[c.id];
+          return next;
+        });
+      } catch (e: unknown) {
+        Alert.alert('Agenda', e instanceof Error ? e.message : 'Falha ao salvar.');
+      } finally {
+        setSalvandoAgendaId(null);
+      }
+    };
+    const conflitos = detectarConflitosAgendaConfronto(confrontos, c.id, d.hora);
+    if (conflitos.length > 0) {
+      const linhas = conflitos
+        .slice(0, 4)
+        .map(
+          (x) =>
+            `• ${x.jogadorNome}: ${x.labelRodada}${
+              x.categoriaNome ? ` (${x.categoriaNome})` : ''
+            }`
+        )
+        .join('\n');
+      Alert.alert(
+        'Conflito de horário',
+        `Atleta em 2+ categorias no mesmo horário:\n${linhas}\n\nSalvar mesmo assim?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Salvar mesmo', style: 'destructive', onPress: () => void salvar() },
+        ]
+      );
+      return;
+    }
+    await salvar();
+  }
+
+  async function onAplicarHorarioPadrao() {
+    if (!torneio || !souDono) return;
+    const hora = (evHora || torneio.horarioPadrao || '').trim();
+    if (!hora) {
+      Alert.alert('Agenda', 'Defina o horário do evento acima antes de aplicar.');
+      return;
+    }
+    Alert.alert(
+      'Aplicar horário',
+      `Preenche "${hora}" só nos jogos ainda sem horário (todas as categorias). Confrontos com horário definido não mudam.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Aplicar',
+          onPress: () => {
+            void (async () => {
+              setAplicandoPadrao(true);
+              try {
+                const n = await aplicarHorarioPadraoConfrontos(
+                  torneio.id,
+                  {
+                    dataHoraInicio: hora,
+                    quadraNome: evQuadra || torneio.quadraNome || '',
+                  },
+                  confrontos
+                );
+                Alert.alert(
+                  'Agenda',
+                  n > 0
+                    ? `${n} jogo${n === 1 ? '' : 's'} atualizado${n === 1 ? '' : 's'}.`
+                    : 'Nenhum jogo sem horário para preencher.'
+                );
+              } catch (e: unknown) {
+                Alert.alert(
+                  'Agenda',
+                  e instanceof Error ? e.message : 'Falha ao aplicar.'
+                );
+              } finally {
+                setAplicandoPadrao(false);
+              }
+            })();
+          },
+        },
+      ]
+    );
+  }
+
+  function onRemarcarPendentes(redistribuir: boolean) {
+    if (!torneio || !souDono) return;
+    if (!isDateBRCompleta(novaDataRemarc)) {
+      Alert.alert('Remarcar', 'Informe a nova data (DD/MM/AAAA).');
+      return;
+    }
+    const hora = (novaHoraRemarc || evHora || '09:00').trim();
+    if (redistribuir && !/^\d{1,2}:\d{2}$/.test(hora)) {
+      Alert.alert('Remarcar', 'Informe o horário inicial (HH:MM) para redistribuir.');
+      return;
+    }
+    const pendentes = confrontos.filter(
+      (c) => c.status !== 'bye' && c.status !== 'finalizado'
+    ).length;
+    if (pendentes === 0) {
+      Alert.alert('Remarcar', 'Não há jogos pendentes — só jogos já finalizados.');
+      return;
+    }
+    Alert.alert(
+      redistribuir ? 'Nova agenda do torneio' : 'Remarcar data',
+      redistribuir
+        ? `${pendentes} jogo(s) pendente(s) vão para ${novaDataRemarc} a partir de ${hora} (espaçados por rodada). Jogos já realizados NÃO mudam.`
+        : `${pendentes} jogo(s) pendente(s) mudam só a data para ${novaDataRemarc} (mantém o horário de cada um). Jogos já realizados NÃO mudam.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: () => {
+            void (async () => {
+              setRemarcando(true);
+              try {
+                const n = await remarcarConfrontosPendentes(
+                  torneio.id,
+                  confrontos,
+                  {
+                    novaDataBR: novaDataRemarc,
+                    novoHorarioHHMM: hora,
+                    quadraNome: evQuadra || torneio.quadraNome || '',
+                    redistribuir,
+                    intervaloJogosMin,
+                    atribuirQuadras,
+                    quadrasDisponiveis: parseListaQuadras(quadrasTexto),
+                  }
+                );
+                await atualizarAgendaTorneio(torneio.id, {
+                  horarioPadrao: hora,
+                  quadraNome: evQuadra || torneio.quadraNome || '',
+                  intervaloJogosMin,
+                  quadrasDisponiveis: parseListaQuadras(quadrasTexto),
+                  atribuirQuadrasAoSortear: atribuirQuadras,
+                }).catch(() => undefined);
+                setEvHora(hora);
+                await reloadTorneio();
+                Alert.alert(
+                  'Agenda',
+                  n > 0
+                    ? `${n} jogo(s) remarcado(s). Jogadores foram notificados.`
+                    : 'Nada a remarcar.'
+                );
+              } catch (e: unknown) {
+                Alert.alert(
+                  'Remarcar',
+                  e instanceof Error ? e.message : 'Falha ao remarcar.'
+                );
+              } finally {
+                setRemarcando(false);
+              }
+            })();
+          },
+        },
+      ]
+    );
   }
 
   async function salvarAgendaEvento() {
@@ -692,9 +1253,12 @@ export default function TorneioDetailScreen() {
       await atualizarAgendaTorneio(torneio.id, {
         horarioPadrao: evHora,
         quadraNome: evQuadra,
+        intervaloJogosMin,
+        quadrasDisponiveis: parseListaQuadras(quadrasTexto),
+        atribuirQuadrasAoSortear: atribuirQuadras,
       });
       await reloadTorneio();
-      Alert.alert('Torneio', 'Horário / quadra do evento atualizados.');
+      Alert.alert('Torneio', 'Horário, espaçamento e quadras atualizados.');
     } catch (e: unknown) {
       Alert.alert('Torneio', e instanceof Error ? e.message : 'Falha ao salvar.');
     } finally {
@@ -736,10 +1300,7 @@ export default function TorneioDetailScreen() {
 
   function pedirConfirmacaoPlacar() {
     if (!edit || !user || !torneio) return;
-    const setsNum = setsDraft.map((s) => ({
-      j1: Number(s.j1) || 0,
-      j2: Number(s.j2) || 0,
-    }));
+    const setsNum = draftParaSets(setsDraft);
     const valid = validarPlacarTorneio({
       formatoId: torneio.formatoPartidaId,
       sets: setsNum,
@@ -848,12 +1409,21 @@ export default function TorneioDetailScreen() {
           )}
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.torneioNome}>{torneio.nome}</Text>
-            <Text style={styles.clube}>{torneio.clubeNome}</Text>
+            <Text style={styles.clube}>{torneio.local || torneio.clubeNome}</Text>
+            {torneio.local && torneio.clubeNome && torneio.local !== torneio.clubeNome ? (
+              <Text style={styles.meta}>{torneio.clubeNome}</Text>
+            ) : null}
           </View>
         </View>
         <Text style={styles.meta}>
-          {torneio.cidade}
-          {torneio.local ? ` · ${torneio.local}` : ''}
+          {[
+            torneio.endereco,
+            torneio.bairro,
+            [torneio.cidade, torneio.estado].filter(Boolean).join('/'),
+            torneio.cep,
+          ]
+            .filter(Boolean)
+            .join(' · ') || torneio.cidade}
         </Text>
         <Text style={styles.meta}>
           {torneio.dataInicio || '—'} → {torneio.dataFim || '—'} ·{' '}
@@ -862,7 +1432,8 @@ export default function TorneioDetailScreen() {
             : torneio.status === 'em_andamento'
               ? 'em andamento'
               : 'aberto'}{' '}
-          · {torneio.totalInscritos} inscrito{torneio.totalInscritos === 1 ? '' : 's'}
+          · {totalConfirmadosReais} inscrito
+          {totalConfirmadosReais === 1 ? '' : 's'}
           {torneio.inscricoesEncerradas ? ' · inscrições encerradas' : ''}
         </Text>
         {torneio.status === 'finalizado' ? (
@@ -1132,40 +1703,224 @@ export default function TorneioDetailScreen() {
           <View style={styles.payBox}>
             <Text style={styles.payTitle}>Horário e quadra (organizador)</Text>
             <Text style={styles.desc}>
-              Jogadores não reservam jogo de torneio na agenda — só visualizam.
+              Ao sortear a chave, os jogos já recebem data/hora a partir do início do
+              torneio. Em chuva: remarque um jogo na lista ou mova todos os pendentes
+              para outra data (jogos já realizados ficam como estão).
             </Text>
             <TextInput
               style={styles.scoreInputWide}
               placeholder="Horário ref. (ex: 09:00)"
               placeholderTextColor={Colors.textSecondary}
               value={evHora}
-              onChangeText={setEvHora}
+              onChangeText={(t) => setEvHora(maskTimeHHMM(t))}
+              keyboardType="number-pad"
             />
             <TextInput
               style={styles.scoreInputWide}
-              placeholder="Quadra opcional"
+              placeholder="Quadra ref. opcional"
               placeholderTextColor={Colors.textSecondary}
               value={evQuadra}
               onChangeText={setEvQuadra}
             />
+            <Text style={styles.payTitle}>Espaçamento entre jogos</Text>
+            <Text style={styles.desc}>
+              No sorteio da chave e ao redistribuir agenda (ex.: 1h ou 2h).
+            </Text>
+            <View style={styles.intervalRow}>
+              {INTERVALOS_JOGO_OPCOES.map((op) => (
+                <TouchableOpacity
+                  key={op.min}
+                  style={[
+                    styles.intervalChip,
+                    intervaloJogosMin === op.min && styles.intervalChipOn,
+                  ]}
+                  onPress={() => setIntervaloJogosMin(op.min)}
+                >
+                  <Text
+                    style={[
+                      styles.intervalChipTxt,
+                      intervaloJogosMin === op.min && styles.intervalChipTxtOn,
+                    ]}
+                  >
+                    {op.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.switchRowAgenda}>
+              <Text style={styles.desc}>Sortear quadras nos jogos</Text>
+              <TouchableOpacity
+                onPress={() => setAtribuirQuadras((v) => !v)}
+                style={[styles.intervalChip, atribuirQuadras && styles.intervalChipOn]}
+              >
+                <Text
+                  style={[
+                    styles.intervalChipTxt,
+                    atribuirQuadras && styles.intervalChipTxtOn,
+                  ]}
+                >
+                  {atribuirQuadras ? 'Sim' : 'Não'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.desc}>
+              Não = jogos sem quadra (você define na hora). Sim = distribui as quadras
+              abaixo no sorteio.
+            </Text>
+            {atribuirQuadras ? (
+              <TextInput
+                style={[styles.scoreInputWide, { minHeight: 80, textAlignVertical: 'top' }]}
+                placeholder={'Quadra 1\nQuadra 2\nQuadra 3'}
+                placeholderTextColor={Colors.textSecondary}
+                value={quadrasTexto}
+                onChangeText={setQuadrasTexto}
+                multiline
+              />
+            ) : null}
             <Button
-              label="Salvar horário do evento"
+              label="Salvar horário / espaçamento / quadras"
               variant="outline"
               loading={salvandoEv}
               onPress={() => void salvarAgendaEvento()}
             />
+            {confrontos.length > 0 ? (
+              <>
+                <Button
+                  label={agendaRapida ? 'Ocultar agenda dos jogos' : 'Remarcar jogos (chuva)'}
+                  variant="outline"
+                  onPress={() => {
+                    setAgendaRapida((v) => {
+                      const next = !v;
+                      if (next && !novaDataRemarc) {
+                        setNovaDataRemarc(torneio.dataInicio || '');
+                        setNovaHoraRemarc(
+                          maskTimeHHMM(evHora || torneio.horarioPadrao || '09:00')
+                        );
+                      }
+                      return next;
+                    });
+                  }}
+                />
+                {agendaRapida ? (
+                  <>
+                    <Text style={styles.payTitle}>Mover torneio (só pendentes)</Text>
+                    <Text style={styles.desc}>
+                      Jogos finalizados não mudam. Pendentes vão para a nova data.
+                    </Text>
+                    <TextInput
+                      style={styles.scoreInputWide}
+                      placeholder="Nova data DD/MM/AAAA"
+                      placeholderTextColor={Colors.textSecondary}
+                      value={novaDataRemarc}
+                      onChangeText={(t) => setNovaDataRemarc(maskDateBR(t))}
+                      keyboardType="number-pad"
+                    />
+                    <TextInput
+                      style={styles.scoreInputWide}
+                      placeholder="Horário inicial HH:MM"
+                      placeholderTextColor={Colors.textSecondary}
+                      value={novaHoraRemarc}
+                      onChangeText={(t) => setNovaHoraRemarc(maskTimeHHMM(t))}
+                      keyboardType="number-pad"
+                    />
+                    <Button
+                      label="Só trocar a data (mantém horários)"
+                      variant="outline"
+                      loading={remarcando}
+                      onPress={() => onRemarcarPendentes(false)}
+                    />
+                    <Button
+                      label="Nova agenda completa (redistribuir)"
+                      loading={remarcando}
+                      onPress={() => onRemarcarPendentes(true)}
+                    />
+                    <Button
+                      label="Aplicar horário só nos sem agenda"
+                      variant="outline"
+                      loading={aplicandoPadrao}
+                      onPress={() => void onAplicarHorarioPadrao()}
+                    />
+                    <Text style={[styles.payTitle, { marginTop: 8 }]}>
+                      Jogos pendentes (toque e salve)
+                    </Text>
+                    {confrontos
+                      .filter((c) => c.status !== 'bye' && c.status !== 'finalizado')
+                      .sort((a, b) => {
+                        const ca = (a.categoriaNome || '').localeCompare(
+                          b.categoriaNome || '',
+                          'pt-BR'
+                        );
+                        if (ca !== 0) return ca;
+                        return (a.labelRodada || '').localeCompare(
+                          b.labelRodada || '',
+                          'pt-BR'
+                        );
+                      })
+                      .map((c) => {
+                        const d = draftAgenda(c);
+                        const dirty =
+                          d.hora !== (c.dataHoraInicio ?? '') ||
+                          d.quadra !== (c.quadraNome ?? '');
+                        return (
+                          <View key={c.id} style={styles.agendaRow}>
+                            <Text style={styles.agendaTitulo} numberOfLines={2}>
+                              {c.categoriaNome ? `${c.categoriaNome} · ` : ''}
+                              {c.labelRodada}
+                              {c.status === 'pronto' ? ' · pronto' : ''}
+                            </Text>
+                            <Text style={styles.desc} numberOfLines={1}>
+                              {c.j1Nome} vs {c.j2Nome}
+                            </Text>
+                            <TextInput
+                              style={styles.scoreInputWide}
+                              placeholder="Data/hora (ex: 14/09 10:00)"
+                              placeholderTextColor={Colors.textSecondary}
+                              value={d.hora}
+                              onChangeText={(t) =>
+                                setDraftAgenda(c.id, { hora: t }, c)
+                              }
+                            />
+                            <TextInput
+                              style={styles.scoreInputWide}
+                              placeholder="Quadra"
+                              placeholderTextColor={Colors.textSecondary}
+                              value={d.quadra}
+                              onChangeText={(t) =>
+                                setDraftAgenda(c.id, { quadra: t }, c)
+                              }
+                            />
+                            <Button
+                              label={dirty ? 'Salvar novo horário' : 'Horário ok'}
+                              variant="outline"
+                              loading={salvandoAgendaId === c.id}
+                              disabled={!dirty}
+                              onPress={() => void salvarAgendaRapida(c)}
+                            />
+                          </View>
+                        );
+                      })}
+                    {confrontos.some((c) => c.status === 'finalizado') ? (
+                      <Text style={styles.desc}>
+                        {confrontos.filter((c) => c.status === 'finalizado').length} jogo(s)
+                        já realizado(s) — permanecem com o horário original.
+                      </Text>
+                    ) : null}
+                  </>
+                ) : null}
+              </>
+            ) : null}
           </View>
         ) : null}
 
         {pag?.ativo ? (
           <View style={styles.payBox}>
             <Text style={styles.payTitle}>
-              Inscrição R$ {pag.valor.toFixed(2)} · PIX ou cartão
+              Inscrição {formatMoneyBR(pag.valor)} · PIX ou cartão
               {torneio.composicao === 'dupla' ? ' (por atleta)' : ''}
             </Text>
             {(pag.descontoMultiCategoriaValor ?? 0) > 0 ? (
               <Text style={styles.desc}>
-                2ª+ categoria: −R$ {pag.descontoMultiCategoriaValor!.toFixed(2)} na inscrição.
+                2ª+ categoria: −{formatMoneyBR(pag.descontoMultiCategoriaValor!)} na inscrição.
               </Text>
             ) : null}
             {resumoPromoCurto(pag) ? (
@@ -1207,7 +1962,12 @@ export default function TorneioDetailScreen() {
             !inscricoesAbertas && !inscritoNaCategoriaSel
               ? 'Inscrições encerradas'
               : inscritoNaCategoriaSel
-                ? pag?.ativo
+                ? minhasInscricoes.some(
+                    (i) =>
+                      (!categoriaSel || i.categoriaId === categoriaSel) &&
+                      !i.pago &&
+                      i.status === 'aguardando_pagamento'
+                  )
                   ? 'Ver pagamentos'
                   : 'Já inscrito nesta categoria'
                 : categorias.length > 0
@@ -1215,16 +1975,75 @@ export default function TorneioDetailScreen() {
                   : 'Inscrever-me'
           }
           onPress={() => {
-            if (inscritoNaCategoriaSel && pag?.ativo) router.push('/pagamentos');
+            const precisaPagar = minhasInscricoes.some(
+              (i) =>
+                (!categoriaSel || i.categoriaId === categoriaSel) &&
+                !i.pago &&
+                i.status === 'aguardando_pagamento'
+            );
+            if (inscritoNaCategoriaSel && precisaPagar) router.push('/pagamentos');
             else if (!inscritoNaCategoriaSel) void onInscrever();
           }}
           loading={enviando}
           disabled={
             inscritoNaCategoriaSel
-              ? !pag?.ativo
+              ? !minhasInscricoes.some(
+                  (i) =>
+                    (!categoriaSel || i.categoriaId === categoriaSel) &&
+                    !i.pago &&
+                    i.status === 'aguardando_pagamento'
+                )
               : !inscricoesAbertas || (categorias.length > 0 && !categoriaSel)
           }
         />
+        {inscritoNaCategoriaSel &&
+        user &&
+        minhasInscricoes.some(
+          (i) =>
+            (!categoriaSel || i.categoriaId === categoriaSel) &&
+            !i.pago &&
+            i.status !== 'confirmado'
+        ) ? (
+          <Button
+            label="Cancelar minha inscrição"
+            variant="outline"
+            style={{ marginTop: 10 }}
+            onPress={() => {
+              const minha = minhasInscricoes.find(
+                (i) => !categoriaSel || i.categoriaId === categoriaSel
+              );
+              if (!minha?.id || !torneio) return;
+              Alert.alert(
+                'Cancelar inscrição',
+                'Remover sua inscrição nesta categoria? (só se ainda não pagou)',
+                [
+                  { text: 'Voltar', style: 'cancel' },
+                  {
+                    text: 'Cancelar inscrição',
+                    style: 'destructive',
+                    onPress: () => {
+                      void (async () => {
+                        try {
+                          await cancelarInscricaoTorneio({
+                            torneioId: torneio.id,
+                            inscricaoId: minha.id!,
+                            solicitanteUid: user.uid,
+                          });
+                          Alert.alert('Inscrição', 'Inscrição cancelada.');
+                        } catch (e: unknown) {
+                          Alert.alert(
+                            'Inscrição',
+                            e instanceof Error ? e.message : 'Falha ao cancelar'
+                          );
+                        }
+                      })();
+                    },
+                  },
+                ]
+              );
+            }}
+          />
+        ) : null}
 
         <View style={styles.inscritosBox}>
           <Text style={styles.chaveTitle}>
@@ -1240,29 +2059,83 @@ export default function TorneioDetailScreen() {
             )
           </Text>
           <Text style={styles.chaveHint}>
-            Total no torneio: {torneio.totalInscritos} · Nesta lista:{' '}
-            {inscritosFiltrados.length}
+            Confirmados no torneio: {totalConfirmadosReais}
+            {categoriaSel
+              ? ` · Nesta categoria: ${inscritosFiltrados.length}`
+              : ''}
           </Text>
           {inscritosFiltrados.length === 0 ? (
             <Text style={styles.chaveHint}>Ninguém inscrito ainda nesta categoria.</Text>
           ) : (
             inscritosFiltrados.map((i) => (
-              <TouchableOpacity
+              <View
                 key={i.id || `${i.uid}-${i.categoriaId || 'x'}`}
                 style={styles.inscritoRow}
-                onPress={() => {
-                  if (i.uid) router.push(`/jogador/${i.uid}`);
-                }}
-                activeOpacity={0.7}
               >
-                <Avatar uri={i.fotoUrl} nome={i.nome} size="sm" />
-                <Text style={styles.inscritoNome} numberOfLines={2}>
-                  {i.parceiroNome ? `${i.nome} / ${i.parceiroNome}` : i.nome}
-                  {user?.uid === i.uid ? ' (você)' : ''}
-                  {i.status && i.status !== 'confirmado' ? ` · ${i.status}` : ''}
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}
+                  onPress={() => {
+                    if (i.uid) router.push(`/jogador/${i.uid}`);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Avatar uri={i.fotoUrl} nome={i.nome} size="sm" />
+                  <Text style={styles.inscritoNome} numberOfLines={2}>
+                    {i.parceiroNome ? `${i.nome} / ${i.parceiroNome}` : i.nome}
+                    {user?.uid === i.uid ? ' (você)' : ''}
+                    {i.status && i.status !== 'confirmado'
+                      ? ` · ${
+                          i.status === 'aguardando_pagamento'
+                            ? 'pagamento pendente'
+                            : i.status === 'aguardando_parceiro'
+                              ? 'aguardando parceiro'
+                              : i.status
+                        }`
+                      : ''}
+                  </Text>
+                </TouchableOpacity>
+                {souDono && i.id ? (
+                  <TouchableOpacity
+                    onPress={() => {
+                      Alert.alert(
+                        'Remover inscrito',
+                        `Remover ${i.nome} da inscrição${
+                          i.pago ? ' (já pagou — a cobrança aprovada não é estornada automaticamente)' : ''
+                        }?`,
+                        [
+                          { text: 'Voltar', style: 'cancel' },
+                          {
+                            text: 'Remover',
+                            style: 'destructive',
+                            onPress: () => {
+                              void (async () => {
+                                try {
+                                  await cancelarInscricaoTorneio({
+                                    torneioId: torneio.id,
+                                    inscricaoId: i.id!,
+                                    solicitanteUid: user!.uid,
+                                  });
+                                } catch (e: unknown) {
+                                  Alert.alert(
+                                    'Inscrição',
+                                    e instanceof Error ? e.message : 'Falha ao remover'
+                                  );
+                                }
+                              })();
+                            },
+                          },
+                        ]
+                      );
+                    }}
+                    hitSlop={8}
+                    accessibilityLabel={`Remover ${i.nome}`}
+                  >
+                    <Ionicons name="trash-outline" size={20} color={Colors.accent} />
+                  </TouchableOpacity>
+                ) : (
+                  <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
+                )}
+              </View>
             ))
           )}
         </View>
@@ -1272,9 +2145,13 @@ export default function TorneioDetailScreen() {
         (!categoriaSel || categorias.some((c) => c.id === categoriaSel)) ? (
           <Button
             label={
-              categoriaSel
-                ? `Liberar chave · ${categorias.find((c) => c.id === categoriaSel)?.nome ?? ''}`
-                : 'Liberar chaveamento (sortear)'
+              ehGruposMata
+                ? categoriaSel
+                  ? `Liberar grupos · ${categorias.find((c) => c.id === categoriaSel)?.nome ?? ''}`
+                  : 'Liberar fase de grupos'
+                : categoriaSel
+                  ? `Liberar chave · ${categorias.find((c) => c.id === categoriaSel)?.nome ?? ''}`
+                  : 'Liberar chaveamento'
             }
             variant="outline"
             loading={gerando}
@@ -1287,13 +2164,19 @@ export default function TorneioDetailScreen() {
         ) : null}
         {souDono && confrontosFiltrados.length > 0 ? (
           <Button
-            label="Refazer chaveamento desta categoria"
+            label={
+              ehGruposMata
+                ? 'Refazer grupos desta categoria'
+                : 'Refazer chaveamento desta categoria'
+            }
             variant="outline"
             loading={gerando}
             onPress={() =>
               Alert.alert(
-                'Refazer chave',
-                'Apaga confrontos desta categoria e gera de novo (cabeças + byes). Continuar?',
+                ehGruposMata ? 'Refazer grupos' : 'Refazer chave',
+                ehGruposMata
+                  ? 'Apaga grupos e confrontos desta categoria e gera de novo. Continuar?'
+                  : 'Apaga confrontos desta categoria e gera de novo (cabeças + byes). Continuar?',
                 [
                   { text: 'Cancelar', style: 'cancel' },
                   {
@@ -1307,6 +2190,47 @@ export default function TorneioDetailScreen() {
           />
         ) : null}
         {souDono &&
+        confrontosGrupo.length > 0 &&
+        confrontosMata.length === 0 &&
+        confrontosGrupo.every((c) => c.status === 'finalizado' || c.status === 'bye') ? (
+          <Button
+            label="Gerar mata-mata com classificados"
+            loading={gerando}
+            onPress={() => {
+              void (async () => {
+                if (!torneio || !user) return;
+                setGerando(true);
+                try {
+                  const cat = categorias.find((c) => c.id === categoriaSel);
+                  const r = await tentarPromoverClassificados({
+                    torneioId: torneio.id,
+                    categoriaId: cat?.id,
+                    categoriaNome: cat?.nome,
+                    classificadosPorGrupo:
+                      torneio.gruposConfig?.classificadosPorGrupo ?? 2,
+                    estruturaMata: torneio.estruturaMata,
+                    forcar: true,
+                  });
+                  await reloadTorneio();
+                  Alert.alert(
+                    'Mata-mata',
+                    r.promoveu
+                      ? `${r.classificados} classificados na chave.`
+                      : r.motivo ?? 'Não foi possível gerar.'
+                  );
+                } catch (e: unknown) {
+                  Alert.alert(
+                    'Mata-mata',
+                    e instanceof Error ? e.message : 'Falha ao gerar.'
+                  );
+                } finally {
+                  setGerando(false);
+                }
+              })();
+            }}
+          />
+        ) : null}
+        {souDono &&
         confrontosFiltrados.length === 0 &&
         inscritosFiltrados.filter((i) => !i.status || i.status === 'confirmado').length <
           2 ? (
@@ -1316,20 +2240,60 @@ export default function TorneioDetailScreen() {
           </Text>
         ) : null}
 
-        {confrontosVisiveis.length > 0 ? (
-          <ChaveamentoBracket
-            confrontos={confrontosVisiveis}
-            onPressMatch={abrirPlacar}
-            highlightUid={user?.uid}
-            pressEnabled={(c) => c.status !== 'bye' && c.status !== 'finalizado'}
+        {confrontosGrupo.length > 0 ? (
+          <GruposTorneioPainel
+            confrontos={confrontosGrupo}
+            onPressJogo={abrirPlacar}
+            classificadosPorGrupo={torneio.gruposConfig?.classificadosPorGrupo ?? 2}
           />
-        ) : (
+        ) : null}
+
+        {confrontosMata.length > 0 ? (
+          <>
+            {souDono ? (
+              <Button
+                label={modoEditarChave ? 'Concluir edição da chave' : 'Mover jogadores na chave'}
+                variant="outline"
+                onPress={() => {
+                  setModoEditarChave((v) => !v);
+                  setSwapOrigem(null);
+                }}
+              />
+            ) : null}
+            {modoEditarChave ? (
+              <Text style={styles.chaveHint}>
+                Toque no 1º jogador e depois no 2º para trocar de lugar na chave. W.O. no placar
+                do confronto.
+              </Text>
+            ) : null}
+            <ChaveamentoBracket
+              confrontos={confrontosMata}
+              onPressMatch={(c) => {
+                if (modoEditarChave && souDono) {
+                  void onTapSlotEdicao(c);
+                  return;
+                }
+                abrirPlacar(c);
+              }}
+              highlightUid={user?.uid}
+              pressEnabled={(c) =>
+                modoEditarChave
+                  ? c.status !== 'finalizado'
+                  : souDono
+                    ? c.status !== 'finalizado'
+                    : c.status !== 'bye' && c.status !== 'finalizado'
+              }
+            />
+          </>
+        ) : confrontosGrupo.length === 0 ? (
           <Text style={styles.chaveHint}>
             {souDono
-              ? 'Quando houver 2+ inscritos, toque em Liberar chaveamento para sortear e publicar a chave.'
-              : 'O chaveamento aparece para todos quando o organizador liberar o sorteio.'}
+              ? ehGruposMata
+                ? 'Quando houver 2+ inscritos, libere a fase de grupos.'
+                : 'Quando houver 2+ inscritos, toque em Liberar chaveamento para definir cabeças, byes e confrontos.'
+              : 'O chaveamento aparece para todos quando o organizador liberar.'}
           </Text>
-        )}
+        ) : null}
       </ScrollView>
 
       <Modal visible={!!edit} transparent animationType="slide">
@@ -1351,9 +2315,11 @@ export default function TorneioDetailScreen() {
           >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {souDono && edit?.status !== 'pronto'
-                  ? 'Horário do confronto'
-                  : 'Registrar placar'}
+                {edit?.status === 'bye'
+                  ? 'Bye · W.O.'
+                  : souDono && edit?.status !== 'pronto'
+                    ? 'Horário / W.O.'
+                    : 'Registrar placar'}
               </Text>
               <TouchableOpacity
                 onPress={() => setEdit(null)}
@@ -1370,8 +2336,17 @@ export default function TorneioDetailScreen() {
                 contentContainerStyle={styles.modalScroll}
               >
                 <Text style={styles.meta}>
-                  {edit.j1Nome} vs {edit.j2Nome}
+                  {edit.j1Nome || '—'}
+                  {edit.status === 'bye' && !edit.j2Uid
+                    ? ' · bye (sem adversário)'
+                    : ` vs ${edit.j2Nome || '—'}`}
                 </Text>
+                {edit.status === 'bye' && souDono ? (
+                  <Text style={styles.chaveHint}>
+                    Bye automático na chave. Confirme o W.O. para marcar o avanço e
+                    registrar no histórico, ou troque o jogador em “Mover na chave”.
+                  </Text>
+                ) : null}
                 {souDono ? (
                   <>
                     <Text style={styles.modalLabel}>Data/hora</Text>
@@ -1425,59 +2400,67 @@ export default function TorneioDetailScreen() {
                         <Avatar uri={edit.j2Foto} nome={edit.j2Nome} size="sm" />
                       </View>
                     </View>
+                    <Text style={styles.chaveHint}>
+                      Formato: {labelFormatoPartidaTorneio(torneio.formatoPartidaId)}
+                    </Text>
                     {(() => {
-                      const partial = setsDraft.map((s) => ({
-                        j1: Number(s.j1) || 0,
-                        j2: Number(s.j2) || 0,
-                      }));
+                      const partial = draftParaSets(setsDraft);
                       const nVis = quantosSetsVisiveis(torneio.formatoPartidaId, partial);
-                      return Array.from({ length: nVis }, (_, idx) => (
-                        <View key={`set-${idx}`} style={styles.setBlock}>
-                          <Text style={styles.modalLabel}>
-                            {rotuloSet(torneio.formatoPartidaId, idx, partial)}
+                      return (
+                        <>
+                          <Text style={[styles.chaveHint, { marginBottom: 4 }]}>
+                            {statusPlacarProgressivo(torneio.formatoPartidaId, partial)}
                           </Text>
-                          <View style={styles.scoreRowAvatars}>
-                            <TextInput
-                              style={styles.scoreInput}
-                              keyboardType="number-pad"
-                              placeholder="0"
-                              placeholderTextColor={Colors.textSecondary}
-                              value={setsDraft[idx]?.j1 ?? ''}
-                              onChangeText={(t) =>
-                                setSetsDraft((prev) => {
-                                  const next = [...prev];
-                                  next[idx] = {
-                                    ...(next[idx] ?? { j1: '', j2: '' }),
-                                    j1: t.replace(/\D/g, '').slice(0, 2),
-                                  };
-                                  return next;
-                                })
-                              }
-                            />
-                            <Text style={styles.meta}>–</Text>
-                            <TextInput
-                              style={styles.scoreInput}
-                              keyboardType="number-pad"
-                              placeholder="0"
-                              placeholderTextColor={Colors.textSecondary}
-                              value={setsDraft[idx]?.j2 ?? ''}
-                              onChangeText={(t) =>
-                                setSetsDraft((prev) => {
-                                  const next = [...prev];
-                                  next[idx] = {
-                                    ...(next[idx] ?? { j1: '', j2: '' }),
-                                    j2: t.replace(/\D/g, '').slice(0, 2),
-                                  };
-                                  return next;
-                                })
-                              }
-                            />
-                          </View>
-                        </View>
-                      ));
+                          {Array.from({ length: nVis }, (_, idx) => (
+                            <View key={`set-${idx}`} style={styles.setBlock}>
+                              <Text style={styles.modalLabel}>
+                                {rotuloSet(torneio.formatoPartidaId, idx, partial)}
+                              </Text>
+                              <View style={styles.scoreRowAvatars}>
+                                <TextInput
+                                  style={styles.scoreInput}
+                                  keyboardType="number-pad"
+                                  placeholder="0"
+                                  placeholderTextColor={Colors.textSecondary}
+                                  value={setsDraft[idx]?.j1 ?? ''}
+                                  onChangeText={(t) =>
+                                    setSetsDraft((prev) => {
+                                      const next = ensureDraftSlots(prev, idx);
+                                      next[idx] = {
+                                        ...(next[idx] ?? { j1: '', j2: '' }),
+                                        j1: t.replace(/\D/g, '').slice(0, 2),
+                                      };
+                                      return next;
+                                    })
+                                  }
+                                />
+                                <Text style={styles.meta}>–</Text>
+                                <TextInput
+                                  style={styles.scoreInput}
+                                  keyboardType="number-pad"
+                                  placeholder="0"
+                                  placeholderTextColor={Colors.textSecondary}
+                                  value={setsDraft[idx]?.j2 ?? ''}
+                                  onChangeText={(t) =>
+                                    setSetsDraft((prev) => {
+                                      const next = ensureDraftSlots(prev, idx);
+                                      next[idx] = {
+                                        ...(next[idx] ?? { j1: '', j2: '' }),
+                                        j2: t.replace(/\D/g, '').slice(0, 2),
+                                      };
+                                      return next;
+                                    })
+                                  }
+                                />
+                              </View>
+                            </View>
+                          ))}
+                        </>
+                      );
                     })()}
                     <Text style={styles.chaveHint}>
-                      Digite o placar (campos vazios). O vencedor é calculado pelos sets.
+                      Preencha set a set. Se ninguém fechou ainda, aparece o próximo placar
+                      automaticamente.
                     </Text>
                     <Button
                       label="Salvar e avançar"
@@ -1485,6 +2468,50 @@ export default function TorneioDetailScreen() {
                       onPress={pedirConfirmacaoPlacar}
                     />
                   </>
+                ) : null}
+                {souDono &&
+                edit &&
+                edit.status !== 'finalizado' &&
+                (edit.j1Uid || edit.j2Uid) ? (
+                  <View style={{ gap: 8, marginTop: 8 }}>
+                    <Text style={styles.chaveHint}>
+                      {edit.status === 'bye'
+                        ? 'W.O. — confirma o avanço do jogador sem adversário.'
+                        : 'W.O. — avança o jogador sem placar (falta / desistência).'}
+                    </Text>
+                    {edit.status === 'bye' && edit.vencedorUid ? (
+                      <Button
+                        label={`Confirmar W.O. · ${
+                          edit.vencedorUid === edit.j1Uid
+                            ? edit.j1Nome
+                            : edit.vencedorUid === edit.j2Uid
+                              ? edit.j2Nome
+                              : 'Jogador'
+                        }`}
+                        loading={salvandoPlacar}
+                        onPress={() => void executarWO(edit.vencedorUid)}
+                      />
+                    ) : (
+                      <>
+                        {edit.j1Uid ? (
+                          <Button
+                            label={`W.O. · vence ${edit.j1Nome}`}
+                            variant={edit.status === 'bye' ? 'primary' : 'outline'}
+                            loading={salvandoPlacar}
+                            onPress={() => void executarWO(edit.j1Uid)}
+                          />
+                        ) : null}
+                        {edit.j2Uid ? (
+                          <Button
+                            label={`W.O. · vence ${edit.j2Nome}`}
+                            variant={edit.status === 'bye' ? 'primary' : 'outline'}
+                            loading={salvandoPlacar}
+                            onPress={() => void executarWO(edit.j2Uid)}
+                          />
+                        ) : null}
+                      </>
+                    )}
+                  </View>
                 ) : null}
                 <TouchableOpacity
                   onPress={() => setEdit(null)}
@@ -1501,42 +2528,227 @@ export default function TorneioDetailScreen() {
 
       <Modal visible={modalCabecas} transparent animationType="slide">
         <View style={styles.modalBg}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { maxHeight: '92%' }]}>
             <Text style={styles.modalTitle}>
               {refazerChave ? 'Refazer chave' : 'Liberar chaveamento'}
             </Text>
-            <Text style={styles.desc}>
-              Opcional: toque nos cabeças de chave (seed). Os demais são sorteados. Vagas
-              faltantes viram bye.
-            </Text>
-            <ScrollView style={{ maxHeight: 280 }}>
-              {inscritosFiltrados
-                .filter((i) => !i.status || i.status === 'confirmado')
-                .map((i) => {
-                  const on = cabecasSel.includes(i.uid);
-                  return (
-                    <TouchableOpacity
-                      key={i.id}
-                      style={[styles.cabecaRow, on && styles.cabecaRowOn]}
-                      onPress={() =>
-                        setCabecasSel((prev) =>
-                          on ? prev.filter((u) => u !== i.uid) : [...prev, i.uid]
-                        )
-                      }
-                    >
-                      <Avatar uri={i.fotoUrl} nome={i.nome} size="sm" />
-                      <Text style={styles.inscritoNome}>
-                        {i.parceiroNome ? `${i.nome} / ${i.parceiroNome}` : i.nome}
-                      </Text>
-                      {on ? (
-                        <Text style={styles.seedBadge}>
-                          #{cabecasSel.indexOf(i.uid) + 1}
+            {(() => {
+              const confirmados = inscritosFiltrados.filter(
+                (i) => !i.status || i.status === 'confirmado'
+              );
+              const nByes = qtdByesNecessarios(
+                confirmados.length,
+                torneio?.estruturaMata
+              );
+              const tam = tamanhoChaveEfetivo(
+                confirmados.length,
+                torneio?.estruturaMata
+              );
+              const labelJog = (uid: string | null) => {
+                if (!uid) return 'BYE';
+                const i = confirmados.find((x) => x.uid === uid);
+                if (!i) return '—';
+                return i.parceiroNome ? `${i.nome} / ${i.parceiroNome}` : i.nome;
+              };
+              const uidsLivres = confirmados
+                .map((i) => i.uid)
+                .filter((u) => !slotsManuais.includes(u));
+
+              return (
+                <>
+                  <Text style={styles.desc}>
+                    Chave de {tam} (com {nByes} bye
+                    {nByes === 1 ? '' : 's'}). Escolha o modo:
+                  </Text>
+                  <View style={styles.modoRow}>
+                    {(
+                      [
+                        ['sorteio', 'Sorteio'],
+                        ['ordem', 'Ordem'],
+                        ['montar', 'Montar'],
+                      ] as const
+                    ).map(([id, label]) => (
+                      <TouchableOpacity
+                        key={id}
+                        style={[styles.modoChip, modoChave === id && styles.modoChipOn]}
+                        onPress={() => setModoChave(id)}
+                      >
+                        <Text
+                          style={[
+                            styles.modoChipTxt,
+                            modoChave === id && styles.modoChipTxtOn,
+                          ]}
+                        >
+                          {label}
                         </Text>
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })}
-            </ScrollView>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={[styles.desc, { marginTop: 4 }]}>
+                    {modoChave === 'sorteio'
+                      ? 'Cabeças fixos; demais sorteados. Opcional: quem recebe bye.'
+                      : modoChave === 'ordem'
+                        ? 'Cabeças fixos; demais na ordem de inscrição. Opcional: bye.'
+                        : 'Monte cada jogo da 1ª rodada. Posição vazia = bye.'}
+                  </Text>
+
+                  <ScrollView style={{ maxHeight: 340 }} keyboardShouldPersistTaps="handled">
+                    {modoChave !== 'montar' ? (
+                      <>
+                        <Text style={styles.modalSection}>Cabeças de chave (toque na ordem)</Text>
+                        {confirmados.map((i) => {
+                          const on = cabecasSel.includes(i.uid);
+                          return (
+                            <TouchableOpacity
+                              key={i.id}
+                              style={[styles.cabecaRow, on && styles.cabecaRowOn]}
+                              onPress={() =>
+                                setCabecasSel((prev) =>
+                                  on
+                                    ? prev.filter((u) => u !== i.uid)
+                                    : [...prev, i.uid]
+                                )
+                              }
+                            >
+                              <Avatar uri={i.fotoUrl} nome={i.nome} size="sm" />
+                              <Text style={styles.inscritoNome}>
+                                {i.parceiroNome
+                                  ? `${i.nome} / ${i.parceiroNome}`
+                                  : i.nome}
+                              </Text>
+                              {on ? (
+                                <Text style={styles.seedBadge}>
+                                  #{cabecasSel.indexOf(i.uid) + 1}
+                                </Text>
+                              ) : null}
+                            </TouchableOpacity>
+                          );
+                        })}
+                        {nByes > 0 ? (
+                          <>
+                            <Text style={styles.modalSection}>
+                              Quem recebe bye (até {nByes})
+                            </Text>
+                            {confirmados.map((i) => {
+                              const on = byeSel.includes(i.uid);
+                              return (
+                                <TouchableOpacity
+                                  key={`bye-${i.id}`}
+                                  style={[styles.cabecaRow, on && styles.cabecaRowOn]}
+                                  onPress={() =>
+                                    setByeSel((prev) => {
+                                      if (on) return prev.filter((u) => u !== i.uid);
+                                      if (prev.length >= nByes) return prev;
+                                      return [...prev, i.uid];
+                                    })
+                                  }
+                                >
+                                  <Avatar uri={i.fotoUrl} nome={i.nome} size="sm" />
+                                  <Text style={styles.inscritoNome}>
+                                    {i.parceiroNome
+                                      ? `${i.nome} / ${i.parceiroNome}`
+                                      : i.nome}
+                                  </Text>
+                                  {on ? (
+                                    <Text style={styles.seedBadge}>BYE</Text>
+                                  ) : null}
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        {Array.from({ length: tam / 2 }, (_, m) => {
+                          const a = m * 2;
+                          const b = m * 2 + 1;
+                          return (
+                            <View key={`m-${m}`} style={styles.matchMontar}>
+                              <Text style={styles.modalSection}>Jogo {m + 1}</Text>
+                              <TouchableOpacity
+                                style={styles.slotPick}
+                                onPress={() => setPickerSlot(a)}
+                              >
+                                <Text style={styles.slotPickTxt}>{labelJog(slotsManuais[a])}</Text>
+                              </TouchableOpacity>
+                              <Text style={styles.vsTxt}>vs</Text>
+                              <TouchableOpacity
+                                style={styles.slotPick}
+                                onPress={() => setPickerSlot(b)}
+                              >
+                                <Text style={styles.slotPickTxt}>{labelJog(slotsManuais[b])}</Text>
+                              </TouchableOpacity>
+                            </View>
+                          );
+                        })}
+                        {pickerSlot != null ? (
+                          <View style={styles.pickerBox}>
+                            <Text style={styles.modalSection}>
+                              Escolher posição {pickerSlot + 1}
+                            </Text>
+                            <TouchableOpacity
+                              style={styles.cabecaRow}
+                              onPress={() => {
+                                setSlotsManuais((prev) => {
+                                  const next = [...prev];
+                                  next[pickerSlot] = null;
+                                  return next;
+                                });
+                                setPickerSlot(null);
+                              }}
+                            >
+                              <Text style={styles.inscritoNome}>BYE (vazio)</Text>
+                            </TouchableOpacity>
+                            {slotsManuais[pickerSlot]
+                              ? (
+                                  <TouchableOpacity
+                                    style={styles.cabecaRow}
+                                    onPress={() => {
+                                      setSlotsManuais((prev) => {
+                                        const next = [...prev];
+                                        next[pickerSlot] = null;
+                                        return next;
+                                      });
+                                      setPickerSlot(null);
+                                    }}
+                                  >
+                                    <Text style={styles.inscritoNome}>Limpar slot</Text>
+                                  </TouchableOpacity>
+                                )
+                              : null}
+                            {uidsLivres.map((uid) => {
+                              const i = confirmados.find((x) => x.uid === uid)!;
+                              return (
+                                <TouchableOpacity
+                                  key={uid}
+                                  style={styles.cabecaRow}
+                                  onPress={() => {
+                                    setSlotsManuais((prev) => {
+                                      const next = prev.map((u) => (u === uid ? null : u));
+                                      next[pickerSlot] = uid;
+                                      return next;
+                                    });
+                                    setPickerSlot(null);
+                                  }}
+                                >
+                                  <Avatar uri={i.fotoUrl} nome={i.nome} size="sm" />
+                                  <Text style={styles.inscritoNome}>
+                                    {i.parceiroNome
+                                      ? `${i.nome} / ${i.parceiroNome}`
+                                      : i.nome}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        ) : null}
+                      </>
+                    )}
+                  </ScrollView>
+                </>
+              );
+            })()}
             <Button
               label={refazerChave ? 'Refazer agora' : 'Liberar agora'}
               loading={gerando}
@@ -1546,6 +2758,7 @@ export default function TorneioDetailScreen() {
               onPress={() => {
                 setModalCabecas(false);
                 setRefazerChave(false);
+                setPickerSlot(null);
               }}
             >
               <Text style={styles.cancel}>Cancelar</Text>
@@ -1729,6 +2942,70 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     fontSize: 12,
   },
+  modalSection: {
+    color: Colors.textSecondary,
+    fontWeight: '800',
+    fontSize: 13,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  modoRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  modoChip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 60,
+    backgroundColor: Colors.surfaceDark,
+    borderWidth: 1,
+    borderColor: Colors.surface,
+  },
+  modoChipOn: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  modoChipTxt: {
+    color: Colors.textPrimary,
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  modoChipTxtOn: { color: Colors.textOnAccent },
+  matchMontar: {
+    marginBottom: 12,
+    gap: 6,
+  },
+  slotPick: {
+    backgroundColor: Colors.surfaceDark,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: Colors.surface,
+  },
+  slotPickTxt: {
+    color: Colors.textPrimary,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  vsTxt: {
+    color: Colors.accent,
+    fontWeight: '900',
+    textAlign: 'center',
+    fontSize: 12,
+  },
+  pickerBox: {
+    marginTop: 8,
+    marginBottom: 16,
+    padding: 10,
+    borderRadius: 16,
+    backgroundColor: Colors.surfaceDark,
+    borderWidth: 1,
+    borderColor: Colors.surface,
+  },
   catInput: {
     flex: 1,
     minWidth: 0,
@@ -1799,6 +3076,46 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     minHeight: 48,
     justifyContent: 'center',
+  },
+  agendaRow: {
+    marginTop: 8,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border,
+    gap: 8,
+  },
+  agendaTitulo: {
+    color: Colors.accent,
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  intervalRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  intervalChip: {
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  intervalChipOn: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  intervalChipTxt: {
+    color: Colors.textPrimary,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  intervalChipTxtOn: { color: Colors.textOnAccent },
+  switchRowAgenda: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   scoreInput: {

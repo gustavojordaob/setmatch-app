@@ -77,6 +77,27 @@ async function main() {
   );
   copyFile(path.join(ROOT, 'public', 'sw.js'), path.join(DIST, 'sw.js'));
 
+  // Fontes de ícones em /fonts (fora de assets/node_modules — Hosting ignorava node_modules)
+  const ionSrc = path.join(
+    ROOT,
+    'node_modules',
+    '@expo',
+    'vector-icons',
+    'build',
+    'vendor',
+    'react-native-vector-icons',
+    'Fonts',
+    'Ionicons.ttf'
+  );
+  if (fs.existsSync(ionSrc)) {
+    const fontsPublic = path.join(ROOT, 'public', 'fonts');
+    const fontsDist = path.join(DIST, 'fonts');
+    fs.mkdirSync(fontsPublic, { recursive: true });
+    fs.mkdirSync(fontsDist, { recursive: true });
+    copyFile(ionSrc, path.join(fontsPublic, 'Ionicons.ttf'));
+    copyFile(ionSrc, path.join(fontsDist, 'Ionicons.ttf'));
+  }
+
   for (const folder of ['privacy', 'terms', 'suporte']) {
     const from = path.join(ROOT, 'public', folder, 'index.html');
     const to = path.join(DIST, folder, 'index.html');
@@ -101,13 +122,37 @@ async function main() {
   if (fs.existsSync(abrirFrom)) {
     fs.cpSync(abrirFrom, abrirTo, { recursive: true });
   }
+
+  // Pontes de retorno Stripe → deep link nativo
+  const pagFrom = path.join(ROOT, 'public', 'pagamento');
+  const pagTo = path.join(DIST, 'pagamento');
+  if (fs.existsSync(pagFrom)) {
+    fs.cpSync(pagFrom, pagTo, { recursive: true });
+  }
+
   // Remover rotas Expo /torneio para a rewrite do Hosting servir a ponte
   const torneioDist = path.join(DIST, 'torneio');
   if (fs.existsSync(torneioDist)) {
     fs.rmSync(torneioDist, { recursive: true, force: true });
   }
 
-  console.log('PWA assets + páginas legais + landing + abrir/torneio em dist-web.');
+  // Bloquear SPA web no celular: index vira gate "use o app"
+  const gate = path.join(ROOT, 'public', 'app-only.html');
+  if (fs.existsSync(gate)) {
+    fs.copyFileSync(gate, path.join(DIST, 'index.html'));
+    // Evita service worker cacheando SPA antiga
+    const swPath = path.join(DIST, 'sw.js');
+    fs.writeFileSync(
+      swPath,
+      `self.addEventListener('install', (e) => self.skipWaiting());
+self.addEventListener('activate', (e) => {
+  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.map((k) => caches.delete(k)))));
+});
+`
+    );
+  }
+
+  console.log('PWA assets + landing + abrir + pagamento bridges + app-only gate.');
 }
 
 main().catch((err) => {

@@ -40,8 +40,26 @@ export default function Root({ children }: PropsWithChildren) {
                 padding: 0;
                 background: #255943;
               }
+              /* Fallback estável: Hosting já ignorava assets/node_modules/*.ttf */
+              @font-face {
+                font-family: 'ionicons';
+                src: url('/fonts/Ionicons.ttf') format('truetype');
+                font-weight: normal;
+                font-style: normal;
+                font-display: block;
+              }
+              /* Site admin desktop: tipografia e scroll de página */
+              @media (min-width: 960px) {
+                html, body, #root {
+                  overflow: auto;
+                }
+                body {
+                  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+                }
+              }
               input, textarea { outline: none !important; }
               [role="button"] { cursor: pointer !important; }
+              a { cursor: pointer; }
             `,
           }}
         />

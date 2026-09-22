@@ -1,7 +1,7 @@
 import { Alert } from 'react-native';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebaseConfig';
-import { iniciarCheckoutStripe } from './stripeCheckout';
+import { iniciarCheckoutAsaas } from './asaasCheckout';
 import {
   type MeioPagamento,
   type RegrasPrecoPagamento,
@@ -9,6 +9,7 @@ import {
   precoPorMeio,
   textoPromoMeio,
 } from './precoPagamento';
+import { formatMoneyBR } from './mascaras';
 
 export type ResultadoCheckoutMeio = 'cancelado' | 'pendente' | 'aprovado' | 'abortado';
 
@@ -21,8 +22,8 @@ export function textoCicloPagamento(ciclo: 'unico' | 'mensal'): string {
 }
 
 /**
- * Mostra opções PIX / cartão com % de desconto e abre o Stripe.
- * Mensal + cartão = subscription (recorrente). PIX mensal = cobrança única do mês.
+ * Mostra opções PIX / cartão com % de desconto e abre o Asaas Checkout.
+ * Mensal + cartão = assinatura. PIX mensal = cobrança única do mês.
  */
 export function pagarComEscolhaDeMeio(opts: {
   pagamentoId: string;
@@ -52,7 +53,7 @@ export function pagarComEscolhaDeMeio(opts: {
           meioPagamento: meio,
           atualizadoEm: serverTimestamp(),
         });
-        const status = await iniciarCheckoutStripe({
+        const status = await iniciarCheckoutAsaas({
           pagamentoId,
           titulo,
           valor: valorFinal,
@@ -74,15 +75,15 @@ export function pagarComEscolhaDeMeio(opts: {
       const { valorFinal, descontoPercent, valorBase } = precoPorMeio(regras, meio);
       const desc =
         descontoPercent > 0
-          ? ` (−${descontoPercent}% de R$ ${valorBase.toFixed(2)})`
+          ? ` (−${descontoPercent}% de ${formatMoneyBR(valorBase)})`
           : '';
 
       const isRecorrente = ciclo === 'mensal' && meio === 'cartao';
       const label = isRecorrente
-        ? `Cartão recorrente · R$ ${valorFinal.toFixed(2)}/mês${desc}`
+        ? `Cartão recorrente · ${formatMoneyBR(valorFinal)}/mês${desc}`
         : meio === 'pix' && ciclo === 'mensal'
-          ? `PIX · R$ ${valorFinal.toFixed(2)} (só este mês)${desc}`
-          : `${meio === 'pix' ? 'PIX' : 'Cartão'} · R$ ${valorFinal.toFixed(2)}${desc}`;
+          ? `PIX · ${formatMoneyBR(valorFinal)} (só este mês)${desc}`
+          : `${meio === 'pix' ? 'PIX' : 'Cartão'} · ${formatMoneyBR(valorFinal)}${desc}`;
 
       buttons.push({
         text: label,
@@ -91,7 +92,7 @@ export function pagarComEscolhaDeMeio(opts: {
             Alert.alert(
               'Assinatura mensal',
               [
-                `Você vai pagar R$ ${valorFinal.toFixed(2)} agora e o mesmo valor será cobrado automaticamente no cartão todo mês.`,
+                `Você vai pagar ${formatMoneyBR(valorFinal)} agora e o mesmo valor será cobrado automaticamente no cartão todo mês.`,
                 'É uma assinatura recorrente — cancele depois no clube ou no app se quiser parar.',
                 'Continuar para o checkout?',
               ].join('\n\n'),

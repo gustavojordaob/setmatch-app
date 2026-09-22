@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "adminsTemporarios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clubeId", "order": "ASCENDING" },
+        { "fieldPath": "email", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "posts",
       "queryScope": "COLLECTION",
       "fields": [

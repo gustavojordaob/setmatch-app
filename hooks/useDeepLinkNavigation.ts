@@ -3,36 +3,45 @@ import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useAuth } from './useAuth';
 import { rotaFromIncomingUrl } from '../utils/deepLinks';
+import {
+  consumePendingDeepLink,
+  rememberDeepLinkUrl,
+} from '../utils/pendingDeepLink';
 
 /**
- * Quando o app já está aberto (ou volta do background), segue o deep link
- * setmatch://torneio/… sem cair na home.
+ * Segue deep links quando o app já está autenticado.
+ * Cold start: app/index.tsx navega; se caiu na home (OTA/auth),
+ * este hook consome o link pendente.
  */
 export function useDeepLinkNavigation() {
   const router = useRouter();
   const { user, loading, onboardingComplete } = useAuth();
-  const handledInitial = useRef(false);
+  const handledBoot = useRef(false);
 
   useEffect(() => {
     if (loading || !user || !onboardingComplete) return;
 
-    const go = (url: string) => {
+    const go = (url: string | null | undefined) => {
+      if (!url) return;
       const rota = rotaFromIncomingUrl(url);
-      if (rota) router.push(rota as never);
+      if (!rota) return;
+      setTimeout(() => {
+        router.push(rota as never);
+      }, 80);
     };
 
-    if (!handledInitial.current) {
-      handledInitial.current = true;
-      void Linking.getInitialURL().then((url) => {
-        // Launch screen já trata cold start; aqui só se ainda estamos em home/painel
-        // e o URL inicial não foi consumido — listener cobre app em foreground.
-        if (url) {
-          /* cold start: app/index.tsx já redireciona */
-        }
-      });
+    if (!handledBoot.current) {
+      handledBoot.current = true;
+      void (async () => {
+        const pending = await consumePendingDeepLink();
+        if (pending) go(pending);
+      })();
     }
 
-    const sub = Linking.addEventListener('url', ({ url }) => go(url));
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      void rememberDeepLinkUrl(url);
+      go(url);
+    });
     return () => sub.remove();
   }, [user, loading, onboardingComplete, router]);
 }

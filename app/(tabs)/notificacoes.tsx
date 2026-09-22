@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -16,9 +16,13 @@ import { useDesafios } from '../../hooks/useDesafios';
 import { useNotificacoes } from '../../hooks/useNotificacoes';
 import {
   marcarNotificacaoLida,
-  marcarTodasNotificacoesLidas,
   type NotificacaoApp,
 } from '../../services/notificacoes';
+import {
+  abrirAjustesNotificacoes,
+  pushNativoDisponivel,
+  registrarPushTokenDetalhado,
+} from '../../services/push';
 import { Avatar } from '../../components/ui/Avatar';
 import { UnreadBadge } from '../../components/ui/UnreadBadge';
 import { useT } from '../../hooks/useI18n';
@@ -50,6 +54,8 @@ function iconForTipo(tipo: NotificacaoApp['tipo']): keyof typeof Ionicons.glyphM
       return 'calendar-outline';
     case 'chave_torneio':
       return 'git-branch-outline';
+    case 'ranking':
+      return 'trophy-outline';
     case 'convite_dupla':
       return 'people-outline';
     case 'pagamento':
@@ -68,13 +74,71 @@ export default function NotificacoesScreen() {
   const { itens: notifs } = useNotificacoes();
   const [aba, setAba] = useState<TabNotif>('confrontos');
   const [autoAba, setAutoAba] = useState(false);
+  const [ativandoPush, setAtivandoPush] = useState(false);
+
+  async function onAtivarPush() {
+    if (!user?.uid) return;
+    setAtivandoPush(true);
+    try {
+      if (!pushNativoDisponivel()) {
+        Alert.alert(
+          'Push',
+          'Este instalador ainda não tem o módulo de notificações. Atualize o app pela loja (build novo) e tente de novo.'
+        );
+        return;
+      }
+      Alert.alert(
+        'Ativar notificações',
+        Platform.OS === 'ios'
+          ? 'O iPhone vai perguntar se pode enviar notificações. Toque em Permitir.'
+          : 'O Android vai perguntar se pode enviar notificações. Toque em Permitir.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Continuar',
+            onPress: () => {
+              void (async () => {
+                const r = await registrarPushTokenDetalhado(user.uid, {
+                  forcarPedido: true,
+                });
+                if (r.status === 'granted' && r.token) {
+                  Alert.alert(
+                    'Push',
+                    'Notificações ativadas. Você vai receber alertas mesmo com o app fechado.'
+                  );
+                  return;
+                }
+                if (r.status === 'denied') {
+                  Alert.alert(
+                    'Push',
+                    'Permissão negada. Ative em Ajustes do celular.',
+                    [
+                      { text: 'Cancelar', style: 'cancel' },
+                      {
+                        text: 'Abrir Ajustes',
+                        onPress: () => void abrirAjustesNotificacoes(),
+                      },
+                    ]
+                  );
+                  return;
+                }
+                Alert.alert('Push', r.detalhe || 'Não foi possível ativar agora.');
+              })();
+            },
+          },
+        ]
+      );
+    } finally {
+      setAtivandoPush(false);
+    }
+  }
 
   const msgsNaoLidas = totalNaoLidas(conversas, user?.uid);
 
   const lembretes = useMemo(
     () =>
       notifs.filter((n) =>
-        ['desafio', 'reserva_ranking', 'convite_dupla'].includes(n.tipo)
+        ['desafio', 'reserva_ranking', 'convite_dupla', 'ranking'].includes(n.tipo)
       ),
     [notifs]
   );
@@ -84,6 +148,15 @@ export default function NotificacoesScreen() {
         ['chave_torneio', 'pagamento', 'sistema'].includes(n.tipo)
       ),
     [notifs]
+  );
+
+  const lembretesNaoLidas = useMemo(
+    () => lembretes.filter((n) => !n.lida).length,
+    [lembretes]
+  );
+  const sistemaNaoLidas = useMemo(
+    () => sistema.filter((n) => !n.lida).length,
+    [sistema]
   );
 
   const comMensagem = useMemo(() => {
@@ -97,22 +170,35 @@ export default function NotificacoesScreen() {
     return list;
   }, [conversas, user?.uid]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!user?.uid) return;
-      void marcarTodasNotificacoesLidas(user.uid).catch(() => {
-        /* offline / rules */
-      });
-    }, [user?.uid])
-  );
-
+  /** Abre direto na aba que tem novidade — NÃO marca tudo como lido ao entrar. */
   useEffect(() => {
     if (autoAba) return;
+    if (sistemaNaoLidas > 0) {
+      setAba('sistema');
+      setAutoAba(true);
+      return;
+    }
+    if (lembretesNaoLidas > 0) {
+      setAba('lembretes');
+      setAutoAba(true);
+      return;
+    }
     if (msgsNaoLidas > 0) {
       setAba('mensagens');
       setAutoAba(true);
+      return;
     }
-  }, [msgsNaoLidas, autoAba]);
+    if (recebidosPendentes.length > 0) {
+      setAba('confrontos');
+      setAutoAba(true);
+    }
+  }, [
+    autoAba,
+    sistemaNaoLidas,
+    lembretesNaoLidas,
+    msgsNaoLidas,
+    recebidosPendentes.length,
+  ]);
 
   function tituloDa(c: Conversa): string {
     if (c.tipo === 'clube') return c.clubeNome ?? 'Clube';
@@ -137,6 +223,17 @@ export default function NotificacoesScreen() {
           <Text style={styles.title}>{t('notificacoes.title')}</Text>
           <View style={styles.headerSpacer} />
         </View>
+
+        <TouchableOpacity
+          style={styles.pushBanner}
+          onPress={() => void onAtivarPush()}
+          disabled={ativandoPush}
+        >
+          <Ionicons name="notifications-outline" size={20} color={Colors.textOnAccent} />
+          <Text style={styles.pushBannerTxt}>
+            {ativandoPush ? 'Ativando push…' : 'Ativar alertas no celular (push)'}
+          </Text>
+        </TouchableOpacity>
 
         <View style={styles.toggleRow}>
           <TouchableOpacity
@@ -174,9 +271,11 @@ export default function NotificacoesScreen() {
             <Text style={[styles.toggleTxt, aba === 'lembretes' && styles.toggleTxtOn]}>
               LEMBRETES
             </Text>
-            {lembretes.filter((n) => !n.lida).length > 0 ? (
+            {lembretesNaoLidas > 0 ? (
               <View style={styles.tabBadge}>
-                <Text style={styles.tabBadgeTxt}>{lembretes.filter((n) => !n.lida).length}</Text>
+                <Text style={styles.tabBadgeTxt}>
+                  {lembretesNaoLidas > 99 ? '99+' : lembretesNaoLidas}
+                </Text>
               </View>
             ) : null}
           </TouchableOpacity>
@@ -187,9 +286,11 @@ export default function NotificacoesScreen() {
             <Text style={[styles.toggleTxt, aba === 'sistema' && styles.toggleTxtOn]}>
               SISTEMA
             </Text>
-            {sistema.filter((n) => !n.lida).length > 0 ? (
+            {sistemaNaoLidas > 0 ? (
               <View style={styles.tabBadge}>
-                <Text style={styles.tabBadgeTxt}>{sistema.filter((n) => !n.lida).length}</Text>
+                <Text style={styles.tabBadgeTxt}>
+                  {sistemaNaoLidas > 99 ? '99+' : sistemaNaoLidas}
+                </Text>
               </View>
             ) : null}
           </TouchableOpacity>
@@ -385,6 +486,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerSpacer: { width: 40 },
+  pushBanner: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: Colors.accent,
+    borderRadius: Radius.pill,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pushBannerTxt: {
+    color: Colors.textOnAccent,
+    fontWeight: '800',
+    fontSize: 13,
+    flex: 1,
+  },
   toggleRow: {
     flexDirection: 'row',
     marginHorizontal: 12,

@@ -13,6 +13,7 @@ import {
   updateDoc,
   where,
   writeBatch,
+  limit,
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
@@ -29,6 +30,7 @@ import type {
 import { criarConviteDupla } from './duplas';
 import { criarRegistroPagamento } from './pagamentos';
 import { criarNotificacao } from './notificacoes';
+import { formatMoneyBR } from '../utils/mascaras';
 
 export type TorneioStatus = 'aberto' | 'em_andamento' | 'finalizado';
 export type InscricaoStatus =
@@ -61,7 +63,13 @@ export interface Torneio {
   dataInicio?: string;
   dataFim?: string;
   descricao?: string;
+  /** Nome do local / clube (visível ao jogador). */
   local?: string;
+  /** Endereço estruturado do local (CEP + ViaCEP). */
+  cep?: string;
+  endereco?: string;
+  bairro?: string;
+  estado?: string;
   donoUid: string;
   status: TorneioStatus;
   totalInscritos: number;
@@ -89,8 +97,14 @@ export interface Torneio {
   inscricoesEncerradas?: boolean;
   /** Horário padrão / referência (organizador). Jogador não reserva. */
   horarioPadrao?: string;
-  /** Quadra opcional do evento (organizador). */
+  /** Quadra opcional de referência do evento (organizador). */
   quadraNome?: string;
+  /** Espaçamento entre jogos na agenda automática (minutos). Ex.: 60, 120. */
+  intervaloJogosMin?: number;
+  /** Quadras disponíveis para sortear nos confrontos. */
+  quadrasDisponiveis?: string[];
+  /** Se true, ao sortear a chave atribui quadras; se false, jogos ficam sem quadra. */
+  atribuirQuadrasAoSortear?: boolean;
   /** Se true, só o organizador registra placar. */
   resultadoSoOrganizador?: boolean;
   pagamento?: {
@@ -128,6 +142,32 @@ export interface InscricaoTorneio {
 export function inscricaoTorneioDocId(uid: string, categoriaId?: string): string {
   if (!categoriaId) return uid;
   return `${uid}__${categoriaId}`;
+}
+
+/** Normaliza categoriaId (Firestore pode ter '' em vez de ausente). */
+function catIdNorm(v: unknown): string {
+  return String(v ?? '').trim();
+}
+
+function isInscricaoDoUid(
+  docId: string,
+  data: { uid?: unknown },
+  uid: string
+): boolean {
+  const capitao = String(data.uid ?? docId.split('__')[0]);
+  return capitao === uid || docId === uid || docId.startsWith(`${uid}__`);
+}
+
+/**
+ * Ignora docs fantasmas (ex.: só {pago,pagamentoId} recriados pelo sync após exclusão).
+ */
+export function isInscricaoCompleta(data: Record<string, unknown> | undefined | null): boolean {
+  if (!data) return false;
+  if (data.nome != null && String(data.nome).trim() !== '') return true;
+  if (data.criadoEm != null) return true;
+  if (data.status != null && String(data.status).trim() !== '') return true;
+  if (data.inscritoPorOrganizador === true) return true;
+  return false;
 }
 
 export function novaCategoriaId(): string {
@@ -185,6 +225,10 @@ function mapTorneio(id: string, raw: Record<string, unknown>): Torneio {
     dataFim: raw.dataFim ? String(raw.dataFim) : undefined,
     descricao: raw.descricao ? String(raw.descricao) : undefined,
     local: raw.local ? String(raw.local) : undefined,
+    cep: raw.cep ? String(raw.cep) : undefined,
+    endereco: raw.endereco ? String(raw.endereco) : undefined,
+    bairro: raw.bairro ? String(raw.bairro) : undefined,
+    estado: raw.estado ? String(raw.estado) : undefined,
     donoUid: String(raw.donoUid ?? ''),
     status: (raw.status as TorneioStatus) ?? 'aberto',
     totalInscritos: Number(raw.totalInscritos ?? 0),
@@ -204,7 +248,16 @@ function mapTorneio(id: string, raw: Record<string, unknown>): Torneio {
     inscricoesEncerradas: Boolean(raw.inscricoesEncerradas),
     horarioPadrao: raw.horarioPadrao ? String(raw.horarioPadrao) : undefined,
     quadraNome: raw.quadraNome ? String(raw.quadraNome) : undefined,
+    intervaloJogosMin:
+      raw.intervaloJogosMin != null ? Number(raw.intervaloJogosMin) : undefined,
+    quadrasDisponiveis: Array.isArray(raw.quadrasDisponiveis)
+      ? (raw.quadrasDisponiveis as unknown[])
+          .map((q) => String(q ?? '').trim())
+          .filter(Boolean)
+      : undefined,
+    atribuirQuadrasAoSortear: Boolean(raw.atribuirQuadrasAoSortear),
     resultadoSoOrganizador: Boolean(raw.resultadoSoOrganizador),
+    criadoEm: raw.criadoEm as { seconds: number } | undefined,
     pagamento: raw.pagamento
       ? {
           ativo: Boolean((raw.pagamento as { ativo?: boolean }).ativo),
@@ -242,6 +295,10 @@ export async function criarTorneioCompleto(input: {
   dataFim?: string;
   descricao?: string;
   local?: string;
+  cep?: string;
+  endereco?: string;
+  bairro?: string;
+  estado?: string;
   formatoChaves?: FormatoChavesId;
   definicaoChave?: DefinicaoChaveId;
   estruturaMata?: EstruturaMataId;
@@ -253,6 +310,9 @@ export async function criarTorneioCompleto(input: {
   estruturaPreview?: string;
   horarioPadrao?: string;
   quadraNome?: string;
+  intervaloJogosMin?: number;
+  quadrasDisponiveis?: string[];
+  atribuirQuadrasAoSortear?: boolean;
   categorias?: CategoriaTorneio[];
   resultadoSoOrganizador?: boolean;
   pagamento?: {
@@ -303,8 +363,17 @@ export async function criarTorneioCompleto(input: {
     dataFim: input.dataFim ?? '',
     descricao: input.descricao?.trim() ?? '',
     local: input.local?.trim() ?? '',
+    cep: input.cep?.trim() ?? '',
+    endereco: input.endereco?.trim() ?? '',
+    bairro: input.bairro?.trim() ?? '',
+    estado: (input.estado?.trim() ?? '').toUpperCase(),
     horarioPadrao: input.horarioPadrao?.trim() ?? '',
     quadraNome: input.quadraNome?.trim() ?? '',
+    intervaloJogosMin: Math.max(15, Number(input.intervaloJogosMin) || 60),
+    quadrasDisponiveis: Array.isArray(input.quadrasDisponiveis)
+      ? input.quadrasDisponiveis.map((q) => q.trim()).filter(Boolean)
+      : [],
+    atribuirQuadrasAoSortear: Boolean(input.atribuirQuadrasAoSortear),
     formatoChaves: input.formatoChaves ?? 'simples',
     definicaoChave: input.definicaoChave ?? 'sorteio',
     estruturaMata: input.estruturaMata ?? 16,
@@ -417,13 +486,32 @@ export async function excluirTorneio(
 
 export async function atualizarAgendaTorneio(
   torneioId: string,
-  data: { horarioPadrao?: string; quadraNome?: string; local?: string }
+  data: {
+    horarioPadrao?: string;
+    quadraNome?: string;
+    local?: string;
+    intervaloJogosMin?: number;
+    quadrasDisponiveis?: string[];
+    atribuirQuadrasAoSortear?: boolean;
+  }
 ): Promise<void> {
-  await updateDoc(doc(db, 'torneios', torneioId), {
+  const patch: Record<string, unknown> = {
     horarioPadrao: data.horarioPadrao?.trim() ?? '',
     quadraNome: data.quadraNome?.trim() ?? '',
-    ...(data.local != null ? { local: data.local.trim() } : {}),
-  });
+  };
+  if (data.local != null) patch.local = data.local.trim();
+  if (data.intervaloJogosMin != null) {
+    patch.intervaloJogosMin = Math.max(15, Number(data.intervaloJogosMin) || 60);
+  }
+  if (data.quadrasDisponiveis != null) {
+    patch.quadrasDisponiveis = data.quadrasDisponiveis
+      .map((q) => q.trim())
+      .filter(Boolean);
+  }
+  if (data.atribuirQuadrasAoSortear != null) {
+    patch.atribuirQuadrasAoSortear = Boolean(data.atribuirQuadrasAoSortear);
+  }
+  await updateDoc(doc(db, 'torneios', torneioId), patch);
 }
 
 /** Dono edita dados gerais do torneio (nome, datas, local, pagamento, chaves…). */
@@ -435,8 +523,16 @@ export async function atualizarDadosTorneio(
     dataFim?: string;
     descricao?: string;
     local?: string;
+    cep?: string;
+    endereco?: string;
+    bairro?: string;
+    cidade?: string;
+    estado?: string;
     horarioPadrao?: string;
     quadraNome?: string;
+    intervaloJogosMin?: number;
+    quadrasDisponiveis?: string[];
+    atribuirQuadrasAoSortear?: boolean;
     resultadoSoOrganizador?: boolean;
     pagamento?: Torneio['pagamento'];
     composicao?: ComposicaoId;
@@ -459,8 +555,24 @@ export async function atualizarDadosTorneio(
   if (patch.dataFim != null) data.dataFim = patch.dataFim.trim();
   if (patch.descricao != null) data.descricao = patch.descricao.trim();
   if (patch.local != null) data.local = patch.local.trim();
+  if (patch.cep != null) data.cep = patch.cep.trim();
+  if (patch.endereco != null) data.endereco = patch.endereco.trim();
+  if (patch.bairro != null) data.bairro = patch.bairro.trim();
+  if (patch.cidade != null) data.cidade = patch.cidade.trim();
+  if (patch.estado != null) data.estado = patch.estado.trim().toUpperCase();
   if (patch.horarioPadrao != null) data.horarioPadrao = patch.horarioPadrao.trim();
   if (patch.quadraNome != null) data.quadraNome = patch.quadraNome.trim();
+  if (patch.intervaloJogosMin != null) {
+    data.intervaloJogosMin = Math.max(15, Number(patch.intervaloJogosMin) || 60);
+  }
+  if (patch.quadrasDisponiveis != null) {
+    data.quadrasDisponiveis = patch.quadrasDisponiveis
+      .map((q) => q.trim())
+      .filter(Boolean);
+  }
+  if (patch.atribuirQuadrasAoSortear != null) {
+    data.atribuirQuadrasAoSortear = Boolean(patch.atribuirQuadrasAoSortear);
+  }
   if (patch.resultadoSoOrganizador != null) {
     data.resultadoSoOrganizador = Boolean(patch.resultadoSoOrganizador);
   }
@@ -535,7 +647,12 @@ export async function listarTorneiosDoDono(donoUid: string): Promise<Torneio[]> 
   );
   return snap.docs
     .map((d) => mapTorneio(d.id, d.data()))
-    .sort((a, b) => (b.dataInicio ?? '').localeCompare(a.dataInicio ?? ''));
+    .sort((a, b) => {
+      const sa = a.criadoEm?.seconds ?? 0;
+      const sb = b.criadoEm?.seconds ?? 0;
+      if (sb !== sa) return sb - sa;
+      return (b.dataInicio ?? '').localeCompare(a.dataInicio ?? '');
+    });
 }
 
 export async function valorInscricaoComDescontoMultiCategoria(input: {
@@ -569,6 +686,7 @@ export async function inscreverTorneio(input: {
   nome: string;
   fotoUrl?: string;
   telefone?: string;
+  email?: string;
   setmatchId?: string;
   categoriaId?: string;
   /** Obrigatório se torneio for em duplas */
@@ -649,11 +767,14 @@ export async function inscreverTorneio(input: {
   const ja = await getDoc(ref);
   if (ja.exists()) throw new Error('Você já está inscrito nesta categoria.');
 
-  // Legado: doc id = uid sem categoria
+  // Legado: doc id = uid (com categoria vazia ou a mesma) bloqueia reentrada
   if (categoriaId) {
     const legado = await getDoc(doc(db, 'torneios', input.torneioId, 'inscritos', input.uid));
-    if (legado.exists() && !legado.data()?.categoriaId) {
-      throw new Error('Você já está inscrito neste torneio.');
+    if (legado.exists()) {
+      const cat = catIdNorm(legado.data()?.categoriaId);
+      if (!cat || cat === categoriaId) {
+        throw new Error('Você já está inscrito nesta categoria.');
+      }
     }
   }
 
@@ -729,6 +850,16 @@ export async function inscreverTorneio(input: {
         criadoEm: serverTimestamp(),
       });
       await updateDoc(tRef, { totalInscritos: increment(1) });
+      void criarNotificacao({
+        paraUid: input.uid,
+        tipo: 'chave_torneio',
+        titulo: 'Inscrição confirmada',
+        corpo: `Você está inscrito em ${String(tData.nome ?? 'torneio')}${
+          categoriaNome ? ` · ${categoriaNome}` : ''
+        }.`,
+        rota: `/torneio/${input.torneioId}`,
+        refId: input.torneioId,
+      }).catch(() => undefined);
       return {
         status: 'confirmado',
         categoriaId: categoriaId || undefined,
@@ -750,6 +881,7 @@ export async function inscreverTorneio(input: {
       uid: input.uid,
       setmatchId: input.setmatchId || '',
       nome: input.nome,
+      email: input.email || undefined,
       telefone: input.telefone,
       tipo: 'torneio',
       clubeId: String(tData.clubeId ?? ''),
@@ -757,6 +889,13 @@ export async function inscreverTorneio(input: {
       donoUid: String(tData.donoUid ?? ''),
       torneioId: input.torneioId,
       torneioNome: String(tData.nome ?? ''),
+      categoriaId: categoriaId || undefined,
+      categoriaNome: categoriaNome || undefined,
+      esporte: String(tData.esporte ?? ''),
+      modalidadeNome:
+        categoriaNome ||
+        String(tData.esporte ?? '') ||
+        String(tData.nome ?? 'Torneio'),
       valor: valorFinal,
       ciclo: 'unico',
       status: 'aguardando_pagamento',
@@ -765,11 +904,11 @@ export async function inscreverTorneio(input: {
       paraUid: input.uid,
       tipo: 'pagamento',
       titulo: 'Pagamento da inscrição',
-      corpo: `Pague R$ ${valorFinal.toFixed(2)} para confirmar sua vaga em ${String(
+      corpo: `Pague ${formatMoneyBR(valorFinal)} para confirmar sua vaga em ${String(
         tData.nome ?? 'torneio'
       )}${categoriaNome ? ` (${categoriaNome})` : ''}${
         cobranca.descontoAplicado > 0
-          ? ` — desconto 2ª categoria −R$ ${cobranca.descontoAplicado.toFixed(2)}`
+          ? ` — desconto 2ª categoria −${formatMoneyBR(cobranca.descontoAplicado)}`
           : ''
       }.`,
       rota: '/pagamentos',
@@ -793,6 +932,16 @@ export async function inscreverTorneio(input: {
     criadoEm: serverTimestamp(),
   });
   await updateDoc(tRef, { totalInscritos: increment(1) });
+  void criarNotificacao({
+    paraUid: input.uid,
+    tipo: 'chave_torneio',
+    titulo: 'Inscrição confirmada',
+    corpo: `Você está inscrito em ${String(tData.nome ?? 'torneio')}${
+      categoriaNome ? ` · ${categoriaNome}` : ''
+    }.`,
+    rota: `/torneio/${input.torneioId}`,
+    refId: input.torneioId,
+  }).catch(() => undefined);
   return {
     status: 'confirmado',
     categoriaId: categoriaId || undefined,
@@ -897,8 +1046,11 @@ export async function inscreverTorneioPorOrganizador(input: {
     const legado = await getDoc(
       doc(db, 'torneios', input.torneioId, 'inscritos', jogador.uid)
     );
-    if (legado.exists() && !legado.data()?.categoriaId) {
-      throw new Error('Este jogador já está inscrito neste torneio.');
+    if (legado.exists()) {
+      const cat = catIdNorm(legado.data()?.categoriaId);
+      if (!cat || cat === categoriaId) {
+        throw new Error('Este jogador já está inscrito nesta categoria.');
+      }
     }
   }
 
@@ -977,11 +1129,15 @@ export async function jaInscritoNaCategoria(
   const snap = await getDoc(
     doc(db, 'torneios', torneioId, 'inscritos', inscricaoTorneioDocId(uid, categoriaId))
   );
-  if (snap.exists()) return true;
-  // legado sem categoria
+  if (snap.exists() && isInscricaoCompleta(snap.data() as Record<string, unknown>)) {
+    return true;
+  }
+  // legado sem categoria (ou mesma categoria no doc uid)
   const legado = await getDoc(doc(db, 'torneios', torneioId, 'inscritos', uid));
-  if (!legado.exists()) return false;
-  const cat = String(legado.data()?.categoriaId ?? '');
+  if (!legado.exists() || !isInscricaoCompleta(legado.data() as Record<string, unknown>)) {
+    return false;
+  }
+  const cat = catIdNorm(legado.data()?.categoriaId);
   return !cat || cat === categoriaId;
 }
 
@@ -991,7 +1147,11 @@ export async function idsInscricoesDoUsuario(
 ): Promise<string[]> {
   const snap = await getDocs(collection(db, 'torneios', torneioId, 'inscritos'));
   return snap.docs
-    .filter((d) => String(d.data().uid ?? d.id) === uid || d.id === uid || d.id.startsWith(`${uid}__`))
+    .filter(
+      (d) =>
+        isInscricaoDoUid(d.id, d.data(), uid) &&
+        isInscricaoCompleta(d.data() as Record<string, unknown>)
+    )
     .map((d) => d.id);
 }
 
@@ -1000,7 +1160,9 @@ export function ouvirInscritosTorneio(
   onData: (lista: InscricaoTorneio[]) => void
 ): Unsubscribe {
   return onSnapshot(collection(db, 'torneios', torneioId, 'inscritos'), (snap) => {
-    const list = snap.docs.map((d) => {
+    const list = snap.docs
+      .filter((d) => isInscricaoCompleta(d.data() as Record<string, unknown>))
+      .map((d) => {
       const raw = d.data();
       return {
         id: d.id,
@@ -1025,6 +1187,169 @@ export function ouvirInscritosTorneio(
     });
     onData(list);
   });
+}
+
+/**
+ * Recalcula totalInscritos a partir das inscrições reais (confirmadas/contabilizadas).
+ * Corrige drift quando alguém foi removido/teste sem decrementar o contador.
+ */
+export async function sincronizarTotalInscritos(torneioId: string): Promise<number> {
+  const snap = await getDocs(collection(db, 'torneios', torneioId, 'inscritos'));
+  let n = 0;
+  for (const d of snap.docs) {
+    const raw = d.data() as Record<string, unknown>;
+    if (!isInscricaoCompleta(raw)) continue;
+    const st = String(raw.status ?? '');
+    if (Boolean(raw.contabilizado) || st === 'confirmado') n += 1;
+  }
+  await updateDoc(doc(db, 'torneios', torneioId), {
+    totalInscritos: n,
+    atualizadoEm: serverTimestamp(),
+  });
+  return n;
+}
+
+/**
+ * Cancela inscrição (jogador não pago, ou organizador).
+ * Remove doc(s), cancela cobrança aberta e ajusta totalInscritos se já estava confirmado.
+ * Organizador: remove todas as inscrições desse jogador no torneio (evita “fantasma” legado).
+ */
+export async function cancelarInscricaoTorneio(input: {
+  torneioId: string;
+  inscricaoId: string;
+  /** Quem está pedindo — validado nas rules. */
+  solicitanteUid: string;
+}): Promise<void> {
+  const tRef = doc(db, 'torneios', input.torneioId);
+  const tSnap = await getDoc(tRef);
+  if (!tSnap.exists()) throw new Error('Torneio não encontrado');
+  const t = tSnap.data()!;
+  const donoUid = String(t.donoUid ?? '');
+  const souDono = input.solicitanteUid === donoUid;
+  const torneioNome = String(t.nome ?? 'Torneio');
+
+  const inscRef = doc(db, 'torneios', input.torneioId, 'inscritos', input.inscricaoId);
+  const inscSnap = await getDoc(inscRef);
+  if (!inscSnap.exists()) throw new Error('Inscrição não encontrada');
+  const insc = inscSnap.data()!;
+  const capitaoUid = String(insc.uid ?? input.inscricaoId.split('__')[0]);
+  const souJogador = input.solicitanteUid === capitaoUid;
+  const parceiroUid = insc.parceiroUid ? String(insc.parceiroUid) : '';
+  const targetCat = catIdNorm(insc.categoriaId);
+  const catTxt = insc.categoriaNome ? ` · ${String(insc.categoriaNome)}` : '';
+
+  if (!souDono && !souJogador) {
+    throw new Error('Sem permissão para cancelar esta inscrição.');
+  }
+
+  const pago = Boolean(insc.pago);
+  const status = String(insc.status ?? '');
+  if (!souDono) {
+    const podeCancelar =
+      !pago &&
+      (status === 'aguardando_pagamento' ||
+        status === 'aguardando_parceiro' ||
+        status === 'pendente' ||
+        !status);
+    if (!podeCancelar) {
+      throw new Error(
+        'Só é possível cancelar se ainda não pagou. Fale com o organizador.'
+      );
+    }
+  }
+
+  const allSnap = await getDocs(
+    collection(db, 'torneios', input.torneioId, 'inscritos')
+  );
+  const toDeleteIds = new Set<string>();
+  for (const d of allSnap.docs) {
+    if (!isInscricaoDoUid(d.id, d.data(), capitaoUid)) continue;
+    if (souDono) {
+      toDeleteIds.add(d.id);
+      continue;
+    }
+    if (d.id === input.inscricaoId) {
+      toDeleteIds.add(d.id);
+      continue;
+    }
+    // Jogador: limpa legado uid que bloqueia reentrada na mesma categoria
+    const cat = catIdNorm(d.data()?.categoriaId);
+    if (d.id === capitaoUid && (!cat || cat === targetCat)) {
+      toDeleteIds.add(d.id);
+    }
+  }
+  if (!toDeleteIds.has(input.inscricaoId)) toDeleteIds.add(input.inscricaoId);
+
+  let removidosConfirmados = 0;
+  for (const id of toDeleteIds) {
+    const d = allSnap.docs.find((x) => x.id === id);
+    const data = d?.data() ?? (id === input.inscricaoId ? insc : null);
+    if (!data && id !== input.inscricaoId) continue;
+    const st = String(data?.status ?? '');
+    const contabilizado =
+      Boolean(data?.contabilizado) || st === 'confirmado';
+    await deleteDoc(doc(db, 'torneios', input.torneioId, 'inscritos', id));
+    if (contabilizado) removidosConfirmados += 1;
+  }
+
+  if (removidosConfirmados > 0) {
+    await sincronizarTotalInscritos(input.torneioId);
+  }
+
+  // Cancela cobranças abertas; marca aprovadas como inscrição removida (não recria fantasma)
+  try {
+    const pags = await getDocs(
+      query(collection(db, 'pagamentos'), where('uid', '==', capitaoUid), limit(40))
+    );
+    for (const p of pags.docs) {
+      const raw = p.data();
+      if (String(raw.torneioId || '') !== input.torneioId) continue;
+      const st = String(raw.status ?? '');
+      if (
+        st === 'aguardando_pagamento' ||
+        st === 'pendente' ||
+        st === 'atrasado' ||
+        st === 'recusado'
+      ) {
+        await updateDoc(p.ref, {
+          status: 'cancelado',
+          inscricaoRemovida: true,
+          atualizadoEm: serverTimestamp(),
+        });
+      } else if (st === 'aprovado' || st === 'liberado_admin') {
+        await updateDoc(p.ref, {
+          inscricaoRemovida: true,
+          inscricaoRemovidaEm: serverTimestamp(),
+          atualizadoEm: serverTimestamp(),
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('[torneio] cancelar pagamentos abertos', e);
+  }
+
+  // Notifica quem foi removido (e parceiro) quando o organizador exclui
+  if (souDono && capitaoUid && capitaoUid !== input.solicitanteUid) {
+    void criarNotificacao({
+      paraUid: capitaoUid,
+      tipo: 'sistema',
+      titulo: 'Inscrição removida',
+      corpo: `Você foi removido do torneio ${torneioNome}${catTxt}.`,
+      rota: `/torneio/${input.torneioId}`,
+      refId: input.torneioId,
+    }).catch((e) => console.warn('[torneio] notif remoção', e));
+
+    if (parceiroUid && parceiroUid !== capitaoUid) {
+      void criarNotificacao({
+        paraUid: parceiroUid,
+        tipo: 'sistema',
+        titulo: 'Inscrição removida',
+        corpo: `Sua dupla foi removida do torneio ${torneioNome}${catTxt}.`,
+        rota: `/torneio/${input.torneioId}`,
+        refId: input.torneioId,
+      }).catch((e) => console.warn('[torneio] notif remoção parceiro', e));
+    }
+  }
 }
 
 /** Interesse em aulas no clube — admin recebe e explica pagamento fora do app. */

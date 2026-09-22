@@ -163,6 +163,18 @@ export async function enviarMensagem(input: {
   await updateDoc(conversaRef, patch);
 }
 
+/** Lê quantas não lidas o usuário tem nesta conversa (antes de zerar). */
+export async function obterNaoLidasConversa(
+  conversaId: string,
+  uid: string
+): Promise<number> {
+  if (!conversaId || !uid) return 0;
+  const snap = await getDoc(doc(db, 'conversas', conversaId));
+  if (!snap.exists()) return 0;
+  const n = Number((snap.data()?.naoLidas as Record<string, number> | undefined)?.[uid] ?? 0);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
 /** Zera contador de não lidas do usuário ao abrir o chat. */
 export async function marcarConversaComoLida(
   conversaId: string,
@@ -171,6 +183,7 @@ export async function marcarConversaComoLida(
   if (!conversaId || !uid) return;
   await updateDoc(doc(db, 'conversas', conversaId), {
     [`naoLidas.${uid}`]: 0,
+    [`lidaEm.${uid}`]: serverTimestamp(),
   });
 }
 

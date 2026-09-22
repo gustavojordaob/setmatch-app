@@ -24,6 +24,7 @@ export type RankingRegrasFormState = {
   qtdGrupos: string;
   jogadoresPorGrupo: string;
   textoLivre: string;
+  prazoPadraoDias: string;
 };
 
 export function stateFromRegras(r: RankingRegrasJogo): RankingRegrasFormState {
@@ -39,6 +40,7 @@ export function stateFromRegras(r: RankingRegrasJogo): RankingRegrasFormState {
     qtdGrupos: String(r.qtdGrupos ?? 4),
     jogadoresPorGrupo: String(r.jogadoresPorGrupo ?? 4),
     textoLivre: r.textoLivre ?? '',
+    prazoPadraoDias: String(r.prazoPadraoDias ?? 28),
   };
 }
 
@@ -55,6 +57,7 @@ export function regrasFromState(s: RankingRegrasFormState): RankingRegrasJogo {
     qtdGrupos: Math.max(2, Number(s.qtdGrupos) || 4),
     jogadoresPorGrupo: Math.max(2, Number(s.jogadoresPorGrupo) || 4),
     textoLivre: s.textoLivre.trim(),
+    prazoPadraoDias: Math.min(60, Math.max(3, Number(s.prazoPadraoDias) || 28)),
   };
 }
 
@@ -151,6 +154,18 @@ export function RankingRegrasFormFields({ esporte, value, onChange }: Props) {
           inputAccessoryViewID={KEYBOARD_DONE_NATIVE_ID}
         />
       )}
+
+      <Input
+        label="Prazo padrão ao liberar jogos (dias)"
+        value={value.prazoPadraoDias}
+        onChangeText={(prazoPadraoDias) => patch({ prazoPadraoDias })}
+        keyboardType="number-pad"
+        inputAccessoryViewID={KEYBOARD_DONE_NATIVE_ID}
+      />
+      <Text style={styles.hint}>
+        Ao liberar a etapa do mês (ou liberar a chave do torneio do clube), os membros têm
+        este prazo para marcar jogos. O dono pode estender depois.
+      </Text>
 
       {value.modelo === 'grupos' ? (
         <>

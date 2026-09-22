@@ -6,7 +6,7 @@ import { Colors } from '../../constants/colors';
 import { Radius } from '../../constants/radius';
 import { TAB_BAR_HEIGHT } from '../../constants/tabBar';
 import { useT } from '../../hooks/useI18n';
-import { useTotalNaoLidas } from '../../hooks/useTotalNaoLidas';
+import { useContagemNaoLidas } from '../../hooks/useTotalNaoLidas';
 
 const TAB_CONFIG: {
   name: string;
@@ -30,7 +30,7 @@ export function useTabBarClearance(): number {
 export function BottomNav({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const t = useT();
-  const msgsNaoLidas = useTotalNaoLidas();
+  const { mensagens: msgsNaoLidas } = useContagemNaoLidas();
 
   return (
     <View

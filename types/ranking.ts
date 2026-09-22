@@ -48,6 +48,24 @@ export interface RankingRegrasJogo {
   qtdGrupos?: number;
   jogadoresPorGrupo?: number;
   textoLivre?: string;
+  /**
+   * Dias de prazo padrão ao liberar a etapa do mês (dono pode estender depois).
+   * Default 28.
+   */
+  prazoPadraoDias?: number;
+}
+
+/**
+ * Etapa mensal do ranking: dono libera jogos + define prazo.
+ * Sem liberação no mês atual, membros não marcam confrontos.
+ */
+export interface RankingEtapaMes {
+  /** YYYY-MM */
+  mes: string;
+  jogosLiberados: boolean;
+  /** YYYY-MM-DD (fim do dia local) */
+  prazoJogosAte: string;
+  liberadoPorUid?: string;
 }
 
 export const REGRAS_JOGO_PADRAO: RankingRegrasJogo = {
@@ -62,6 +80,7 @@ export const REGRAS_JOGO_PADRAO: RankingRegrasJogo = {
   qtdGrupos: 4,
   jogadoresPorGrupo: 4,
   textoLivre: '',
+  prazoPadraoDias: 28,
 };
 
 export function labelFormatoRanking(id?: string | null): string {
@@ -77,6 +96,10 @@ export function labelModeloRanking(id?: ModeloRankingId | null): string {
 export function normalizarRegrasJogo(
   raw?: Partial<RankingRegrasJogo> | null
 ): RankingRegrasJogo {
+  const prazo = Math.min(
+    60,
+    Math.max(3, Math.floor(Number(raw?.prazoPadraoDias) || REGRAS_JOGO_PADRAO.prazoPadraoDias || 28))
+  );
   return {
     ...REGRAS_JOGO_PADRAO,
     ...raw,
@@ -84,6 +107,19 @@ export function normalizarRegrasJogo(
       REGRAS_JOGO_PADRAO.formatoPartidaId) as FormatoPartidaTorneioId,
     modelo: raw?.modelo ?? 'ladder',
     participacaoTambemVencedor: raw?.participacaoTambemVencedor ?? true,
+    prazoPadraoDias: prazo,
+  };
+}
+
+export function normalizarEtapaMes(
+  raw?: Partial<RankingEtapaMes> | null
+): RankingEtapaMes | undefined {
+  if (!raw?.mes) return undefined;
+  return {
+    mes: String(raw.mes),
+    jogosLiberados: Boolean(raw.jogosLiberados),
+    prazoJogosAte: String(raw.prazoJogosAte || ''),
+    liberadoPorUid: raw.liberadoPorUid ? String(raw.liberadoPorUid) : undefined,
   };
 }
 
@@ -196,6 +232,8 @@ export interface Ranking {
   membros: string[];
   totalMembros: number;
   regrasJogo?: RankingRegrasJogo;
+  /** Etapa mensal: liberação de jogos + prazo (estendível pelo dono). */
+  etapa?: RankingEtapaMes;
   /** Categorias A/B/C ou 1/2/3… com sobe/desce. */
   niveis?: RankingNiveisConfig;
   pagamento?: {

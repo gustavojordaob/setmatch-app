@@ -19,6 +19,8 @@ import { Avatar } from '../../../components/ui/Avatar';
 import { useAuth } from '../../../hooks/useAuth';
 import { useClassificacao } from '../../../hooks/useRankings';
 import {
+  assertEtapaJogosAberta,
+  formatarDataBR,
   sugerirAdversariosRanking,
   type AdversarioSugerido,
 } from '../../../services/rankings';
@@ -28,9 +30,11 @@ import { abrirWhatsApp } from '../../../utils/whatsapp';
 import {
   labelFormatoRanking,
   labelModeloRanking,
+  normalizarEtapaMes,
   normalizarNiveisConfig,
   normalizarRegrasJogo,
   type Ranking,
+  type RankingEtapaMes,
   type RankingRegrasJogo,
 } from '../../../types/ranking';
 import type { EsporteId } from '../../../constants/esportes';
@@ -111,6 +115,7 @@ export default function RankingConfrontosScreen() {
         membros: (raw.membros as string[]) ?? [],
         totalMembros: Number(raw.totalMembros ?? 0),
         regrasJogo: raw.regrasJogo as RankingRegrasJogo | undefined,
+        etapa: normalizarEtapaMes(raw.etapa as RankingEtapaMes | undefined),
         niveis: raw.niveis
           ? normalizarNiveisConfig(raw.niveis as import('../../../types/ranking').RankingNiveisConfig)
           : undefined,
@@ -143,6 +148,12 @@ export default function RankingConfrontosScreen() {
 
   async function marcarJogo(adv: AdversarioSugerido) {
     if (!user || !perfil || !ranking) return;
+    try {
+      assertEtapaJogosAberta(ranking.etapa);
+    } catch (e: unknown) {
+      Alert.alert('Ranking', e instanceof Error ? e.message : 'Jogos não liberados.');
+      return;
+    }
     setBusyUid(adv.uid);
     try {
       const [euSnap, advSnap] = await Promise.all([
@@ -286,6 +297,15 @@ export default function RankingConfrontosScreen() {
               Vitória limpa {regras.ptsJogoCompleto} pts · jogar +{regras.ptsParticipacao} · quem
               joga pontua
             </Text>
+            {ranking.etapa?.jogosLiberados && ranking.etapa.prazoJogosAte ? (
+              <Text style={styles.heroPts}>
+                Jogos liberados até {formatarDataBR(ranking.etapa.prazoJogosAte)}
+              </Text>
+            ) : (
+              <Text style={styles.heroPts}>
+                Aguarde o clube liberar os jogos deste mês para marcar confrontos.
+              </Text>
+            )}
             {abertosMeus.length > 0 ? (
               <View style={styles.heroAlert}>
                 <Ionicons name="flash" size={16} color={Colors.textOnAccent} />

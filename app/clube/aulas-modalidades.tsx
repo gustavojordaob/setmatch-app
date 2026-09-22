@@ -30,6 +30,11 @@ import {
   type TipoModalidadeAula,
 } from '../../services/aulas';
 import { ESPORTES, type EsporteId } from '../../constants/esportes';
+import {
+  formatMoneyBR,
+  maskMoneyBR,
+  parseMoneyBR,
+} from '../../utils/mascaras';
 
 export default function AulasModalidadesScreen() {
   const router = useRouter();
@@ -62,7 +67,7 @@ export default function AulasModalidadesScreen() {
       Alert.alert('Aulas', 'Informe o nome da modalidade.');
       return;
     }
-    const v = Number(String(valor).replace(',', '.')) || 0;
+    const v = parseMoneyBR(valor);
     if (v <= 0) {
       Alert.alert('Aulas', 'Informe o valor mensal.');
       return;
@@ -160,12 +165,12 @@ export default function AulasModalidadesScreen() {
       <Text style={styles.label}>Valor mensal (R$)</Text>
       <TextInput
         style={styles.input}
-        placeholder="280"
+        placeholder="0,00"
         placeholderTextColor={Colors.textSecondary}
-        keyboardType="decimal-pad"
+        keyboardType="number-pad"
         inputAccessoryViewID={KEYBOARD_DONE_NATIVE_ID}
         value={valor}
-        onChangeText={setValor}
+        onChangeText={(t) => setValor(maskMoneyBR(t))}
       />
 
       <Text style={styles.label}>Descrição (opcional)</Text>
@@ -216,8 +221,8 @@ export default function AulasModalidadesScreen() {
                 <Text style={styles.nome}>{item.nome}</Text>
                 <Text style={styles.meta}>
                   {TIPOS_MODALIDADE_AULA.find((t) => t.id === item.tipo)?.label} ·{' '}
-                  {ESPORTES.find((e) => e.id === item.esporte)?.nome} · R${' '}
-                  {item.valorMensal.toFixed(2)}
+                  {ESPORTES.find((e) => e.id === item.esporte)?.nome} ·{' '}
+                  {formatMoneyBR(item.valorMensal)}
                 </Text>
                 {item.descricao ? (
                   <Text style={styles.desc} numberOfLines={2}>

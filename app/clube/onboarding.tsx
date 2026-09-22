@@ -9,6 +9,11 @@ import { Button } from '../../components/ui/Button';
 import { ButtonFooter } from '../../components/ui/ButtonFooter';
 import { useAuth } from '../../hooks/useAuth';
 import { telefoneSalvoValido } from '../../utils/telefoneInternacional';
+import {
+  buscarEnderecoPorCep,
+  cepCompleto,
+  formatarCepDigitando,
+} from '../../utils/viacep';
 
 export default function ClubeOnboardingScreen() {
   const router = useRouter();
@@ -17,11 +22,47 @@ export default function ClubeOnboardingScreen() {
   const [cidade, setCidade] = useState(perfil?.cidade ?? '');
   const [estado, setEstado] = useState(perfil?.estado ?? '');
   const [telefone, setTelefone] = useState(perfil?.telefone ?? '');
+  const [cep, setCep] = useState(perfil?.cep ?? '');
+  const [bairro, setBairro] = useState(perfil?.bairro ?? '');
+  const [rua, setRua] = useState(perfil?.rua ?? '');
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  async function onCepChange(raw: string) {
+    const masked = formatarCepDigitando(raw);
+    setCep(masked);
+    if (!cepCompleto(masked)) return;
+    setBuscandoCep(true);
+    try {
+      const end = await buscarEnderecoPorCep(masked);
+      if (!end) {
+        Alert.alert('CEP', 'CEP não encontrado. Preencha o endereço manualmente.');
+        return;
+      }
+      setCidade(end.localidade);
+      setEstado(end.uf);
+      if (end.bairro) setBairro(end.bairro);
+      if (end.logradouro) setRua(end.logradouro);
+    } finally {
+      setBuscandoCep(false);
+    }
+  }
+
   async function continuar() {
-    if (!nome.trim() || !cidade.trim() || !telefoneSalvoValido(telefone)) {
-      Alert.alert('Admin', 'Informe nome, cidade e celular com código do país.');
+    if (!nome.trim() || !telefoneSalvoValido(telefone)) {
+      Alert.alert('Admin', 'Informe nome e celular com código do país.');
+      return;
+    }
+    if (!cepCompleto(cep)) {
+      Alert.alert('Admin', 'Informe um CEP válido (8 dígitos).');
+      return;
+    }
+    if (!cidade.trim() || !estado.trim()) {
+      Alert.alert('Admin', 'Preencha cidade e UF (o CEP preenche automaticamente).');
+      return;
+    }
+    if (!rua.trim() || !bairro.trim()) {
+      Alert.alert('Admin', 'Complete o endereço (rua e bairro).');
       return;
     }
     setLoading(true);
@@ -31,6 +72,9 @@ export default function ClubeOnboardingScreen() {
         cidade,
         estado,
         telefone: telefone.replace(/\D/g, ''),
+        cep,
+        bairro,
+        rua,
       });
       router.replace('/clube/painel');
     } catch (e: unknown) {
@@ -44,12 +88,13 @@ export default function ClubeOnboardingScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView
         contentContainerStyle={styles.body}
-        keyboardShouldPersistTaps="never"
+        keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
         <Text style={styles.title}>Bem-vindo, admin</Text>
         <Text style={styles.sub}>
-          Complete seus dados de contato. Depois cadastre o clube, rankings e torneios.
+          Informe o CEP para completar o endereço. Depois cadastre o clube, rankings e
+          torneios.
         </Text>
         <Input label="Seu nome" value={nome} onChangeText={setNome} />
         <PhoneInput
@@ -57,7 +102,24 @@ export default function ClubeOnboardingScreen() {
           value={telefone}
           onChangeValue={setTelefone}
         />
-        <Input label="Cidade base" value={cidade} onChangeText={setCidade} placeholder="São Paulo" />
+        <Input
+          label="CEP"
+          value={cep}
+          onChangeText={(t) => void onCepChange(t)}
+          keyboardType="number-pad"
+          placeholder="00000-000"
+        />
+        {buscandoCep ? (
+          <Text style={styles.hint}>Buscando endereço…</Text>
+        ) : null}
+        <Input
+          label="Rua / logradouro"
+          value={rua}
+          onChangeText={setRua}
+          placeholder="Rua, avenida…"
+        />
+        <Input label="Bairro" value={bairro} onChangeText={setBairro} />
+        <Input label="Cidade" value={cidade} onChangeText={setCidade} placeholder="São Paulo" />
         <Input
           label="UF"
           value={estado}
@@ -79,4 +141,5 @@ const styles = StyleSheet.create({
   body: { padding: 24, gap: 16 },
   title: { color: Colors.accent, fontSize: 28, fontWeight: 'bold' },
   sub: { color: Colors.textSecondary, marginBottom: 8, lineHeight: 20 },
+  hint: { color: Colors.textSecondary, fontSize: 13, marginTop: -8 },
 });

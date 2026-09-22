@@ -27,6 +27,7 @@ import {
   type ModoAula,
 } from '../../services/aulasPublicadas';
 import { uploadVideoAula } from '../../utils/uploadVideoAula';
+import { maskMoneyBR, parseMoneyBR } from '../../utils/mascaras';
 
 export default function AulasPublicarScreen() {
   const router = useRouter();
@@ -135,7 +136,7 @@ export default function AulasPublicarScreen() {
         cidade: modo === 'presencial' ? cidade : '',
         local: modo === 'presencial' ? local : '',
         valorMensal:
-          modo === 'presencial' ? Number(String(valor).replace(',', '.')) || 0 : 0,
+          modo === 'presencial' ? parseMoneyBR(valor) : 0,
       });
       setTitulo('');
       setDescricao('');
@@ -240,8 +241,9 @@ export default function AulasPublicarScreen() {
                 <Input
                   title="Valor mensal (R$)"
                   value={valor}
-                  onChangeText={setValor}
-                  keyboardType="decimal-pad"
+                  onChangeText={(t) => setValor(maskMoneyBR(t))}
+                  keyboardType="number-pad"
+                  placeholder="0,00"
                 />
               </>
             )}

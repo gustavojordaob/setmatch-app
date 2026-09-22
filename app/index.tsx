@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { Dimensions, Image, StyleSheet, View } from 'react-native';
+import { Dimensions, Image, Platform, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as Updates from 'expo-updates';
 import { Colors } from '../constants/colors';
 import { useAuth } from '../hooks/useAuth';
 import { rotaFromIncomingUrl } from '../utils/deepLinks';
+import {
+  consumePendingDeepLink,
+  rememberDeepLinkUrl,
+} from '../utils/pendingDeepLink';
+import { adminHomePath } from '../utils/adminWeb';
 
 const SPLASH_MS = 1200;
 /** Não bloquear splash para sempre se a rede do OTA travar. */
@@ -32,6 +37,17 @@ export default function LaunchScreen() {
     return () => sub.remove();
   }, []);
 
+  // Captura deep link cedo — sobrevive se o OTA der reloadAsync().
+  useEffect(() => {
+    void Linking.getInitialURL().then((url) => {
+      void rememberDeepLinkUrl(url);
+    });
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      void rememberDeepLinkUrl(url);
+    });
+    return () => sub.remove();
+  }, []);
+
   useEffect(() => {
     if (!Updates.isEnabled || __DEV__) {
       setUpdatesReady(true);
@@ -45,6 +61,10 @@ export default function LaunchScreen() {
 
     void (async () => {
       try {
+        // Garante que o link de abertura já foi persistido antes do reload.
+        const initial = await Linking.getInitialURL();
+        await rememberDeepLinkUrl(initial);
+
         const update = await Updates.checkForUpdateAsync();
         if (cancelled) return;
         if (update.isAvailable) {
@@ -76,23 +96,27 @@ export default function LaunchScreen() {
 
       void (async () => {
         try {
-          const initial = await Linking.getInitialURL();
+          const pending = await consumePendingDeepLink();
+          const initial = pending || (await Linking.getInitialURL());
           const deep = rotaFromIncomingUrl(initial);
           if (deep && user && onboardingComplete) {
             router.replace(deep as never);
             return;
           }
+          // Se ainda não autenticou, re-guarda para o hook pós-login.
+          if (deep && initial) await rememberDeepLinkUrl(initial);
         } catch (e) {
           console.warn('[launch] deep link', e);
         }
 
         if (!user) {
-          router.replace('/onboarding');
+          // Web = site admin (desktop). Mobile = onboarding do jogador.
+          router.replace(Platform.OS === 'web' ? '/(auth)/admin-login' : '/onboarding');
           return;
         }
 
         if (isAdminClube) {
-          router.replace(onboardingComplete ? '/clube/painel' : '/clube/onboarding');
+          router.replace(adminHomePath(onboardingComplete));
           return;
         }
 

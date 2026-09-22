@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pagamento — Rally Up</title>
+  <meta name="robots" content="noindex,nofollow" />
+  <style>
+    :root { --primary:#255943; --accent:#C7D941; --surface:#1A1A1A; --text:#fff; --muted:rgba(255,255,255,.72); }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      min-height:100vh;font-family:system-ui,sans-serif;color:var(--text);
+      background:linear-gradient(180deg,var(--primary),#163528);
+      display:flex;align-items:center;justify-content:center;padding:24px;
+    }
+    .card{max-width:420px;width:100%;background:var(--surface);border-radius:24px;padding:28px;text-align:center}
+    h1{font-size:1.35rem;font-weight:800;margin-bottom:10px;color:var(--accent)}
+    p{color:var(--muted);line-height:1.5;margin-bottom:18px}
+    a.btn{display:block;background:var(--accent);color:#1A1A1A;border-radius:60px;padding:14px;font-weight:700;text-decoration:none}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1 id="title">Pagamento recebido</h1>
+    <p id="sub">Abrindo seus torneios…</p>
+    <a class="btn" id="open" href="setmatch://pagamento/sucesso">Abrir Rally Up</a>
+  </main>
+  <script>
+    (function () {
+      var params = new URLSearchParams(location.search);
+      var status = params.get('status') || 'ok';
+      var sessionId = params.get('session_id') || '';
+      var title = document.getElementById('title');
+      var sub = document.getElementById('sub');
+      var open = document.getElementById('open');
+
+      // Mantém setmatch://pagamento/sucesso para fechar ASWebAuthenticationSession;
+      // o app redireciona imediatamente para a aba Torneios.
+      var deep = 'setmatch://pagamento/sucesso' + (sessionId ? ('?session_id=' + encodeURIComponent(sessionId)) : '');
+      if (status === 'cancel') {
+        title.textContent = 'Pagamento cancelado';
+        sub.textContent = 'Nada foi cobrado. Abrindo o app…';
+        deep = 'setmatch://pagamento/cancelado';
+      }
+      open.href = deep;
+
+      try {
+        var meta = document.createElement('meta');
+        meta.httpEquiv = 'refresh';
+        meta.content = '0;url=' + deep;
+        document.head.appendChild(meta);
+      } catch (e0) {}
+
+      var intent =
+        'intent://pagamento/sucesso' +
+        (sessionId ? '?session_id=' + encodeURIComponent(sessionId) : '') +
+        '#Intent;scheme=setmatch;package=com.fabricaapps.setmatch;end';
+      var isAndroid = /Android/i.test(navigator.userAgent || '');
+
+      function go(url) {
+        try { window.location.replace(url); } catch (e1) {
+          try { window.location.href = url; } catch (e2) {}
+        }
+      }
+
+      go(isAndroid ? intent : deep);
+      setTimeout(function () { go(deep); }, 200);
+      setTimeout(function () { go(deep); }, 800);
+      setTimeout(function () { go(deep); }, 1600);
+    })();
+  </script>
+</body>
+</html>

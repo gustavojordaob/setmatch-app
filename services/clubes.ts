@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   serverTimestamp,
@@ -48,6 +49,8 @@ export interface ClubeCompleto {
   stripeChargesEnabled?: boolean;
   stripePayoutsEnabled?: boolean;
   stripeDetailsSubmitted?: boolean;
+  /** Código para tela de perfis de admin temporário */
+  codigoAcessoAdmin?: string;
   criadoEm?: { seconds: number };
 }
 
@@ -236,42 +239,76 @@ export async function criarTorneio(input: {
 
 export async function listarClubesDoDono(donoUid: string): Promise<ClubeCompleto[]> {
   const snap = await getDocs(query(collection(db, 'clubes'), where('donoUid', '==', donoUid)));
-  return snap.docs.map((d) => {
-    const raw = d.data();
-    return {
-      id: d.id,
-      nome: String(raw.nome ?? ''),
-      cidade: String(raw.cidade ?? ''),
-      bairro: String(raw.bairro ?? ''),
-      estado: String(raw.estado ?? ''),
-      cep: String(raw.cep ?? ''),
-      endereco: String(raw.endereco ?? ''),
-      telefone: String(raw.telefone ?? ''),
-      descricao: String(raw.descricao ?? ''),
-      logoUrl: raw.logoUrl ? String(raw.logoUrl) : undefined,
-      esportes: (raw.esportes as EsporteId[]) ?? [raw.esporte as EsporteId].filter(Boolean),
-      donoUid: String(raw.donoUid ?? ''),
-      donoNome: String(raw.donoNome ?? ''),
-      regrasGerais: raw.regrasGerais ? String(raw.regrasGerais) : '',
-      aulas: raw.aulas
-        ? {
-            ativo: Boolean((raw.aulas as { ativo?: boolean }).ativo),
-            valorMensal: Number((raw.aulas as { valorMensal?: number }).valorMensal ?? 0),
-            regras: String((raw.aulas as { regras?: string }).regras ?? ''),
-            permitePix: Boolean((raw.aulas as { permitePix?: boolean }).permitePix ?? true),
-            permiteCartao: Boolean((raw.aulas as { permiteCartao?: boolean }).permiteCartao ?? true),
-            descontoPixPercent: Number(
-              (raw.aulas as { descontoPixPercent?: number }).descontoPixPercent ?? 0
-            ),
-            descontoCartaoPercent: Number(
-              (raw.aulas as { descontoCartaoPercent?: number }).descontoCartaoPercent ?? 0
-            ),
-          }
-        : undefined,
-      stripeAccountId: raw.stripeAccountId ? String(raw.stripeAccountId) : undefined,
-      stripeChargesEnabled: Boolean(raw.stripeChargesEnabled),
-      stripePayoutsEnabled: Boolean(raw.stripePayoutsEnabled),
-      stripeDetailsSubmitted: Boolean(raw.stripeDetailsSubmitted),
-    };
-  });
+  const byId = new Map<string, ClubeCompleto>();
+  for (const d of snap.docs) {
+    byId.set(d.id, mapClubeDoc(d.id, d.data()));
+  }
+
+  // Admin temporário: clubes onde está em adminsTemporariosUids
+  try {
+    const tempSnap = await getDocs(
+      query(
+        collection(db, 'clubes'),
+        where('adminsTemporariosUids', 'array-contains', donoUid)
+      )
+    );
+    for (const d of tempSnap.docs) {
+      if (!byId.has(d.id)) byId.set(d.id, mapClubeDoc(d.id, d.data()));
+    }
+  } catch (e) {
+    console.warn('[clubes] listar temp admin', e);
+  }
+
+  // Fallback: usuario.clubeId
+  try {
+    const uSnap = await getDoc(doc(db, 'usuarios', donoUid));
+    const clubeId = uSnap.exists() ? String(uSnap.data()?.clubeId || '') : '';
+    if (clubeId && !byId.has(clubeId)) {
+      const cSnap = await getDoc(doc(db, 'clubes', clubeId));
+      if (cSnap.exists()) byId.set(clubeId, mapClubeDoc(clubeId, cSnap.data()));
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return [...byId.values()];
+}
+
+function mapClubeDoc(id: string, raw: Record<string, unknown>): ClubeCompleto {
+  return {
+    id,
+    nome: String(raw.nome ?? ''),
+    cidade: String(raw.cidade ?? ''),
+    bairro: String(raw.bairro ?? ''),
+    estado: String(raw.estado ?? ''),
+    cep: String(raw.cep ?? ''),
+    endereco: String(raw.endereco ?? ''),
+    telefone: String(raw.telefone ?? ''),
+    descricao: String(raw.descricao ?? ''),
+    logoUrl: raw.logoUrl ? String(raw.logoUrl) : undefined,
+    esportes: (raw.esportes as EsporteId[]) ?? [raw.esporte as EsporteId].filter(Boolean),
+    donoUid: String(raw.donoUid ?? ''),
+    donoNome: String(raw.donoNome ?? ''),
+    regrasGerais: raw.regrasGerais ? String(raw.regrasGerais) : '',
+    aulas: raw.aulas
+      ? {
+          ativo: Boolean((raw.aulas as { ativo?: boolean }).ativo),
+          valorMensal: Number((raw.aulas as { valorMensal?: number }).valorMensal ?? 0),
+          regras: String((raw.aulas as { regras?: string }).regras ?? ''),
+          permitePix: Boolean((raw.aulas as { permitePix?: boolean }).permitePix ?? true),
+          permiteCartao: Boolean((raw.aulas as { permiteCartao?: boolean }).permiteCartao ?? true),
+          descontoPixPercent: Number(
+            (raw.aulas as { descontoPixPercent?: number }).descontoPixPercent ?? 0
+          ),
+          descontoCartaoPercent: Number(
+            (raw.aulas as { descontoCartaoPercent?: number }).descontoCartaoPercent ?? 0
+          ),
+        }
+      : undefined,
+    stripeAccountId: raw.stripeAccountId ? String(raw.stripeAccountId) : undefined,
+    stripeChargesEnabled: Boolean(raw.stripeChargesEnabled),
+    stripePayoutsEnabled: Boolean(raw.stripePayoutsEnabled),
+    stripeDetailsSubmitted: Boolean(raw.stripeDetailsSubmitted),
+    codigoAcessoAdmin: raw.codigoAcessoAdmin ? String(raw.codigoAcessoAdmin) : undefined,
+  };
 }

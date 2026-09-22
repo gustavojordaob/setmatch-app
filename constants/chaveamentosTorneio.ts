@@ -10,7 +10,7 @@ export type FormatoChavesId =
 
 export type DefinicaoChaveId = 'manual' | 'sorteio';
 
-export type EstruturaMataId = 64 | 32 | 16 | 8 | 4;
+export type EstruturaMataId = 64 | 32 | 16 | 8 | 4 | 2;
 
 export interface FormatoChaves {
   id: FormatoChavesId;
@@ -39,12 +39,14 @@ export const DEFINICOES_CHAVE: { id: DefinicaoChaveId; label: string }[] = [
   { id: 'sorteio', label: 'Sorteio' },
 ];
 
+/** Tamanho da chave = fase inicial (ex.: 4 = começa na semifinal). */
 export const ESTRUTURAS_MATA: { id: EstruturaMataId; label: string }[] = [
   { id: 64, label: '64 avos' },
   { id: 32, label: '32 avos' },
-  { id: 16, label: '16 avos' },
-  { id: 8, label: 'Oitavas (8)' },
-  { id: 4, label: 'Quartas (4)' },
+  { id: 16, label: 'Oitavas (16)' },
+  { id: 8, label: 'Quartas (8)' },
+  { id: 4, label: 'Semifinal (4)' },
+  { id: 2, label: 'Final (2)' },
 ];
 
 /** Formatos Figma + extras por esporte. */
@@ -65,10 +67,10 @@ export interface FormatoPartidaTorneio {
 }
 
 export const FORMATOS_PARTIDA_TORNEIO: FormatoPartidaTorneio[] = [
-  { id: 'tres_sets_de_3', label: '3 Sets de 3', esportes: 'todos' },
-  { id: 'dois_sets_de_3', label: '2 Sets de 3', esportes: 'todos' },
-  { id: 'um_set_de_6', label: '1 Set de 6', esportes: 'todos' },
-  { id: 'dois_sets_de_6', label: '2 Sets de 6', esportes: 'todos' },
+  { id: 'tres_sets_de_3', label: 'Melhor de 3 · games até 3', esportes: 'todos' },
+  { id: 'dois_sets_de_3', label: '2 sets fixos · games até 3', esportes: 'todos' },
+  { id: 'um_set_de_6', label: '1 set até 6', esportes: 'todos' },
+  { id: 'dois_sets_de_6', label: '2 sets fixos · até 6', esportes: 'todos' },
   { id: 'game_8', label: 'Game até 8', esportes: ['tenis', 'beachtennis', 'raquetinha'] },
   {
     id: 'game_11',
@@ -145,7 +147,7 @@ export function previewEstruturaTorneio(opts: {
   if (opts.formatoChaves === 'espelho') {
     return `Chave espelhada${opts.estruturaMata ? ` (${opts.estruturaMata})` : ''} por seed.`;
   }
-  return `Eliminação simples${opts.estruturaMata ? ` — chave de ${opts.estruturaMata}` : ''}.`;
+  return `Eliminação simples${opts.estruturaMata ? ` — começa na chave de ${opts.estruturaMata}` : ''}.`;
 }
 
 export function labelFormatoPartidaTorneio(id?: string | null): string {

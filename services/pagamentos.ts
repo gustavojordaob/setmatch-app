@@ -75,51 +75,8 @@ export async function atualizarPagamento(
 }
 
 export async function liberarPagamentoAdmin(pagamentoId: string): Promise<void> {
-  const pagRef = doc(db, 'pagamentos', pagamentoId);
-  const snap = await getDoc(pagRef);
-  if (!snap.exists()) throw new Error('Pagamento não encontrado');
-  const pag = snap.data();
-
-  await updateDoc(pagRef, {
-    status: 'liberado_admin',
-    liberadoPeloAdmin: true,
-    atualizadoEm: serverTimestamp(),
-  });
-
-  if (pag.tipo === 'aula' && pag.clubeId && pag.uid) {
-    const mats = await getDocs(
-      query(
-        collection(db, 'matriculas'),
-        where('clubeId', '==', pag.clubeId),
-        where('uid', '==', pag.uid),
-        limit(1)
-      )
-    );
-    if (!mats.empty) {
-      await updateDoc(mats.docs[0].ref, {
-        status: 'ativo',
-        pagamentoId,
-        atualizadoEm: serverTimestamp(),
-      });
-    }
-  }
-
-  if (pag.tipo === 'torneio' && pag.torneioId && pag.uid) {
-    const { marcarPagamentoInscricaoTorneio } = await import('./duplas');
-    await marcarPagamentoInscricaoTorneio({
-      torneioId: String(pag.torneioId),
-      uid: String(pag.uid),
-      pagamentoId,
-    });
-  }
-
-  if (pag.tipo === 'ranking' && pag.rankingId && pag.uid) {
-    await setDoc(
-      doc(db, 'rankings', String(pag.rankingId), 'classificacao', String(pag.uid)),
-      { pagamentoOk: true, pagamentoId, atualizadoEm: serverTimestamp() },
-      { merge: true }
-    );
-  }
+  const { liberarPagamentoViaApi } = await import('../utils/asaasCheckout');
+  await liberarPagamentoViaApi(pagamentoId);
 }
 
 /** Cria cobrança de aula se ainda não houver uma em aberto para o aluno/clube. */
@@ -209,6 +166,7 @@ async function garantirPagamentoAulaMatricula(input: {
     donoUid: input.donoUid,
     matriculaId: input.matriculaId,
     aulaTitulo: input.modalidadeNome || 'Mensalidade aulas',
+    modalidadeNome: input.modalidadeNome || 'Aulas',
     valor: input.valor,
     ciclo: 'mensal',
     status: 'aguardando_pagamento',

@@ -22,6 +22,11 @@ import { ButtonFooter } from '../../components/ui/ButtonFooter';
 import { atualizarClube, salvarLogoClube } from '../../services/clubes';
 import { telefoneSalvoValido } from '../../utils/telefoneInternacional';
 import { uploadLogoClube } from '../../utils/uploadFoto';
+import {
+  buscarEnderecoPorCep,
+  cepCompleto,
+  formatarCepDigitando,
+} from '../../utils/viacep';
 
 export default function EditarClubeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -38,6 +43,7 @@ export default function EditarClubeScreen() {
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -56,6 +62,31 @@ export default function EditarClubeScreen() {
       setLogoUrl(String(d.logoUrl ?? ''));
     })();
   }, [id]);
+
+  async function onCepChange(raw: string) {
+    const masked = formatarCepDigitando(raw);
+    setCep(masked);
+    if (!cepCompleto(masked)) return;
+    setBuscandoCep(true);
+    try {
+      const end = await buscarEnderecoPorCep(masked);
+      if (!end) {
+        Alert.alert('CEP', 'CEP não encontrado. Complete o endereço manualmente.');
+        return;
+      }
+      setCidade(end.localidade);
+      setEstado(end.uf);
+      if (end.bairro) setBairro(end.bairro);
+      if (end.logradouro) {
+        setEndereco((prev) => {
+          const num = prev.match(/,?\s*\d+\s*$/)?.[0]?.trim() ?? '';
+          return num ? `${end.logradouro}, ${num.replace(/^,\s*/, '')}` : end.logradouro;
+        });
+      }
+    } finally {
+      setBuscandoCep(false);
+    }
+  }
 
   async function escolherLogo() {
     if (!id) return;
@@ -95,6 +126,14 @@ export default function EditarClubeScreen() {
       Alert.alert('Clube', 'Telefone inválido — use código do país + DDD.');
       return;
     }
+    if (!cepCompleto(cep)) {
+      Alert.alert('Clube', 'Informe um CEP válido.');
+      return;
+    }
+    if (!cidade.trim() || !estado.trim() || !endereco.trim() || !bairro.trim()) {
+      Alert.alert('Clube', 'Complete o endereço (rua, bairro, cidade e UF).');
+      return;
+    }
     setLoading(true);
     try {
       await atualizarClube(id, {
@@ -128,7 +167,7 @@ export default function EditarClubeScreen() {
       </View>
       <ScrollView
         contentContainerStyle={styles.body}
-        keyboardShouldPersistTaps="never"
+        keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
         <View style={styles.logoCard}>
@@ -160,11 +199,18 @@ export default function EditarClubeScreen() {
         </View>
 
         <Input label="Nome" value={nome} onChangeText={setNome} />
+        <Input
+          label="CEP"
+          value={cep}
+          onChangeText={(t) => void onCepChange(t)}
+          keyboardType="number-pad"
+          placeholder="00000-000"
+        />
+        {buscandoCep ? <Text style={styles.hint}>Buscando endereço…</Text> : null}
         <Input label="Endereço" value={endereco} onChangeText={setEndereco} />
         <Input label="Bairro" value={bairro} onChangeText={setBairro} />
         <Input label="Cidade" value={cidade} onChangeText={setCidade} />
         <Input label="UF" value={estado} onChangeText={setEstado} maxLength={2} />
-        <Input label="CEP" value={cep} onChangeText={setCep} />
         <PhoneInput
           label="Telefone (WhatsApp)"
           value={telefone}
@@ -190,6 +236,7 @@ const styles = StyleSheet.create({
   },
   title: { color: Colors.textPrimary, fontWeight: 'bold', fontSize: 18 },
   body: { padding: 20, gap: 14, paddingBottom: 120 },
+  hint: { color: Colors.textSecondary, fontSize: 13, marginTop: -6 },
   logoCard: {
     backgroundColor: Colors.surface,
     borderRadius: 16,

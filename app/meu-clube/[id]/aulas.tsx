@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../utils/firebaseConfig';
 import { Colors } from '../../../constants/colors';
+import { formatMoneyBR } from '../../../utils/mascaras';
 import { Button } from '../../../components/ui/Button';
 import { useAuth } from '../../../hooks/useAuth';
 import { useMeusClubes } from '../../../hooks/useMeusClubes';
@@ -116,7 +117,7 @@ export default function MinhasAulasClubeScreen() {
       return (
         `Olá! Tenho interesse na aula "${mod.nome}" ` +
         `(${TIPOS_MODALIDADE_AULA.find((t) => t.id === mod.tipo)?.label}, ` +
-        `R$ ${mod.valorMensal.toFixed(2)}/mês).` +
+        `${formatMoneyBR(mod.valorMensal)}/mês).` +
         `${sid}\nPode me matricular nessa modalidade?`
       );
     }
@@ -201,7 +202,7 @@ export default function MinhasAulasClubeScreen() {
                 <Text style={styles.regras}>
                   {matricula.modalidadeNome}
                   {matricula.valorFinal != null
-                    ? ` · R$ ${Number(matricula.valorFinal).toFixed(2)}/mês`
+                    ? ` · ${formatMoneyBR(Number(matricula.valorFinal))}/mês`
                     : ''}
                 </Text>
               ) : null}
@@ -216,7 +217,7 @@ export default function MinhasAulasClubeScreen() {
           {cobrancaAberta ? (
             <View style={styles.payBox}>
               <Text style={styles.payTitle}>
-                Mensalidade em aberto · R$ {cobrancaAberta.valor.toFixed(2)}
+                Mensalidade em aberto · {formatMoneyBR(cobrancaAberta.valor)}
               </Text>
               <Text style={styles.regras}>
                 {cobrancaAberta.aulaTitulo || 'Aulas'} · {cobrancaAberta.status}
@@ -287,7 +288,7 @@ export default function MinhasAulasClubeScreen() {
                 {ESPORTES.find((e) => e.id === m.esporte)?.emoji}{' '}
                 {ESPORTES.find((e) => e.id === m.esporte)?.nome}
               </Text>
-              <Text style={styles.preco}>R$ {m.valorMensal.toFixed(2)} / mês</Text>
+              <Text style={styles.preco}>{formatMoneyBR(m.valorMensal)} / mês</Text>
               {m.descricao ? <Text style={styles.modDesc}>{m.descricao}</Text> : null}
               <Button
                 label="Mensagem no app"

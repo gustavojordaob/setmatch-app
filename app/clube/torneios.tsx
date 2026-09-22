@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Button } from '../../components/ui/Button';
+import {
+  FiltroNomeData,
+  passaFiltroNomeData,
+  toMs,
+  type FiltroNomeDataState,
+} from '../../components/ui/FiltroNomeData';
 import { useAuth } from '../../hooks/useAuth';
 import { listarTorneiosDoDono, type Torneio } from '../../services/torneios';
 import { gerarChaveamento } from '../../services/chaveamentoTorneio';
@@ -25,6 +31,29 @@ export default function MeusTorneiosAdminScreen() {
   const [loading, setLoading] = useState(true);
   const [liberandoId, setLiberandoId] = useState<string | null>(null);
   const [clubeIdPadrao, setClubeIdPadrao] = useState<string | undefined>();
+  const [filtro, setFiltro] = useState<FiltroNomeDataState>({
+    nome: '',
+    dataDe: '',
+    dataAte: '',
+  });
+
+  const lista = useMemo(() => {
+    return torneios
+      .filter((t) =>
+        passaFiltroNomeData({
+          nome: t.nome,
+          buscaNome: filtro.nome,
+          dataMs: toMs(t.criadoEm) || toMs(t.dataInicio),
+          dataDeTxt: filtro.dataDe,
+          dataAteTxt: filtro.dataAte,
+        })
+      )
+      .sort((a, b) => {
+        const sa = toMs(a.criadoEm) || toMs(a.dataInicio);
+        const sb = toMs(b.criadoEm) || toMs(b.dataInicio);
+        return sb - sa;
+      });
+  }, [torneios, filtro]);
 
   const reload = useCallback(() => {
     if (!user) return;
@@ -116,24 +145,33 @@ export default function MeusTorneiosAdminScreen() {
         sorteia e publica a chave para jogadores e admin.
       </Text>
 
+      <FiltroNomeData
+        value={filtro}
+        onChange={setFiltro}
+        nomePlaceholder="Buscar torneio por nome…"
+      />
+
       {loading ? (
         <ActivityIndicator color={Colors.accent} style={{ marginTop: 24 }} />
       ) : (
         <FlatList
-          data={torneios}
+          data={lista}
           keyExtractor={(t) => t.id}
           contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}
           ListEmptyComponent={
             <View style={styles.emptyBox}>
-              <Text style={styles.empty}>Nenhum torneio criado ainda.</Text>
-              <Button
-                label="Criar torneio"
-                onPress={irCriarTorneio}
-              />
+              <Text style={styles.empty}>
+                {torneios.length === 0
+                  ? 'Nenhum torneio criado ainda.'
+                  : 'Nenhum torneio neste filtro.'}
+              </Text>
+              {torneios.length === 0 ? (
+                <Button label="Criar torneio" onPress={irCriarTorneio} />
+              ) : null}
             </View>
           }
           ListFooterComponent={
-            torneios.length > 0 ? (
+            lista.length > 0 || torneios.length > 0 ? (
               <Button
                 label="Criar novo torneio"
                 variant="outline"

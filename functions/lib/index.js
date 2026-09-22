@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.excluirConta = exports.webhookMercadoPagoSetmatch = exports.criarPreferenciaSetmatch = exports.paginaAbrirRanking = exports.paginaAbrirTorneio = exports.buscarQuadrasMaps = exports.aplicarMovimentacaoRankingsMensal = exports.enviarPushAoCriarNotificacao = exports.expirarPreReservasRanking = exports.atualizarNoticiasManual = exports.atualizarNoticias = exports.stravaSyncToday = exports.stravaDisconnect = exports.stravaExchangeCode = exports.stripeConnectStatus = exports.stripeConnectOnboarding = exports.webhookStripeSetmatch = exports.confirmarCheckoutStripe = exports.criarCheckoutStripe = void 0;
+exports.excluirConta = exports.webhookMercadoPagoSetmatch = exports.criarPreferenciaSetmatch = exports.paginaAbrirRanking = exports.paginaAbrirTorneio = exports.buscarQuadrasMaps = exports.aplicarMovimentacaoRankingsMensal = exports.enviarPushAoCriarNotificacao = exports.expirarPreReservasRanking = exports.atualizarNoticiasManual = exports.atualizarNoticias = exports.stravaSyncToday = exports.stravaDisconnect = exports.stravaExchangeCode = exports.stripeConnectStatus = exports.stripeConnectOnboarding = exports.webhookStripeSetmatch = exports.confirmarCheckoutStripe = exports.criarCheckoutStripe = exports.consultarSaldoFinanceiro = exports.liberarPagamentoDono = exports.transferirSaldoPix = exports.salvarChavePixDono = exports.webhookAsaasSetmatch = exports.confirmarCheckoutAsaas = exports.criarCheckoutAsaas = exports.listarAdminsTemporariosDono = exports.revogarAdminTemporario = exports.concluirAcessoAdminTemporario = exports.listarPerfisAdminTemporario = exports.convidarAdminTemporario = void 0;
 const app_1 = require("firebase-admin/app");
 const firestore_1 = require("firebase-admin/firestore");
 const auth_1 = require("firebase-admin/auth");
@@ -9,6 +9,21 @@ const params_1 = require("firebase-functions/params");
 const v2_1 = require("firebase-functions/v2");
 const deleteAccount_1 = require("./deleteAccount");
 const pagamentosSync_1 = require("./pagamentosSync");
+var adminsTemporariosHandlers_1 = require("./adminsTemporariosHandlers");
+Object.defineProperty(exports, "convidarAdminTemporario", { enumerable: true, get: function () { return adminsTemporariosHandlers_1.convidarAdminTemporario; } });
+Object.defineProperty(exports, "listarPerfisAdminTemporario", { enumerable: true, get: function () { return adminsTemporariosHandlers_1.listarPerfisAdminTemporario; } });
+Object.defineProperty(exports, "concluirAcessoAdminTemporario", { enumerable: true, get: function () { return adminsTemporariosHandlers_1.concluirAcessoAdminTemporario; } });
+Object.defineProperty(exports, "revogarAdminTemporario", { enumerable: true, get: function () { return adminsTemporariosHandlers_1.revogarAdminTemporario; } });
+Object.defineProperty(exports, "listarAdminsTemporariosDono", { enumerable: true, get: function () { return adminsTemporariosHandlers_1.listarAdminsTemporariosDono; } });
+var asaasHandlers_1 = require("./asaasHandlers");
+Object.defineProperty(exports, "criarCheckoutAsaas", { enumerable: true, get: function () { return asaasHandlers_1.criarCheckoutAsaas; } });
+Object.defineProperty(exports, "confirmarCheckoutAsaas", { enumerable: true, get: function () { return asaasHandlers_1.confirmarCheckoutAsaas; } });
+Object.defineProperty(exports, "webhookAsaasSetmatch", { enumerable: true, get: function () { return asaasHandlers_1.webhookAsaasSetmatch; } });
+Object.defineProperty(exports, "salvarChavePixDono", { enumerable: true, get: function () { return asaasHandlers_1.salvarChavePixDono; } });
+Object.defineProperty(exports, "transferirSaldoPix", { enumerable: true, get: function () { return asaasHandlers_1.transferirSaldoPix; } });
+Object.defineProperty(exports, "liberarPagamentoDono", { enumerable: true, get: function () { return asaasHandlers_1.liberarPagamentoDono; } });
+Object.defineProperty(exports, "consultarSaldoFinanceiro", { enumerable: true, get: function () { return asaasHandlers_1.consultarSaldoFinanceiro; } });
+/** @deprecated Stripe removido — use Asaas. Mantidos só para não quebrar URLs antigas. */
 var stripeHandlers_1 = require("./stripeHandlers");
 Object.defineProperty(exports, "criarCheckoutStripe", { enumerable: true, get: function () { return stripeHandlers_1.criarCheckoutStripe; } });
 Object.defineProperty(exports, "confirmarCheckoutStripe", { enumerable: true, get: function () { return stripeHandlers_1.confirmarCheckoutStripe; } });
@@ -36,7 +51,7 @@ var abrirRankingShare_1 = require("./abrirRankingShare");
 Object.defineProperty(exports, "paginaAbrirRanking", { enumerable: true, get: function () { return abrirRankingShare_1.paginaAbrirRanking; } });
 (0, app_1.initializeApp)();
 (0, v2_1.setGlobalOptions)({ region: 'southamerica-east1' });
-/** Token MP legado — app usa Stripe; mantido por compatibilidade. */
+/** Token MP legado — app usa Asaas; mantido por compatibilidade. */
 const mpAccessToken = (0, params_1.defineString)('MP_ACCESS_TOKEN', { default: '' });
 const db = (0, firestore_1.getFirestore)();
 async function requireUid(req) {
@@ -60,7 +75,7 @@ exports.criarPreferenciaSetmatch = (0, https_1.onRequest)({ cors: true }, async 
         const token = mpAccessToken.value();
         if (!token) {
             res.status(503).json({
-                error: 'MP desativado. Use Stripe (criarCheckoutStripe).',
+                error: 'MP desativado. Use Asaas (criarCheckoutAsaas).',
             });
             return;
         }

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rally Up — Baixe o app</title>
+  <meta name="description" content="O Rally Up funciona no app. Baixe na App Store ou Google Play." />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta property="og:title" content="Rally Up" />
+  <meta property="og:description" content="Desafios, rankings e torneios no app." />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary:#255943; --primary-deep:#163528; --accent:#C7D941;
+      --surface:#1A1A1A; --text:#fff; --muted:rgba(255,255,255,.72); --on-accent:#1A1A1A;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      min-height:100vh;font-family:Outfit,system-ui,sans-serif;color:var(--text);
+      background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(199,217,65,.18),transparent),
+        linear-gradient(180deg,var(--primary),var(--primary-deep));
+      display:flex;align-items:center;justify-content:center;padding:24px;
+    }
+    .card{width:100%;max-width:420px;background:var(--surface);border-radius:24px;padding:28px 24px;text-align:center}
+    .mark{
+      width:64px;height:64px;margin:0 auto 16px;border-radius:18px;background:var(--accent);
+      color:var(--on-accent);font-weight:800;font-size:22px;display:flex;align-items:center;justify-content:center;
+    }
+    h1{font-size:1.4rem;font-weight:800;margin-bottom:8px}
+    p{color:var(--muted);font-size:.95rem;line-height:1.5;margin-bottom:20px}
+    .actions{display:flex;flex-direction:column;gap:10px}
+    a.btn{display:block;border-radius:60px;padding:14px 18px;font-weight:700;text-decoration:none;color:inherit}
+    a.btn-accent{background:var(--accent);color:var(--on-accent)}
+    a.btn-outline{border:1.5px solid rgba(255,255,255,.35)}
+    .hint{margin-top:16px;font-size:.8rem;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="mark">RU</div>
+    <h1>Use o app Rally Up</h1>
+    <p id="msg">No celular o Rally Up é só pelo aplicativo. Baixe na loja ou abra se já tiver instalado.</p>
+    <div class="actions">
+      <a class="btn btn-accent" id="openApp" href="setmatch://">Abrir o app</a>
+      <a class="btn btn-outline" href="https://apps.apple.com/br/app/rallyup/id6799449067">App Store</a>
+      <a class="btn btn-outline" href="https://play.google.com/store/apps/details?id=com.fabricaapps.setmatch">Google Play</a>
+      <a class="btn btn-outline" href="/admin" id="desktopLink" style="display:none">Entrar no painel admin</a>
+    </div>
+    <p class="hint" id="hint">Web para computador: painel do clube. Celular = app nativo.</p>
+  </main>
+  <script>
+    (function () {
+      var ua = navigator.userAgent || '';
+      var mobile = /Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+      var msg = document.getElementById('msg');
+      var desktopLink = document.getElementById('desktopLink');
+      var hint = document.getElementById('hint');
+      if (!mobile) {
+        // Computador → site admin (SPA em /admin)
+        location.replace('/admin');
+        msg.textContent = 'Abrindo o painel admin no computador…';
+        desktopLink.style.display = 'block';
+        if (hint) hint.textContent = 'Se não redirecionar, use o botão abaixo.';
+      } else {
+        try { location.href = 'setmatch://'; } catch (e) {}
+      }
+    })();
+  </script>
+</body>
+</html>

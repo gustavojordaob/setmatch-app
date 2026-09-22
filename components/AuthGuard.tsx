@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
+import { adminHomePath } from '../utils/adminWeb';
 
-const PUBLIC_ROOTS = new Set(['index', '(auth)', 'onboarding', 'baixar']);
+const PUBLIC_ROOTS = new Set(['index', '(auth)', 'onboarding', 'baixar', 'admin']);
 /** Rotas profundas que o guard NÃO pode roubar (share / notificação). */
 const DEEP_ROOTS = new Set([
   'torneio',
@@ -19,10 +21,11 @@ const DEEP_ROOTS = new Set([
   'meu-clube',
   'meus-clubes',
   'clube',
+  'admin',
 ]);
 
 function homeFor(isAdmin: boolean, onboardingOk: boolean): string {
-  if (isAdmin) return onboardingOk ? '/clube/painel' : '/clube/onboarding';
+  if (isAdmin) return adminHomePath(onboardingOk);
   return onboardingOk ? '/(tabs)/home' : '/primeiro-acesso';
 }
 
@@ -41,7 +44,8 @@ export function AuthGuard() {
 
     if (!user) {
       if (!PUBLIC_ROOTS.has(root)) {
-        router.replace('/onboarding');
+        // Site desktop: login admin (sem slides de onboarding de jogador)
+        router.replace(Platform.OS === 'web' ? '/(auth)/admin-login' : '/onboarding');
       }
       return;
     }
@@ -63,16 +67,27 @@ export function AuthGuard() {
         !onboardingComplete &&
         root !== 'clube' &&
         root !== 'wizard' &&
-        root !== 'primeiro-acesso'
+        root !== 'primeiro-acesso' &&
+        root !== 'admin'
       ) {
-        router.replace(isAdminClube ? '/clube/onboarding' : '/primeiro-acesso');
+        router.replace(isAdminClube ? adminHomePath(false) : '/primeiro-acesso');
       }
       return;
     }
 
     if (isAdminClube) {
-      if (root === 'wizard' || root === 'primeiro-acesso') {
+      if (root === 'wizard' || root === 'primeiro-acesso' || root === 'admin') {
         router.replace(dest);
+        return;
+      }
+      // Web: nunca força onboarding de clube — vai direto ao painel
+      if (Platform.OS === 'web' && root === 'clube' && segments[1] === 'onboarding') {
+        router.replace('/clube/painel');
+        return;
+      }
+      // Web: entrada sem rota específica → painel (não deixa em rotas vazias)
+      if (Platform.OS === 'web' && (root === 'baixar' || root === 'setmatch')) {
+        router.replace('/clube/painel');
         return;
       }
       if (root === '(tabs)') {
@@ -83,7 +98,7 @@ export function AuthGuard() {
         router.replace(dest);
         return;
       }
-      if (!onboardingComplete && root !== 'clube') {
+      if (!onboardingComplete && root !== 'clube' && Platform.OS !== 'web') {
         router.replace('/clube/onboarding');
       }
       return;

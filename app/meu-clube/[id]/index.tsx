@@ -14,13 +14,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../utils/firebaseConfig';
 import { Colors } from '../../../constants/colors';
+import { formatMoneyBR } from '../../../utils/mascaras';
 import { Button } from '../../../components/ui/Button';
 import { useAuth } from '../../../hooks/useAuth';
 import { useMeusPagamentos } from '../../../hooks/usePagamentos';
 import { useRankings } from '../../../hooks/useRankings';
 import { useMeusClubes } from '../../../hooks/useMeusClubes';
 import { abrirOuCriarConversaClube } from '../../../services/mensagens';
-import { iniciarCheckoutStripe } from '../../../utils/stripeCheckout';
 import { pagarComEscolhaDeMeio } from '../../../utils/checkoutComMeio';
 import type { ClubeCompleto } from '../../../services/clubes';
 import type { PagamentoDoc } from '../../../types/pagamento';
@@ -92,31 +92,17 @@ export default function MeuClubeDetailScreen() {
   async function pagar(p: PagamentoDoc) {
     setPaying(p.id);
     try {
-      if (p.meioPagamento) {
-        await iniciarCheckoutStripe({
-          pagamentoId: p.id,
-          titulo: `${p.tipo} · ${p.clubeNome}`,
-          valor: p.valor,
+      await pagarComEscolhaDeMeio({
+        pagamentoId: p.id,
+        titulo: `${p.tipo} · ${p.clubeNome}`,
+        ciclo: p.ciclo,
+        regras: {
+          valor: p.valorBase ?? p.valor,
+          permitePix: true,
+          permiteCartao: true,
           ciclo: p.ciclo,
-          meio: p.meioPagamento,
-          permitePix: p.meioPagamento === 'pix',
-          permiteCartao: p.meioPagamento === 'cartao',
-          descontoPercent: p.descontoPercent,
-          valorBase: p.valorBase,
-        });
-      } else {
-        await pagarComEscolhaDeMeio({
-          pagamentoId: p.id,
-          titulo: `${p.tipo} · ${p.clubeNome}`,
-          ciclo: p.ciclo,
-          regras: {
-            valor: p.valorBase ?? p.valor,
-            permitePix: true,
-            permiteCartao: true,
-            ciclo: p.ciclo,
-          },
-        });
-      }
+        },
+      });
     } catch (e: unknown) {
       Alert.alert('Pagamento', e instanceof Error ? e.message : 'Falha');
     } finally {
@@ -209,7 +195,7 @@ export default function MeuClubeDetailScreen() {
           pagsClube.map((p) => (
             <View key={p.id} style={styles.payCard}>
               <Text style={styles.rowTitle}>
-                {p.tipo.toUpperCase()} · R$ {p.valor.toFixed(2)}
+                {p.tipo.toUpperCase()} · {formatMoneyBR(p.valor)}
               </Text>
               <Text style={styles.meta}>
                 {p.ciclo} · {p.status}

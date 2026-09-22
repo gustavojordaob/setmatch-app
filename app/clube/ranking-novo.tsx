@@ -37,6 +37,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { criarRankingNoClube } from '../../services/clubes';
 import { REGRAS_JOGO_PADRAO } from '../../types/ranking';
 import { formatoPartidaPadraoPorEsporte } from '../../constants/chaveamentosTorneio';
+import { maskMoneyBR, parseMoneyBR, toMoneyInputBR } from '../../utils/mascaras';
 
 export default function RankingNovoAdminScreen() {
   const { clubeId } = useLocalSearchParams<{ clubeId: string }>();
@@ -49,7 +50,7 @@ export default function RankingNovoAdminScreen() {
   const [esporte, setEsporte] = useState<EsporteId>('tenis');
   const [composicao, setComposicao] = useState<ComposicaoId>('simples');
   const [cobrar, setCobrar] = useState(false);
-  const [valor, setValor] = useState('49.90');
+  const [valor, setValor] = useState(toMoneyInputBR(49.9));
   const [cicloMensal, setCicloMensal] = useState(true);
   const [exigeEntrar, setExigeEntrar] = useState(true);
   const [regras, setRegras] = useState('');
@@ -87,7 +88,7 @@ export default function RankingNovoAdminScreen() {
       Alert.alert('Ranking', 'Informe o nome do ranking.');
       return;
     }
-    const v = Number(String(valor).replace(',', '.')) || 0;
+    const v = parseMoneyBR(valor);
     if (cobrar && v <= 0) {
       Alert.alert('Ranking', 'Informe o valor da mensalidade/taxa.');
       return;
@@ -210,7 +211,7 @@ export default function RankingNovoAdminScreen() {
           />
 
           <View style={styles.switchRow}>
-            <Text style={styles.label}>Cobrar pelo ranking (Stripe)</Text>
+            <Text style={styles.label}>Cobrar pelo ranking (Asaas)</Text>
             <Switch value={cobrar} onValueChange={setCobrar} trackColor={{ true: Colors.accent }} />
           </View>
           {cobrar ? (
@@ -218,8 +219,9 @@ export default function RankingNovoAdminScreen() {
               <Input
                 label="Valor (R$)"
                 value={valor}
-                onChangeText={setValor}
-                keyboardType="decimal-pad"
+                onChangeText={(t) => setValor(maskMoneyBR(t))}
+                keyboardType="number-pad"
+                placeholder="0,00"
                 inputAccessoryViewID={KEYBOARD_DONE_NATIVE_ID}
               />
               <View style={styles.switchRow}>
