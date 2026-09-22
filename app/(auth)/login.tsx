@@ -3,47 +3,44 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { LegalConsent } from '../../components/legal/LegalConsent';
 import { useAuth } from '../../hooks/useAuth';
+import { useT } from '../../hooks/useI18n';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signInWithEmail, signInWithGoogle } = useAuth();
-  const [email, setEmail] = useState('');
+  const { signInWithEmail } = useAuth();
+  const t = useT();
+  const [login, setLogin] = useState('');
   const [senha, setSenha] = useState('');
   const [loading, setLoading] = useState(false);
+  const [aceitouLegal, setAceitouLegal] = useState(false);
 
   async function onEmailLogin() {
-    if (!email.trim() || !senha) {
-      Alert.alert('Login', 'Preencha e-mail e senha.');
+    if (!aceitouLegal) {
+      Alert.alert(t('legal.termsTitle'), t('legal.acceptToContinue'));
+      return;
+    }
+    if (!login.trim() || !senha) {
+      Alert.alert(t('auth.login'), t('auth.fillLoginPassword'));
       return;
     }
     setLoading(true);
     try {
-      await signInWithEmail(email, senha);
+      await signInWithEmail(login, senha);
       router.replace('/');
     } catch (e: unknown) {
-      Alert.alert('Login', e instanceof Error ? e.message : 'Falha ao entrar.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function onGoogle() {
-    setLoading(true);
-    try {
-      await signInWithGoogle();
-      router.replace('/');
-    } catch (e: unknown) {
-      Alert.alert('Google', e instanceof Error ? e.message : 'Falha no Google.');
+      Alert.alert(t('auth.login'), e instanceof Error ? e.message : t('auth.loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -55,88 +52,89 @@ export default function LoginScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.header}>
-          <Text style={styles.logo}>Setmatch</Text>
-          <Text style={styles.sub}>Entre para desafiar e registrar resultados.</Text>
-        </View>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <Text style={styles.title}>{t('auth.welcome')}</Text>
 
-        <View style={styles.form}>
-          <Button
-            title="Continuar com Google"
-            variant="secondary"
-            onPress={onGoogle}
-            loading={loading}
-          />
-
-          <View style={styles.divider}>
-            <View style={styles.line} />
-            <Text style={styles.dividerText}>ou e-mail</Text>
-            <View style={styles.line} />
-          </View>
-
-          <TextInput
-            style={styles.input}
-            placeholder="E-mail"
-            placeholderTextColor={Colors.textSecondary}
-            keyboardType="email-address"
+          <Input
+            label={t('auth.login')}
+            placeholder={t('auth.loginPlaceholder')}
+            value={login}
+            onChangeText={setLogin}
             autoCapitalize="none"
-            value={email}
-            onChangeText={setEmail}
           />
-          <TextInput
-            style={styles.input}
-            placeholder="Senha"
-            placeholderTextColor={Colors.textSecondary}
-            secureTextEntry
+
+          <Input
+            label={t('auth.password')}
+            placeholder={t('auth.passwordPlaceholder')}
             value={senha}
             onChangeText={setSenha}
+            showPasswordToggle
+          />
+
+          <Text
+            style={styles.forgot}
+            onPress={() => router.push('/(auth)/esqueci-senha')}
+          >
+            {t('auth.forgotPassword')}
+          </Text>
+
+          <LegalConsent
+            accepted={aceitouLegal}
+            onToggle={() => setAceitouLegal((v) => !v)}
           />
 
           <Button
-            title="Entrar"
+            label={t('auth.logIn')}
             onPress={onEmailLogin}
             loading={loading}
-            disabled={!email || !senha}
+            disabled={!aceitouLegal}
           />
 
-          <Text style={styles.link} onPress={() => router.push('/(auth)/cadastro')}>
-            Criar conta
+          <View style={styles.footer}>
+            <Text style={styles.footerMuted}>{t('auth.noAccount')} </Text>
+            <Text style={styles.footerLink} onPress={() => router.push('/(auth)/cadastro')}>
+              {t('auth.register')}
+            </Text>
+          </View>
+
+          <Text
+            style={styles.adminLink}
+            onPress={() => router.push('/(auth)/admin-login')}
+          >
+            {t('auth.clubOwnerLink')}
           </Text>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0F2D1F' },
-  flex: { flex: 1, paddingHorizontal: 20 },
-  header: { marginTop: 24, marginBottom: 28 },
-  logo: {
-    color: Colors.secondary,
-    fontSize: 34,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  sub: { color: Colors.textSecondary, marginTop: 10, lineHeight: 20 },
-  form: { gap: 12 },
-  input: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  safe: { flex: 1, backgroundColor: Colors.background },
+  flex: { flex: 1 },
+  scroll: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 32, gap: 16 },
+  title: {
     color: Colors.textPrimary,
-    fontSize: 16,
-  },
-  divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 4 },
-  line: { flex: 1, height: 1, backgroundColor: Colors.border },
-  dividerText: { color: Colors.textSecondary, fontWeight: '700', fontSize: 12 },
-  link: {
-    color: Colors.secondary,
+    fontSize: 36,
+    fontWeight: 'bold',
     textAlign: 'center',
+    marginBottom: 8,
+  },
+  forgot: {
+    color: Colors.accent,
+    textAlign: 'right',
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+    fontSize: 14,
+  },
+  footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' },
+  footerMuted: { color: Colors.textPrimary },
+  footerLink: { color: Colors.accent, fontWeight: 'bold' },
+  adminLink: {
+    color: Colors.accent,
+    textAlign: 'center',
+    fontWeight: 'bold',
     marginTop: 8,
-    fontWeight: '800',
+    textDecorationLine: 'underline',
   },
 });

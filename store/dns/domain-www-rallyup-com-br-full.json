@@ -1,0 +1,57 @@
+{
+  "name": "projects/setmatch-app-fabrica/sites/setmatch-app-fabrica/customDomains/www.rallyup.com.br",
+  "createTime": "2026-09-08T21:46:17.329362858Z",
+  "updateTime": "2026-09-08T21:46:17.329363078Z",
+  "etag": "W/\"1788903977\"",
+  "hostState": "HOST_UNHOSTED",
+  "ownershipState": "OWNERSHIP_MISSING",
+  "requiredDnsUpdates": {
+    "desired": [
+      {
+        "domainName": "www.rallyup.com.br",
+        "records": [
+          {
+            "domainName": "www.rallyup.com.br",
+            "type": "CNAME",
+            "rdata": "setmatch-app-fabrica.web.app",
+            "requiredAction": "ADD"
+          }
+        ]
+      }
+    ],
+    "checkTime": "2026-09-08T21:46:17.987553598Z"
+  },
+  "certPreference": "PROJECT_GROUPED",
+  "cert": {
+    "type": "TEMPORARY",
+    "state": "CERT_VALIDATING",
+    "verification": {
+      "dns": {
+        "discovered": [
+          {
+            "domainName": "_acme-challenge.www.rallyup.com.br"
+          }
+        ],
+        "desired": [
+          {
+            "domainName": "_acme-challenge.www.rallyup.com.br",
+            "records": [
+              {
+                "domainName": "_acme-challenge.www.rallyup.com.br",
+                "type": "TXT",
+                "rdata": "bapYBPkDmoIGAfb5LHh51E3e9xSniPlwO6KdGwmNhBQ",
+                "requiredAction": "ADD"
+              }
+            ]
+          }
+        ],
+        "checkTime": "2026-09-08T21:46:29.473663236Z"
+      },
+      "http": {
+        "path": "/.well-known/acme-challenge/yhwfv5SpwHowCjtg1zSP6kVa1ZHQNEvTsXhDPAWhcTkH06R6NJ3gcpD6XBXiLKm5",
+        "desired": "yhwfv5SpwHowCjtg1zSP6kVa1ZHQNEvTsXhDPAWhcTkH06R6NJ3gcpD6XBXiLKm5.M0-GObbb5ePi63ASQsPKBrDqfgayGnOWpyrEF0nHqug",
+        "lastCheckTime": "2026-09-08T21:46:29.473663236Z"
+      }
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "projects/setmatch-app-fabrica/sites/setmatch-app-fabrica/customDomains/rallyup.app.br",
+  "createTime": "2026-09-08T21:50:23.704986826Z",
+  "updateTime": "2026-09-08T21:50:23.704987126Z",
+  "etag": "W/\"1788904223\"",
+  "hostState": "HOST_UNHOSTED",
+  "ownershipState": "OWNERSHIP_MISSING",
+  "requiredDnsUpdates": {
+    "desired": [
+      {
+        "domainName": "rallyup.app.br",
+        "records": [
+          {
+            "domainName": "rallyup.app.br",
+            "type": "A",
+            "rdata": "199.36.158.100",
+            "requiredAction": "ADD"
+          },
+          {
+            "domainName": "rallyup.app.br",
+            "type": "TXT",
+            "rdata": "hosting-site=setmatch-app-fabrica",
+            "requiredAction": "ADD"
+          }
+        ]
+      }
+    ],
+    "checkTime": "2026-09-08T21:50:24.209686112Z"
+  },
+  "certPreference": "PROJECT_GROUPED",
+  "cert": {
+    "type": "TEMPORARY",
+    "state": "CERT_VALIDATING"
+  }
+}

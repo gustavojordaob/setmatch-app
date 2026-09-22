@@ -6,24 +6,34 @@ import {
   type TouchableOpacityProps,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { Radius } from '../../constants/radius';
 
-type Variant = 'primary' | 'secondary' | 'ghost';
+export type ButtonVariant = 'primary' | 'outline' | 'ghost';
 
 export interface ButtonProps extends TouchableOpacityProps {
-  title: string;
+  /** Alias Figma: `label` */
+  title?: string;
+  label?: string;
   loading?: boolean;
-  variant?: Variant;
+  variant?: ButtonVariant | 'secondary' | 'accent';
+}
+
+function normalizeVariant(v: ButtonProps['variant']): ButtonVariant {
+  if (v === 'secondary' || v === 'accent') return 'primary';
+  return v ?? 'primary';
 }
 
 export function Button({
   title,
+  label,
   loading,
   variant = 'primary',
   disabled,
   style,
   ...rest
 }: ButtonProps) {
-  const v = stylesForVariant(variant);
+  const text = label ?? title ?? '';
+  const v = stylesForVariant(normalizeVariant(variant));
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -34,48 +44,51 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={v.spinnerColor} />
       ) : (
-        <Text style={[styles.label, v.label]}>{title}</Text>
+        <Text style={[styles.label, v.label]}>{text}</Text>
       )}
     </TouchableOpacity>
   );
 }
 
-function stylesForVariant(variant: Variant) {
+function stylesForVariant(variant: ButtonVariant) {
   switch (variant) {
-    case 'secondary':
+    case 'outline':
       return {
-        container: { backgroundColor: Colors.secondary },
-        label: { color: Colors.primary },
-        spinnerColor: Colors.primary,
+        container: {
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderColor: Colors.white,
+        },
+        label: { color: Colors.textPrimary },
+        spinnerColor: Colors.textPrimary,
       };
     case 'ghost':
       return {
-        container: { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.border },
+        container: { backgroundColor: 'transparent' },
         label: { color: Colors.textPrimary },
         spinnerColor: Colors.textPrimary,
       };
     default:
       return {
-        container: { backgroundColor: Colors.primary },
-        label: { color: Colors.textPrimary },
-        spinnerColor: Colors.secondary,
+        container: { backgroundColor: Colors.accent },
+        label: { color: Colors.textOnAccent },
+        spinnerColor: Colors.textOnAccent,
       };
   }
 }
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 48,
-    borderRadius: 16,
+    height: 56,
+    alignSelf: 'stretch',
+    borderRadius: Radius.pill,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   label: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: 'bold',
   },
-  disabled: {
-    opacity: 0.45,
-  },
+  disabled: { opacity: 0.45 },
 });

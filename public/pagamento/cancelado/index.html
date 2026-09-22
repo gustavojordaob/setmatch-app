@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pagamento cancelado — Rally Up</title>
+  <meta name="robots" content="noindex,nofollow" />
+  <meta http-equiv="refresh" content="0;url=setmatch://pagamento/cancelado" />
+  <style>
+    :root { --primary:#255943; --accent:#C7D941; --surface:#1A1A1A; --text:#fff; --muted:rgba(255,255,255,.72); }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      min-height:100vh;font-family:system-ui,sans-serif;color:var(--text);
+      background:linear-gradient(180deg,var(--primary),#163528);
+      display:flex;align-items:center;justify-content:center;padding:24px;
+    }
+    .card{max-width:420px;width:100%;background:var(--surface);border-radius:24px;padding:28px;text-align:center}
+    h1{font-size:1.35rem;font-weight:800;margin-bottom:10px}
+    p{color:var(--muted);line-height:1.5;margin-bottom:18px}
+    a.btn{display:block;background:var(--accent);color:#1A1A1A;border-radius:60px;padding:14px;font-weight:700;text-decoration:none}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Pagamento cancelado</h1>
+    <p>Nada foi cobrado. Abrindo o app…</p>
+    <a class="btn" href="setmatch://pagamento/cancelado">Abrir Rally Up</a>
+  </main>
+  <script>
+    (function () {
+      var deep = 'setmatch://pagamento/cancelado';
+      var intent = 'intent://pagamento/cancelado#Intent;scheme=setmatch;package=com.fabricaapps.setmatch;end';
+      var isAndroid = /Android/i.test(navigator.userAgent || '');
+      function go(url) {
+        try { window.location.replace(url); } catch (e1) {
+          try { window.location.href = url; } catch (e2) {}
+        }
+      }
+      go(isAndroid ? intent : deep);
+      setTimeout(function () { go(deep); }, 200);
+      setTimeout(function () { go(deep); }, 800);
+    })();
+  </script>
+</body>
+</html>

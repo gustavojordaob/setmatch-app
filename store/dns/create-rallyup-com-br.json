@@ -1,0 +1,11 @@
+{
+  "name": "projects/setmatch-app-fabrica/sites/setmatch-app-fabrica/customDomains/rallyup.com.br/operations/6b8c182b-acc7-4226-820d-1b3273bf93ac",
+  "metadata": {
+    "@type": "type.googleapis.com/google.firebase.hosting.v1beta1.CustomDomainMetadata",
+    "liveMigrationSteps": [
+      {
+        "state": "PREPARING"
+      }
+    ]
+  }
+}

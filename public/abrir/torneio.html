@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Abrir no Rally Up</title>
+  <meta name="description" content="Este torneio só está disponível no app Rally Up. Abra o app ou baixe na loja." />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta property="og:title" content="Torneio no Rally Up" />
+  <meta property="og:description" content="Abra no app Rally Up para ver e se inscrever. Sem app? Baixe na App Store ou Google Play." />
+  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #255943;
+      --primary-deep: #163528;
+      --accent: #C7D941;
+      --surface: #1A1A1A;
+      --text: #FFFFFF;
+      --text-muted: rgba(255, 255, 255, 0.72);
+      --on-accent: #1A1A1A;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      font-family: "Outfit", system-ui, sans-serif;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(199, 217, 65, 0.18), transparent),
+        linear-gradient(180deg, var(--primary) 0%, var(--primary-deep) 100%);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--surface);
+      border-radius: 24px;
+      padding: 28px 24px 32px;
+      text-align: center;
+    }
+    .mark {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 16px;
+      border-radius: 16px;
+      background: var(--accent);
+      color: var(--on-accent);
+      font-weight: 800;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin-bottom: 22px;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    a.btn {
+      display: block;
+      border-radius: 60px;
+      padding: 14px 18px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      text-decoration: none;
+      color: inherit;
+    }
+    a.btn-accent {
+      background: var(--accent);
+      color: var(--on-accent);
+    }
+    a.btn-outline {
+      border: 1.5px solid rgba(255, 255, 255, 0.35);
+      color: var(--text);
+    }
+    .hint {
+      margin-top: 18px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .err {
+      color: #f87171;
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="mark" aria-hidden="true">RU</div>
+    <h1>Abra no Rally Up</h1>
+    <p id="copy">
+      Este torneio só funciona pelo app. Se você já tiver o Rally Up, vamos tentar abrir agora.
+      Se não tiver, baixe na loja.
+    </p>
+    <p class="err" id="err">Link inválido — peça um novo link do torneio.</p>
+    <div class="actions" id="actions">
+      <a class="btn btn-accent" id="openApp" href="#">Abrir no app</a>
+      <a
+        class="btn btn-outline"
+        href="https://apps.apple.com/br/app/rallyup/id6799449067"
+        rel="noopener"
+      >Baixar na App Store</a>
+      <a
+        class="btn btn-outline"
+        href="https://play.google.com/store/apps/details?id=com.fabricaapps.setmatch"
+        rel="noopener"
+      >Baixar no Google Play</a>
+    </div>
+    <p class="hint">Rally Up não abre o torneio no navegador.</p>
+  </main>
+  <script>
+    (function () {
+      function torneioId() {
+        var params = new URLSearchParams(window.location.search);
+        var fromQuery = (params.get('id') || '').trim();
+        if (fromQuery) return fromQuery;
+        var parts = window.location.pathname.split('/').filter(Boolean);
+        // /abrir/torneio/{id}  ou rewrite que deixa .../torneio/{id}
+        var i = parts.indexOf('torneio');
+        if (i >= 0 && parts[i + 1]) return decodeURIComponent(parts[i + 1]);
+        return '';
+      }
+
+      var id = torneioId();
+      var err = document.getElementById('err');
+      var openBtn = document.getElementById('openApp');
+      var actions = document.getElementById('actions');
+
+      if (!id || id === 'torneio.html') {
+        err.style.display = 'block';
+        document.getElementById('copy').style.display = 'none';
+        openBtn.style.display = 'none';
+        return;
+      }
+
+      var deep = 'setmatch://torneio/' + encodeURIComponent(id);
+      openBtn.href = deep;
+
+      // Tenta abrir o app; se não tiver, o usuário permanece nesta página.
+      window.location.href = deep;
+    })();
+  </script>
+</body>
+</html>

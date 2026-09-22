@@ -5,5 +5,93 @@
   },
   "storage": {
     "rules": "storage.rules"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ],
+  "hosting": {
+    "public": "dist-web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "!assets/node_modules/**",
+      "!assets/node_modules/**/**"
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      },
+      {
+        "source": "/sw.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        ]
+      },
+      {
+        "source": "/manifest.webmanifest",
+        "headers": [
+          { "key": "Content-Type", "value": "application/manifest+json" }
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/abrir/torneio",
+        "function": {
+          "functionId": "paginaAbrirTorneio",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/abrir/torneio/**",
+        "function": {
+          "functionId": "paginaAbrirTorneio",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/torneio/**",
+        "function": {
+          "functionId": "paginaAbrirTorneio",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/abrir/ranking",
+        "function": {
+          "functionId": "paginaAbrirRanking",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/abrir/ranking/**",
+        "function": {
+          "functionId": "paginaAbrirRanking",
+          "region": "southamerica-east1"
+        }
+      },
+      {
+        "source": "/ranking/**",
+        "function": {
+          "functionId": "paginaAbrirRanking",
+          "region": "southamerica-east1"
+        }
+      },
+      { "source": "**", "destination": "/index.html" }
+    ]
   }
 }

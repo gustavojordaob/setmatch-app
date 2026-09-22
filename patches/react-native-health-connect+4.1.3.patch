@@ -1,0 +1,128 @@
+diff --git a/node_modules/react-native-health-connect/android/src/main/java/dev/matinzd/healthconnect/HealthConnectManager.kt b/node_modules/react-native-health-connect/android/src/main/java/dev/matinzd/healthconnect/HealthConnectManager.kt
+index 40539fe..079a756 100644
+--- a/node_modules/react-native-health-connect/android/src/main/java/dev/matinzd/healthconnect/HealthConnectManager.kt
++++ b/node_modules/react-native-health-connect/android/src/main/java/dev/matinzd/healthconnect/HealthConnectManager.kt
+@@ -68,9 +68,16 @@ class HealthConnectManager(private val applicationContext: ReactApplicationConte
+     promise: Promise
+   ) {
+     throwUnlessClientIsAvailable(promise) {
+-      coroutineScope.launch {
+-        val granted = HealthConnectPermissionDelegate.launchPermissionsDialog(PermissionUtils.parsePermissions(reactPermissions))
+-        promise.resolve(PermissionUtils.mapPermissionResult(granted))
++      // Main: ActivityResultLauncher.launch must run on the UI thread (crash on POCO/Xiaomi from IO).
++      CoroutineScope(Dispatchers.Main).launch {
++        try {
++          val granted = HealthConnectPermissionDelegate.launchPermissionsDialog(
++            PermissionUtils.parsePermissions(reactPermissions)
++          )
++          promise.resolve(PermissionUtils.mapPermissionResult(granted))
++        } catch (e: Exception) {
++          promise.rejectWithException(e)
++        }
+       }
+     }
+   }
+diff --git a/node_modules/react-native-health-connect/android/src/main/java/dev/matinzd/healthconnect/permissions/HealthConnectPermissionDelegate.kt b/node_modules/react-native-health-connect/android/src/main/java/dev/matinzd/healthconnect/permissions/HealthConnectPermissionDelegate.kt
+index 5ec3641..09a1330 100644
+--- a/node_modules/react-native-health-connect/android/src/main/java/dev/matinzd/healthconnect/permissions/HealthConnectPermissionDelegate.kt
++++ b/node_modules/react-native-health-connect/android/src/main/java/dev/matinzd/healthconnect/permissions/HealthConnectPermissionDelegate.kt
+@@ -7,47 +7,82 @@ import androidx.health.connect.client.contracts.ExerciseRouteRequestContract
+ import androidx.health.connect.client.records.ExerciseRoute
+ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.Dispatchers
+-import kotlinx.coroutines.cancel
++import kotlinx.coroutines.SupervisorJob
+ import kotlinx.coroutines.channels.Channel
+ import kotlinx.coroutines.launch
++import kotlinx.coroutines.withContext
++import java.lang.ref.WeakReference
+ 
++/**
++ * Patched for Rally Up:
++ * - Launch on Main thread
++ * - Never cancel the coroutine scope
++ * - Re-register when Activity is a new instance (HyperOS destroys MainActivity
++ *   but keeps the process — old ActivityResultLauncher becomes unregistered)
++ */
+ object HealthConnectPermissionDelegate {
+-  private val coroutineScope = CoroutineScope(Dispatchers.IO)
+-  private val permissionsChannel = Channel<Set<String>>()
+-  private val exerciseRouteChannel = Channel<ExerciseRoute?>()
++  private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
++  private val permissionsChannel = Channel<Set<String>>(Channel.UNLIMITED)
++  private val exerciseRouteChannel = Channel<ExerciseRoute?>(Channel.UNLIMITED)
+ 
+   private lateinit var requestPermission: ActivityResultLauncher<Set<String>>
+   private lateinit var requestRoutePermission: ActivityResultLauncher<String>
+ 
++  private var registeredActivity: WeakReference<ComponentActivity>? = null
++
+   fun setPermissionDelegate(
+     activity: ComponentActivity,
+     providerPackageName: String = "com.google.android.apps.healthdata"
+   ) {
+-    val contract = PermissionController.createRequestPermissionResultContract(providerPackageName)
+-    val exerciseRouteRequestContract = ExerciseRouteRequestContract()
++    synchronized(this) {
++      if (registeredActivity?.get() === activity && ::requestPermission.isInitialized) return
++
++      val contract = PermissionController.createRequestPermissionResultContract(providerPackageName)
++      val exerciseRouteRequestContract = ExerciseRouteRequestContract()
+ 
+-    requestPermission = activity.registerForActivityResult(contract) {
+-      coroutineScope.launch {
+-        permissionsChannel.send(it)
+-        coroutineContext.cancel()
++      requestPermission = activity.registerForActivityResult(contract) {
++        mainScope.launch {
++          permissionsChannel.trySend(it)
++        }
+       }
+-    }
+ 
+-    requestRoutePermission = activity.registerForActivityResult(exerciseRouteRequestContract) {
+-      coroutineScope.launch {
+-        exerciseRouteChannel.send(it)
+-        coroutineContext.cancel()
++      requestRoutePermission = activity.registerForActivityResult(exerciseRouteRequestContract) {
++        mainScope.launch {
++          exerciseRouteChannel.trySend(it)
++        }
+       }
++
++      registeredActivity = WeakReference(activity)
+     }
+   }
+ 
+   suspend fun launchPermissionsDialog(permissions: Set<String>): Set<String> {
+-    requestPermission.launch(permissions)
++    if (!::requestPermission.isInitialized || registeredActivity?.get() == null) {
++      throw IllegalStateException(
++        "HealthConnectPermissionDelegate not initialized. Call setPermissionDelegate in MainActivity.onCreate."
++      )
++    }
++    while (!permissionsChannel.isEmpty) {
++      permissionsChannel.tryReceive()
++    }
++    withContext(Dispatchers.Main) {
++      requestPermission.launch(permissions)
++    }
+     return permissionsChannel.receive()
+   }
+ 
+   suspend fun launchExerciseRouteAccessRequestDialog(recordId: String): ExerciseRoute? {
+-    requestRoutePermission.launch(recordId)
++    if (!::requestRoutePermission.isInitialized || registeredActivity?.get() == null) {
++      throw IllegalStateException(
++        "HealthConnectPermissionDelegate not initialized. Call setPermissionDelegate in MainActivity.onCreate."
++      )
++    }
++    while (!exerciseRouteChannel.isEmpty) {
++      exerciseRouteChannel.tryReceive()
++    }
++    withContext(Dispatchers.Main) {
++      requestRoutePermission.launch(recordId)
++    }
+     return exerciseRouteChannel.receive()
+   }
+ }

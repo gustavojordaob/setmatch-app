@@ -1,0 +1,129 @@
+{
+  "name": "projects/setmatch-app-fabrica/sites/setmatch-app-fabrica/customDomains/rallyup.com.br",
+  "createTime": "2026-09-08T21:46:16.613111884Z",
+  "updateTime": "2026-09-08T21:46:16.613112094Z",
+  "etag": "W/\"1788903976\"",
+  "hostState": "HOST_MISMATCH",
+  "ownershipState": "OWNERSHIP_MISSING",
+  "requiredDnsUpdates": {
+    "discovered": [
+      {
+        "domainName": "rallyup.com.br",
+        "records": [
+          {
+            "domainName": "rallyup.com.br",
+            "type": "A",
+            "rdata": "216.239.32.21",
+            "requiredAction": "REMOVE"
+          },
+          {
+            "domainName": "rallyup.com.br",
+            "type": "A",
+            "rdata": "216.239.34.21",
+            "requiredAction": "REMOVE"
+          },
+          {
+            "domainName": "rallyup.com.br",
+            "type": "A",
+            "rdata": "216.239.36.21",
+            "requiredAction": "REMOVE"
+          },
+          {
+            "domainName": "rallyup.com.br",
+            "type": "A",
+            "rdata": "216.239.38.21",
+            "requiredAction": "REMOVE"
+          },
+          {
+            "domainName": "rallyup.com.br",
+            "type": "TXT",
+            "rdata": "google-site-verification=i3OaeA7WuSu73Dnrf5wmpmystj8Iy7LwnuxpPalvukA"
+          },
+          {
+            "domainName": "rallyup.com.br",
+            "type": "AAAA",
+            "rdata": "2001:4860:4802:32::15",
+            "requiredAction": "REMOVE"
+          },
+          {
+            "domainName": "rallyup.com.br",
+            "type": "AAAA",
+            "rdata": "2001:4860:4802:34::15",
+            "requiredAction": "REMOVE"
+          },
+          {
+            "domainName": "rallyup.com.br",
+            "type": "AAAA",
+            "rdata": "2001:4860:4802:36::15",
+            "requiredAction": "REMOVE"
+          },
+          {
+            "domainName": "rallyup.com.br",
+            "type": "AAAA",
+            "rdata": "2001:4860:4802:38::15",
+            "requiredAction": "REMOVE"
+          }
+        ]
+      }
+    ],
+    "desired": [
+      {
+        "domainName": "rallyup.com.br",
+        "records": [
+          {
+            "domainName": "rallyup.com.br",
+            "type": "A",
+            "rdata": "199.36.158.100",
+            "requiredAction": "ADD"
+          },
+          {
+            "domainName": "rallyup.com.br",
+            "type": "TXT",
+            "rdata": "google-site-verification=i3OaeA7WuSu73Dnrf5wmpmystj8Iy7LwnuxpPalvukA"
+          },
+          {
+            "domainName": "rallyup.com.br",
+            "type": "TXT",
+            "rdata": "hosting-site=setmatch-app-fabrica",
+            "requiredAction": "ADD"
+          }
+        ]
+      }
+    ],
+    "checkTime": "2026-09-08T21:46:17.220269892Z"
+  },
+  "certPreference": "PROJECT_GROUPED",
+  "cert": {
+    "type": "TEMPORARY",
+    "state": "CERT_VALIDATING",
+    "verification": {
+      "dns": {
+        "discovered": [
+          {
+            "domainName": "_acme-challenge.rallyup.com.br"
+          }
+        ],
+        "desired": [
+          {
+            "domainName": "_acme-challenge.rallyup.com.br",
+            "records": [
+              {
+                "domainName": "_acme-challenge.rallyup.com.br",
+                "type": "TXT",
+                "rdata": "JfJZSL-AyKrVkN6X9-s-ho-ARsMpUy1eSGW8AHtkcn8",
+                "requiredAction": "ADD"
+              }
+            ]
+          }
+        ],
+        "checkTime": "2026-09-08T21:46:19.095757282Z"
+      },
+      "http": {
+        "path": "/.well-known/acme-challenge/2ssoNT8qTof_M0S9OuB2bJqbWVJi9X2PNOpQ8kVAMSdZeWpWFNMmGjdY7tXc3iM9",
+        "desired": "2ssoNT8qTof_M0S9OuB2bJqbWVJi9X2PNOpQ8kVAMSdZeWpWFNMmGjdY7tXc3iM9.M0-GObbb5ePi63ASQsPKBrDqfgayGnOWpyrEF0nHqug",
+        "discovered": "<!doctype html>\n<html lang=\"pt-BR\" translate=\"no\" class=\"notranslate\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=...",
+        "lastCheckTime": "2026-09-08T21:46:19.095757282Z"
+      }
+    }
+  }
+}
